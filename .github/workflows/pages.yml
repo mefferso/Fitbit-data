@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - "docs/**"
+      - "scripts/**"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
   schedule:
@@ -29,15 +30,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Fetch sanitized workout data
+      - name: Build sanitized real-data export
         env:
-          PUBLIC_EXPORT_URL: ${{ secrets.PUBLIC_EXPORT_URL }}
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          GOOGLE_REFRESH_TOKEN: ${{ secrets.GOOGLE_REFRESH_TOKEN }}
         run: |
-          if [ -z "$PUBLIC_EXPORT_URL" ]; then
-            echo "Missing repository secret PUBLIC_EXPORT_URL"
-            exit 1
-          fi
-          curl --fail --silent --show-error --location --retry 3 "$PUBLIC_EXPORT_URL" -o docs/data.json
+          node scripts/build-public-data.mjs
 
       - name: Validate export
         run: |
