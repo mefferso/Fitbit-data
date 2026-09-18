@@ -68,7 +68,7 @@ h1{font-size:34px;margin:7px 0 5px}h2{font-size:20px;margin:0}.sub{color:#637087
       <div class="sub">Click a row to load its detailed HR/pace trace when available.</div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Date</th><th>Distance</th><th>Duration</th><th>Pace</th><th>Avg HR</th><th>Peak HR</th><th>Decoupling</th><th>HRR1</th><th>Load</th></tr></thead>
+          <thead><tr><th>Date</th><th>Distance</th><th>Duration</th><th>Pace</th><th>Avg HR</th><th>Heat Index</th><th>Dewpoint</th><th>Solar</th><th>Decoupling</th><th>HRR1</th><th>Load</th></tr></thead>
           <tbody id="runs-body"></tbody>
         </table>
       </div>
@@ -113,7 +113,9 @@ function renderRun(index){
   const runs=DATA.detailedRuns||[]; if(!runs.length) return;
   selectedRun=Math.max(0,Math.min(index,runs.length-1)); const w=runs[selectedRun];
   document.getElementById('workout-title').textContent='Run · '+fmtDate(w.date);
-  document.getElementById('workout-subtitle').textContent=(w.startTime?new Date(w.startTime).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}):'')+' · '+fmtDuration(w.activeSeconds);
+  const wx=w.weather?.average;
+  const wxText=wx ? ' · Tempest '+n(wx.tempF,1)+'°F / Td '+n(wx.dewpointF,1)+'°F · HI '+n(wx.heatIndexF,1)+'°F' : '';
+  document.getElementById('workout-subtitle').textContent=(w.startTime?new Date(w.startTime).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}):'')+' · '+fmtDuration(w.activeSeconds)+wxText;
 
   const hrr=w.heartRateRecovery&&w.heartRateRecovery.minute1Drop;
   const dec=w.aerobicDecoupling&&w.aerobicDecoupling.percent;
@@ -125,7 +127,9 @@ function renderRun(index){
     ['Training load',n(w.trainingLoad,1),'Zone-weighted session load'],
     ['Steps',w.steps!==null?Math.round(w.steps).toLocaleString():'—',w.averageStepRate?Math.round(w.averageStepRate)+' steps/min':''],
     ['Vigorous + peak',w.vigorousPlusPeakMinutes!==null?Math.round(w.vigorousPlusPeakMinutes)+' min':'—','Hard-effort time'],
-    ['Active zone minutes',w.activeZoneMinutes!==null?Math.round(w.activeZoneMinutes):'—','Fitbit workout metric']
+    ['Active zone minutes',w.activeZoneMinutes!==null?Math.round(w.activeZoneMinutes):'—','Fitbit workout metric'],
+    ['Avg heat index',w.weather?.average?.heatIndexF!==null&&w.weather?.average?.heatIndexF!==undefined?n(w.weather.average.heatIndexF,1)+'°F':'—',w.weather?.average?.dewpointF!==null&&w.weather?.average?.dewpointF!==undefined?'Td '+n(w.weather.average.dewpointF,1)+'°F':'Tempest'],
+    ['Solar load',w.weather?.average?.solarRadiationWm2!==null&&w.weather?.average?.solarRadiationWm2!==undefined?n(w.weather.average.solarRadiationWm2,0)+' W/m²':'—',w.weather?.maximum?.solarRadiationWm2!==null&&w.weather?.maximum?.solarRadiationWm2!==undefined?'Max '+n(w.weather.maximum.solarRadiationWm2,0)+' W/m²':'Tempest']
   ];
   document.getElementById('metric-grid').innerHTML=metrics.map(x=>'<div class="card metric"><div class="label">'+x[0]+'</div><div class="value">'+x[1]+'</div><div class="detail">'+x[2]+'</div></div>').join('');
 
@@ -179,7 +183,8 @@ function renderTable(){
   document.getElementById('runs-body').innerHTML=detailed.map((w,i)=>{
     const dec=w.aerobicDecoupling&&w.aerobicDecoupling.percent;
     const hrr=w.heartRateRecovery&&w.heartRateRecovery.minute1Drop;
-    return '<tr class="clickable" data-i="'+i+'"><td>'+fmtDate(w.date)+'</td><td>'+n(w.distanceMiles,2)+' mi</td><td>'+fmtDuration(w.activeSeconds)+'</td><td>'+fmtPace(w.averagePaceSecondsPerMile)+'</td><td>'+n(w.averageHeartRate,0)+' bpm</td><td>'+n(w.peakHeartRate,0)+' bpm</td><td>'+(dec!==null&&dec!==undefined?(dec>0?'+':'')+n(dec,1)+'%':'—')+'</td><td>'+(hrr!==null&&hrr!==undefined?n(hrr,0)+' bpm':'—')+'</td><td>'+n(w.trainingLoad,1)+'</td></tr>';
+    const wx=w.weather?.average||{};
+    return '<tr class="clickable" data-i="'+i+'"><td>'+fmtDate(w.date)+'</td><td>'+n(w.distanceMiles,2)+' mi</td><td>'+fmtDuration(w.activeSeconds)+'</td><td>'+fmtPace(w.averagePaceSecondsPerMile)+'</td><td>'+n(w.averageHeartRate,0)+' bpm</td><td>'+n(wx.heatIndexF,1)+'°F</td><td>'+n(wx.dewpointF,1)+'°F</td><td>'+n(wx.solarRadiationWm2,0)+' W/m²</td><td>'+(dec!==null&&dec!==undefined?(dec>0?'+':'')+n(dec,1)+'%':'—')+'</td><td>'+(hrr!==null&&hrr!==undefined?n(hrr,0)+' bpm':'—')+'</td><td>'+n(w.trainingLoad,1)+'</td></tr>';
   }).join('');
   document.querySelectorAll('#runs-body tr').forEach(tr=>tr.addEventListener('click',()=>renderRun(Number(tr.dataset.i))));
 }
