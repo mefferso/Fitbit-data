@@ -35,6 +35,8 @@ jobs:
           GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
           GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
           GOOGLE_REFRESH_TOKEN: ${{ secrets.GOOGLE_REFRESH_TOKEN }}
+          TEMPEST_API_TOKEN: ${{ secrets.TEMPEST_API_TOKEN }}
+          TEMPEST_STATION_ID: ${{ secrets.TEMPEST_STATION_ID }}
         run: |
           node scripts/build-public-data.mjs
 
