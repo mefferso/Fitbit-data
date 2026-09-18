@@ -5,7 +5,7 @@ const TZ = 'America/Chicago';
 const LOOKBACK_DAYS = 180;
 const DETAIL_RUNS = 8;
 
-const required = ['GOOGLE_CLIENT_ID','GOOGLE_CLIENT_SECRET','GOOGLE_REFRESH_TOKEN'];
+const required = ['GOOGLE_CLIENT_ID','GOOGLE_CLIENT_SECRET','GOOGLE_REFRESH_TOKEN','TEMPEST_API_TOKEN','TEMPEST_STATION_ID'];
 for (const key of required) {
   if (!process.env[key]) throw new Error(`Missing required secret ${key}`);
 }
@@ -65,6 +65,130 @@ async function getAccessToken() {
 }
 
 const token = await getAccessToken();
+
+const TEMPEST_API='https://swd.weatherflow.com/swd/rest';
+const MPS_TO_MPH=2.2369362921;
+
+function cToF(c){ return c===null||c===undefined?null:(Number(c)*9/5+32); }
+function dewPointF(tempC,rh){
+  if(tempC===null||tempC===undefined||rh===null||rh===undefined||rh<=0) return null;
+  const a=17.625,b=243.04;
+  const gamma=Math.log(Number(rh)/100)+(a*Number(tempC))/(b+Number(tempC));
+  return cToF((b*gamma)/(a-gamma));
+}
+function heatIndexF(tempF,rh){
+  if(tempF===null||rh===null||tempF===undefined||rh===undefined) return null;
+  const T=Number(tempF), R=Number(rh);
+  if(T<80 || R<40) return T;
+  let hi=-42.379+2.04901523*T+10.14333127*R-0.22475541*T*R-0.00683783*T*T-0.05481717*R*R+0.00122874*T*T*R+0.00085282*T*R*R-0.00000199*T*T*R*R;
+  if(R<13 && T>=80 && T<=112) hi-=((13-R)/4)*Math.sqrt((17-Math.abs(T-95))/17);
+  else if(R>85 && T>=80 && T<=87) hi+=((R-85)/10)*((87-T)/5);
+  return hi;
+}
+async function tempest(path,params={}){
+  const u=new URL(TEMPEST_API+path);
+  u.searchParams.set('token',process.env.TEMPEST_API_TOKEN);
+  for(const [k,v] of Object.entries(params)) if(v!==undefined&&v!==null) u.searchParams.set(k,String(v));
+  const r=await fetch(u,{headers:{'user-agent':'Fitbit-Workout-Weather/1.0'}});
+  const text=await r.text();
+  if(!r.ok) throw new Error(`Tempest API ${r.status}: ${text.slice(0,500)}`);
+  const json=JSON.parse(text);
+  const status=json.status||{};
+  if(status.status_code && status.status_code!==0) throw new Error(status.status_message||'Tempest API error');
+  return json;
+}
+async function discoverTempestDevice(){
+  const stationId=Number(process.env.TEMPEST_STATION_ID);
+  const payload=await tempest('/stations');
+  const stations=payload.stations||payload.locations||[];
+  const station=stations.find(s=>Number(s.station_id)===stationId);
+  if(!station) throw new Error(`Tempest station ${stationId} not found for token`);
+  const counts=new Map();
+  for(const item of station.station_items||[]){
+    if(item.device_id!==undefined&&item.device_id!==null) counts.set(Number(item.device_id),(counts.get(Number(item.device_id))||0)+1);
+  }
+  const candidates=[];
+  for(const d of station.devices||[]){
+    if(d.device_id===undefined||d.device_id===null||!d.serial_number) continue;
+    const id=Number(d.device_id), serial=String(d.serial_number||'').toUpperCase(), type=String(d.device_type||'').toUpperCase(), env=String(d.device_meta?.environment||'').toLowerCase();
+    let score=counts.get(id)||0;
+    if(serial.startsWith('ST-')) score+=1000;
+    if(type==='ST'||type==='TEMPEST') score+=1000;
+    if(env==='outdoor') score+=100;
+    candidates.push([score,id]);
+  }
+  if(!candidates.length) throw new Error('No Tempest outdoor device found');
+  candidates.sort((a,b)=>b[0]-a[0]||b[1]-a[1]);
+  return candidates[0][1];
+}
+function parseTempestObs(values){
+  if(!Array.isArray(values)) return null;
+  if(values.length===1&&Array.isArray(values[0])) values=values[0];
+  const epoch=num(values[0]); if(epoch===null) return null;
+  const tempC=num(values[7]), rh=num(values[8]), tempF=cToF(tempC), dewF=dewPointF(tempC,rh);
+  return {
+    epoch:Number(epoch),
+    time:new Date(Number(epoch)*1000).toISOString(),
+    tempF:round(tempF,1),
+    dewpointF:round(dewF,1),
+    rhPct:round(rh,0),
+    heatIndexF:round(heatIndexF(tempF,rh),1),
+    windAvgMph:values[2]===null||values[2]===undefined?null:round(Number(values[2])*MPS_TO_MPH,1),
+    windGustMph:values[3]===null||values[3]===undefined?null:round(Number(values[3])*MPS_TO_MPH,1),
+    solarRadiationWm2:num(values[11])===null?null:round(Number(values[11]),0),
+    uv:num(values[10])===null?null:round(Number(values[10]),1)
+  };
+}
+async function tempestObservations(deviceId,start,end){
+  const payload=await tempest(`/observations/device/${deviceId}`,{
+    time_start:Math.floor(start.getTime()/1000),
+    time_end:Math.floor(end.getTime()/1000)
+  });
+  if(payload.type && payload.type!=='obs_st') throw new Error(`Unexpected Tempest response type ${payload.type}`);
+  const map=new Map();
+  for(const raw of payload.obs||[]){
+    const o=parseTempestObs(raw);
+    if(o) map.set(o.epoch,o);
+  }
+  return [...map.values()].sort((a,b)=>a.epoch-b.epoch);
+}
+function avgField(obs,key){
+  const vals=obs.map(x=>num(x[key])).filter(v=>v!==null);
+  return vals.length?round(vals.reduce((a,b)=>a+b,0)/vals.length,1):null;
+}
+function maxField(obs,key){
+  const vals=obs.map(x=>num(x[key])).filter(v=>v!==null);
+  return vals.length?round(Math.max(...vals),1):null;
+}
+function nearestWeather(obs,target){
+  if(!obs.length) return null;
+  let best=null,delta=Infinity;
+  for(const o of obs){const d=Math.abs(new Date(o.time)-target);if(d<delta){delta=d;best=o;}}
+  return delta<=10*60000?best:null;
+}
+function summarizeWorkoutWeather(obs,start,end){
+  const inWindow=obs.filter(o=>{const t=new Date(o.time);return t>=start&&t<=end;});
+  const startObs=nearestWeather(obs,start);
+  const used=inWindow.length?inWindow:obs;
+  if(!used.length) return null;
+  return {
+    source:'Tempest',
+    start:startObs?{
+      tempF:startObs.tempF,dewpointF:startObs.dewpointF,rhPct:startObs.rhPct,heatIndexF:startObs.heatIndexF,
+      windAvgMph:startObs.windAvgMph,windGustMph:startObs.windGustMph,solarRadiationWm2:startObs.solarRadiationWm2,uv:startObs.uv
+    }:null,
+    average:{
+      tempF:avgField(used,'tempF'),dewpointF:avgField(used,'dewpointF'),rhPct:avgField(used,'rhPct'),
+      heatIndexF:avgField(used,'heatIndexF'),windAvgMph:avgField(used,'windAvgMph'),solarRadiationWm2:avgField(used,'solarRadiationWm2')
+    },
+    maximum:{
+      tempF:maxField(used,'tempF'),dewpointF:maxField(used,'dewpointF'),heatIndexF:maxField(used,'heatIndexF'),
+      windGustMph:maxField(used,'windGustMph'),solarRadiationWm2:maxField(used,'solarRadiationWm2')
+    },
+    samples:used.length
+  };
+}
+
 
 async function health(path, options={}) {
   const response = await fetch(`${API}${path}`, {
@@ -282,6 +406,7 @@ function downsample(series,limit=600){
 }
 
 const now=new Date(), startDate=dateKey(addDays(now,-LOOKBACK_DAYS));
+const tempestDeviceId=await discoverTempestDevice();
 const all=await getExercises(startDate);
 const runs=all.filter(w=>w.type.toUpperCase().includes('RUN')).sort((a,b)=>String(b.startTime).localeCompare(String(a.startTime)));
 
@@ -289,11 +414,13 @@ const detailedRuns=[];
 for(const workout of runs.slice(0,DETAIL_RUNS)){
   if(!workout.startTime||!workout.endTime) continue;
   const start=new Date(workout.startTime), end=new Date(workout.endTime);
-  const [zones,hr,dist,recoveryHr]=await Promise.all([
+  const weatherStart=new Date(start.getTime()-10*60000), weatherEnd=new Date(end.getTime()+10*60000);
+  const [zones,hr,dist,recoveryHr,tempestObs]=await Promise.all([
     getZones(workout.date),
     getHeartRate(start,end),
     distanceRollups(start,end),
-    getHeartRate(new Date(end.getTime()-60000),new Date(end.getTime()+5*60000))
+    getHeartRate(new Date(end.getTime()-60000),new Date(end.getTime()+5*60000)),
+    tempestObservations(tempestDeviceId,weatherStart,weatherEnd)
   ]);
   const paces=paceSeries(dist);
   const avg=hr.length?hr.reduce((s,x)=>s+x.value,0)/hr.length:workout.averageHeartRate;
@@ -308,6 +435,7 @@ for(const workout of runs.slice(0,DETAIL_RUNS)){
     vigorousPlusPeakMinutes:round(vigPeak,0),
     aerobicDecoupling:decoupling(start,end,hr,paces),
     heartRateRecovery:recovery(end,recoveryHr),
+    weather:summarizeWorkoutWeather(tempestObs,start,end),
     zoneSummary,
     runWalkIntervals:[],
     splitSummaries:[],
