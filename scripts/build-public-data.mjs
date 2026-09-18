@@ -311,7 +311,7 @@ for(const workout of runs.slice(0,DETAIL_RUNS)){
     zoneSummary,
     runWalkIntervals:[],
     splitSummaries:[],
-    heartRateSeries:downsample(hr.map(x=>({...x,zoneKey:zoneKey(x.value,zones)})),
+    heartRateSeries:downsample(hr.map(x=>({...x,zoneKey:zoneKey(x.value,zones)}))),
     paceSeries:paces.map(x=>({time:x.time,paceSecondsPerMile:x.paceSecondsPerMile}))
   });
 }
