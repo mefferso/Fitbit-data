@@ -116,7 +116,7 @@ function renderRun(index){
   document.getElementById('workout-subtitle').textContent=(w.startTime?new Date(w.startTime).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}):'')+' · '+fmtDuration(w.activeSeconds)+wxText;
 
   const hrr=w.heartRateRecovery&&w.heartRateRecovery.minute1Drop;
-  const dec=w.aerobicCardio drift&&w.aerobicCardio drift.percent;
+  const dec=w.aerobicDecoupling&&w.aerobicDecoupling.percent;
   const metrics=[
     ['Distance',w.distanceMiles!==null?n(w.distanceMiles,2)+' mi':'—',fmtPace(w.averagePaceSecondsPerMile)],
     ['Average HR',w.averageHeartRate!==null?Math.round(w.averageHeartRate)+' bpm':'—',w.peakHeartRate?'Peak '+Math.round(w.peakHeartRate)+' bpm':''],
@@ -230,7 +230,7 @@ function renderLoad(){
 function renderTable(){
   const detailed=DATA.detailedRuns||[];
   document.getElementById('runs-body').innerHTML=detailed.map((w,i)=>{
-    const dec=w.aerobicCardio drift&&w.aerobicCardio drift.percent;
+    const dec=w.aerobicDecoupling&&w.aerobicDecoupling.percent;
     const hrr=w.heartRateRecovery&&w.heartRateRecovery.minute1Drop;
     const wx=w.weather?.average||{};
     return '<tr class="clickable" data-i="'+i+'"><td>'+fmtDate(w.date)+'</td><td>'+n(w.distanceMiles,2)+' mi</td><td>'+fmtDuration(w.activeSeconds)+'</td><td>'+fmtPace(w.averagePaceSecondsPerMile)+'</td><td>'+n(w.averageHeartRate,0)+' bpm</td><td>'+n(wx.heatIndexF,1)+'°F</td><td>'+n(wx.dewpointF,1)+'°F</td><td>'+n(wx.solarRadiationWm2,0)+' W/m²</td><td>'+(w.weatherAdjustedEfficiency?.score!==null&&w.weatherAdjustedEfficiency?.score!==undefined?n(w.weatherAdjustedEfficiency.score,1):'—')+'</td><td>'+(dec!==null&&dec!==undefined?(dec>0?'+':'')+n(dec,1)+'%':'—')+'</td><td>'+(hrr!==null&&hrr!==undefined?n(hrr,0)+' bpm':'—')+'</td><td>'+n(w.trainingLoad,1)+'</td></tr>';
