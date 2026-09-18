@@ -1,4 +1,4 @@
-name: Deploy GitHub Pages preview
+name: Publish real workout dashboard
 
 on:
   push:
@@ -7,6 +7,8 @@ on:
       - "docs/**"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
+  schedule:
+    - cron: "17 * * * *"
 
 permissions:
   contents: read
@@ -18,7 +20,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  deploy:
+  publish:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -26,12 +28,39 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Fetch sanitized workout data
+        env:
+          PUBLIC_EXPORT_URL: ${{ secrets.PUBLIC_EXPORT_URL }}
+        run: |
+          if [ -z "$PUBLIC_EXPORT_URL" ]; then
+            echo "Missing repository secret PUBLIC_EXPORT_URL"
+            exit 1
+          fi
+          curl --fail --silent --show-error --location --retry 3 "$PUBLIC_EXPORT_URL" -o docs/data.json
+
+      - name: Validate export
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path("docs/data.json")
+          data = json.loads(p.read_text())
+          if data.get("error"):
+              raise SystemExit(f"Export returned error: {data['error']}")
+          if "recentRuns" not in data or "detailedRuns" not in data:
+              raise SystemExit("Export is missing expected workout fields")
+          print(f"Validated {len(data.get('recentRuns', []))} recent runs and {len(data.get('detailedRuns', []))} detailed runs")
+          PY
+
       - name: Configure Pages
         uses: actions/configure-pages@v5
-      - name: Upload artifact
+
+      - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: docs
+
       - name: Deploy
         id: deployment
         uses: actions/deploy-pages@v4
