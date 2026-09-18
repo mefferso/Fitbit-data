@@ -24,9 +24,7 @@ h1{font-size:34px;margin:7px 0 5px}h2{font-size:20px;margin:0}.sub{color:#637087
 <body>
 <div class="wrap">
   <section class="card hero">
-    <div class="eyebrow">Live workout data · published from Google Health</div>
     <h1>Fitbit Health Dashboard</h1>
-    <div class="sub">Public running and workout analysis. OAuth credentials and tokens stay private; GitHub Pages receives only the workout fields intentionally exported by the private Apps Script backend.</div>
     <div id="status" class="status">Loading latest published data…</div>
   </section>
 
@@ -145,12 +143,46 @@ function renderHrPace(w){
   const hr=w.heartRateSeries||[], pace=w.paceSeries||[];
   const labels=[...new Set(hr.map(x=>x.time).concat(pace.map(x=>x.time)))].sort();
   const hrMap=Object.fromEntries(hr.map(x=>[x.time,x.value]));
+  const zoneMap=Object.fromEntries(hr.map(x=>[x.time,x.zoneKey||'below']));
   const paceMap=Object.fromEntries(pace.map(x=>[x.time,x.paceSecondsPerMile]));
+  const zoneColors={
+    below:'#9aa8bd',
+    light:'#6eb4ff',
+    moderate:'#45c76b',
+    vigorous:'#f5b82e',
+    peak:'#ff5449'
+  };
+  const hrValues=labels.map(t=>hrMap[t]??null);
+  const hrZones=labels.map(t=>zoneMap[t]||null);
+
   charts.hr=new Chart(document.getElementById('hrPaceChart'),{
     type:'line',
     data:{labels,datasets:[
-      {label:'Heart rate',data:labels.map(t=>hrMap[t]??null),yAxisID:'y',spanGaps:true,borderWidth:2,pointRadius:0},
-      {label:'1-min pace',data:labels.map(t=>paceMap[t]??null),yAxisID:'pace',spanGaps:true,borderWidth:2,pointRadius:0}
+      {
+        label:'Heart rate',
+        data:hrValues,
+        yAxisID:'y',
+        spanGaps:true,
+        borderWidth:2.5,
+        pointRadius:0,
+        borderColor:zoneColors.moderate,
+        segment:{
+          borderColor:ctx=>{
+            const i=ctx.p1DataIndex;
+            const zone=hrZones[i]||hrZones[ctx.p0DataIndex]||'below';
+            return zoneColors[zone]||zoneColors.below;
+          }
+        }
+      },
+      {
+        label:'1-min pace',
+        data:labels.map(t=>paceMap[t]??null),
+        yAxisID:'pace',
+        spanGaps:true,
+        borderWidth:2,
+        pointRadius:0,
+        borderColor:'#ff6f91'
+      }
     ]},
     options:{maintainAspectRatio:false,interaction:{mode:'index',intersect:false},scales:{
       x:{ticks:{maxTicksLimit:8,callback:(v,i)=>new Date(labels[i]).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})}},
