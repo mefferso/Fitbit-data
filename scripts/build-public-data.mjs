@@ -3,7 +3,7 @@ import fs from 'node:fs/promises';
 const API = 'https://health.googleapis.com/v4/users/me';
 const TZ = 'America/Chicago';
 const LOOKBACK_DAYS = 180;
-const DETAIL_RUNS = 8;
+const DETAIL_RUNS = 30;
 
 const required = ['GOOGLE_CLIENT_ID','GOOGLE_CLIENT_SECRET','GOOGLE_REFRESH_TOKEN','TEMPEST_API_TOKEN','TEMPEST_STATION_ID'];
 for (const key of required) {
@@ -358,6 +358,30 @@ function trainingLoad(summary) {
   const w={below:.5,light:1,moderate:2,vigorous:3,peak:4};
   return round(summary.reduce((s,x)=>s+(x.minutes||0)*(w[x.key]||0),0),1);
 }
+function median(values){
+  const a=values.filter(Number.isFinite).slice().sort((x,y)=>x-y);
+  if(!a.length)return null;
+  const m=Math.floor(a.length/2);
+  return a.length%2?a[m]:(a[m-1]+a[m])/2;
+}
+function weatherAdjustedEfficiency(w){
+  const pace=num(w.averagePaceSecondsPerMile), hr=num(w.averageHeartRate);
+  const wx=w.weather?.average||{}, hi=num(wx.heatIndexF), solar=num(wx.solarRadiationWm2);
+  if(!pace||!hr||hi===null||solar===null)return null;
+  const speedMph=3600/pace;
+  const rawEfficiency=speedMph/hr;
+  const heatPenalty=Math.max(0,hi-80)*0.0035;
+  const solarPenalty=Math.max(0,solar)*0.00008;
+  const weatherFactor=1+heatPenalty+solarPenalty;
+  return {
+    speedMph:round(speedMph,3),
+    rawEfficiency:round(rawEfficiency,5),
+    heatPenaltyPct:round(heatPenalty*100,1),
+    solarPenaltyPct:round(solarPenalty*100,1),
+    weatherFactor:round(weatherFactor,4),
+    adjustedEfficiency:round(rawEfficiency*weatherFactor,5)
+  };
+}
 function paceSeries(rollups) {
   return rollups.map(p=>{
     const a=new Date(p.startTime), b=new Date(p.endTime||a.getTime()+60000);
@@ -444,6 +468,29 @@ for(const workout of runs.slice(0,DETAIL_RUNS)){
   });
 }
 
+const efficiencyCandidates=detailedRuns
+  .map(w=>({w,calc:weatherAdjustedEfficiency(w)}))
+  .filter(x=>x.calc)
+  .sort((a,b)=>String(a.w.startTime).localeCompare(String(b.w.startTime)));
+const baselinePool=efficiencyCandidates.slice(0,Math.min(3,efficiencyCandidates.length)).map(x=>x.calc.adjustedEfficiency);
+const weatherEfficiencyBaseline=median(baselinePool);
+for(const {w,calc} of efficiencyCandidates){
+  w.weatherAdjustedEfficiency={
+    ...calc,
+    score:weatherEfficiencyBaseline?round(100*calc.adjustedEfficiency/weatherEfficiencyBaseline,1):null
+  };
+}
+const weatherAdjustedTrend=efficiencyCandidates.map(({w})=>({
+  date:w.date,
+  startTime:w.startTime,
+  score:w.weatherAdjustedEfficiency?.score??null,
+  adjustedEfficiency:w.weatherAdjustedEfficiency?.adjustedEfficiency??null,
+  rawEfficiency:w.weatherAdjustedEfficiency?.rawEfficiency??null,
+  weatherFactor:w.weatherAdjustedEfficiency?.weatherFactor??null,
+  heatPenaltyPct:w.weatherAdjustedEfficiency?.heatPenaltyPct??null,
+  solarPenaltyPct:w.weatherAdjustedEfficiency?.solarPenaltyPct??null
+}));
+
 const recentRuns=runs.slice(0,30).map(w=>({
   date:w.date,startTime:w.startTime,activeSeconds:w.activeSeconds,distanceMiles:w.distanceMiles,
   averagePaceSecondsPerMile:w.averagePaceSecondsPerMile,averageHeartRate:w.averageHeartRate,
@@ -472,7 +519,20 @@ const output={
   generatedAt:new Date().toISOString(),timeZone:TZ,lookbackDays:LOOKBACK_DAYS,
   publicDataNotice:'Workout/running metrics only. GPS coordinates, sleep, weight, OAuth credentials and tokens are not included.',
   recentRuns,detailedRuns,
-  runningTrend:{days:LOOKBACK_DAYS,runs:trend,vo2Max},
+  runningTrend:{
+    days:LOOKBACK_DAYS,runs:trend,vo2Max,
+    weatherAdjusted:{
+      runs:weatherAdjustedTrend,
+      baseline:weatherEfficiencyBaseline,
+      baselineMethod:'Median adjusted efficiency of earliest 3 qualifying detailed runs',
+      formula:'(speedMph / avgHR) × [1 + 0.0035 × max(HI−80,0) + 0.00008 × solarWm2]',
+      heatIndexThresholdF:80,
+      heatPenaltyPerDegree:0.0035,
+      solarPenaltyPerWm2:0.00008,
+      dewpointHandling:'Not added separately because heat index already incorporates humidity.',
+      modelStatus:weatherAdjustedTrend.length>=30?'30+ qualifying runs available; ready for personalized-model evaluation.':'Provisional transparent weather correction; more runs are needed before fitting a personalized model.'
+    }
+  },
   trainingLoad:{days:120,points:loadPoints,summary:{}}
 };
 
