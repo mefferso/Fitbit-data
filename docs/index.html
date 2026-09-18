@@ -50,8 +50,8 @@ h1{font-size:34px;margin:7px 0 5px}h2{font-size:20px;margin:0}.sub{color:#637087
 
     <section class="two">
       <div class="card section">
-        <h2>Running efficiency trend</h2>
-        <div class="sub">Speed per heartbeat across recent runs.</div>
+        <h2>Weather-adjusted running efficiency</h2>
+        <div class="sub" id="efficiency-sub">Normalized score: 100 = your early-run baseline. Higher is better.</div>
         <div class="chart small"><canvas id="efficiencyChart"></canvas></div>
       </div>
       <div class="card section">
@@ -66,7 +66,7 @@ h1{font-size:34px;margin:7px 0 5px}h2{font-size:20px;margin:0}.sub{color:#637087
       <div class="sub">Click a row to load its detailed HR/pace trace when available.</div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Date</th><th>Distance</th><th>Duration</th><th>Pace</th><th>Avg HR</th><th>Heat Index</th><th>Dewpoint</th><th>Solar</th><th>Decoupling</th><th>HRR1</th><th>Load</th></tr></thead>
+          <thead><tr><th>Date</th><th>Distance</th><th>Duration</th><th>Pace</th><th>Avg HR</th><th>Heat Index</th><th>Dewpoint</th><th>Solar</th><th>WX Eff</th><th>Decoupling</th><th>HRR1</th><th>Load</th></tr></thead>
           <tbody id="runs-body"></tbody>
         </table>
       </div>
@@ -127,7 +127,8 @@ function renderRun(index){
     ['Vigorous + peak',w.vigorousPlusPeakMinutes!==null?Math.round(w.vigorousPlusPeakMinutes)+' min':'—','Hard-effort time'],
     ['Active zone minutes',w.activeZoneMinutes!==null?Math.round(w.activeZoneMinutes):'—','Fitbit workout metric'],
     ['Avg heat index',w.weather?.average?.heatIndexF!==null&&w.weather?.average?.heatIndexF!==undefined?n(w.weather.average.heatIndexF,1)+'°F':'—',w.weather?.average?.dewpointF!==null&&w.weather?.average?.dewpointF!==undefined?'Td '+n(w.weather.average.dewpointF,1)+'°F':'Tempest'],
-    ['Solar load',w.weather?.average?.solarRadiationWm2!==null&&w.weather?.average?.solarRadiationWm2!==undefined?n(w.weather.average.solarRadiationWm2,0)+' W/m²':'—',w.weather?.maximum?.solarRadiationWm2!==null&&w.weather?.maximum?.solarRadiationWm2!==undefined?'Max '+n(w.weather.maximum.solarRadiationWm2,0)+' W/m²':'Tempest']
+    ['Solar load',w.weather?.average?.solarRadiationWm2!==null&&w.weather?.average?.solarRadiationWm2!==undefined?n(w.weather.average.solarRadiationWm2,0)+' W/m²':'—',w.weather?.maximum?.solarRadiationWm2!==null&&w.weather?.maximum?.solarRadiationWm2!==undefined?'Max '+n(w.weather.maximum.solarRadiationWm2,0)+' W/m²':'Tempest'],
+    ['WX-adjusted efficiency',w.weatherAdjustedEfficiency?.score!==null&&w.weatherAdjustedEfficiency?.score!==undefined?n(w.weatherAdjustedEfficiency.score,1):'—',w.weatherAdjustedEfficiency?'Raw '+n(w.weatherAdjustedEfficiency.rawEfficiency,5)+' · factor '+n(w.weatherAdjustedEfficiency.weatherFactor,3):'Needs HR + pace + weather']
   ];
   document.getElementById('metric-grid').innerHTML=metrics.map(x=>'<div class="card metric"><div class="label">'+x[0]+'</div><div class="value">'+x[1]+'</div><div class="detail">'+x[2]+'</div></div>').join('');
 
@@ -193,11 +194,27 @@ function renderHrPace(w){
 }
 
 function renderEfficiency(){
-  const runs=(DATA.runningTrend&&DATA.runningTrend.runs)||[]; destroy('eff');
+  const model=DATA.runningTrend?.weatherAdjusted||{}, runs=model.runs||[]; destroy('eff');
+  const sub=document.getElementById('efficiency-sub');
+  if(sub){
+    sub.textContent=runs.length
+      ? '100 = median of earliest 3 qualifying runs · Heat + solar correction · '+(model.modelStatus||'')
+      : 'Needs pace, average HR, and Tempest weather for qualifying runs.';
+  }
   charts.eff=new Chart(document.getElementById('efficiencyChart'),{
     type:'line',
-    data:{labels:runs.map(x=>x.date),datasets:[{label:'Speed / HR',data:runs.map(x=>x.efficiency),borderWidth:2,pointRadius:3}]},
-    options:{maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{maxTicksLimit:7}},y:{title:{display:true,text:'mph per bpm'}}}}
+    data:{labels:runs.map(x=>x.date),datasets:[{label:'Weather-adjusted efficiency',data:runs.map(x=>x.score),borderWidth:2,pointRadius:3}]},
+    options:{
+      maintainAspectRatio:false,
+      plugins:{
+        legend:{display:false},
+        tooltip:{callbacks:{afterLabel:ctx=>{
+          const r=runs[ctx.dataIndex];
+          return r ? ['Weather factor '+n(r.weatherFactor,3),'Heat +'+n(r.heatPenaltyPct,1)+'% · Solar +'+n(r.solarPenaltyPct,1)+'%'] : [];
+        }}}
+      },
+      scales:{x:{ticks:{maxTicksLimit:7}},y:{title:{display:true,text:'Efficiency score'},suggestedMin:85,suggestedMax:115}}
+    }
   });
 }
 
@@ -216,7 +233,7 @@ function renderTable(){
     const dec=w.aerobicDecoupling&&w.aerobicDecoupling.percent;
     const hrr=w.heartRateRecovery&&w.heartRateRecovery.minute1Drop;
     const wx=w.weather?.average||{};
-    return '<tr class="clickable" data-i="'+i+'"><td>'+fmtDate(w.date)+'</td><td>'+n(w.distanceMiles,2)+' mi</td><td>'+fmtDuration(w.activeSeconds)+'</td><td>'+fmtPace(w.averagePaceSecondsPerMile)+'</td><td>'+n(w.averageHeartRate,0)+' bpm</td><td>'+n(wx.heatIndexF,1)+'°F</td><td>'+n(wx.dewpointF,1)+'°F</td><td>'+n(wx.solarRadiationWm2,0)+' W/m²</td><td>'+(dec!==null&&dec!==undefined?(dec>0?'+':'')+n(dec,1)+'%':'—')+'</td><td>'+(hrr!==null&&hrr!==undefined?n(hrr,0)+' bpm':'—')+'</td><td>'+n(w.trainingLoad,1)+'</td></tr>';
+    return '<tr class="clickable" data-i="'+i+'"><td>'+fmtDate(w.date)+'</td><td>'+n(w.distanceMiles,2)+' mi</td><td>'+fmtDuration(w.activeSeconds)+'</td><td>'+fmtPace(w.averagePaceSecondsPerMile)+'</td><td>'+n(w.averageHeartRate,0)+' bpm</td><td>'+n(wx.heatIndexF,1)+'°F</td><td>'+n(wx.dewpointF,1)+'°F</td><td>'+n(wx.solarRadiationWm2,0)+' W/m²</td><td>'+(w.weatherAdjustedEfficiency?.score!==null&&w.weatherAdjustedEfficiency?.score!==undefined?n(w.weatherAdjustedEfficiency.score,1):'—')+'</td><td>'+(dec!==null&&dec!==undefined?(dec>0?'+':'')+n(dec,1)+'%':'—')+'</td><td>'+(hrr!==null&&hrr!==undefined?n(hrr,0)+' bpm':'—')+'</td><td>'+n(w.trainingLoad,1)+'</td></tr>';
   }).join('');
   document.querySelectorAll('#runs-body tr').forEach(tr=>tr.addEventListener('click',()=>renderRun(Number(tr.dataset.i))));
 }
