@@ -13,7 +13,7 @@
 h1{font-size:34px;margin:7px 0 5px}h2{font-size:20px;margin:0}.sub{color:#637087;line-height:1.5}.status{font-size:12px;color:#748198;margin-top:9px}
 .grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:13px;margin-top:18px}.metric{padding:17px}.label{font-size:11px;font-weight:850;color:#6a7890;text-transform:uppercase}.value{font-size:27px;font-weight:850;margin-top:7px}.detail{font-size:12px;color:#748198;margin-top:4px;line-height:1.35}
 .section{padding:22px;margin-top:16px}.two{display:grid;grid-template-columns:1.35fr .65fr;gap:16px}.chart{height:330px;margin-top:14px}.chart.small{height:250px}
-.table-wrap{overflow:auto;margin-top:13px}table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;padding:10px 9px;border-bottom:1px solid #edf1f6;white-space:nowrap}th{font-size:11px;text-transform:uppercase;color:#68768d}tr.clickable{cursor:pointer}tr.clickable:hover{background:#f7f9fc}
+.table-wrap{overflow:auto;margin-top:13px;border:1px solid #dfe6f0;border-radius:12px}table{width:100%;border-collapse:separate;border-spacing:0;font-size:13px}th,td{text-align:left;padding:10px 9px;border-bottom:1px solid #dfe6f0;border-right:1px solid #edf1f6;white-space:nowrap}th:last-child,td:last-child{border-right:0}th{font-size:11px;text-transform:uppercase;color:#5f6f87;background:#f3f6fa;font-weight:850}tbody tr:nth-child(even){background:#f8fafc}tbody tr:last-child td{border-bottom:0}tr.clickable{cursor:pointer}tr.clickable:hover{background:#eef4fb}tbody td:first-child{font-weight:700;color:#183153}
 .pills{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.pill{background:#eef3fa;border-radius:999px;padding:7px 10px;font-size:12px;font-weight:750;color:#3d587d}
 .zone-row{display:grid;grid-template-columns:90px 1fr 70px;gap:10px;align-items:center;margin-top:9px;font-size:12px}.track{height:9px;background:#edf1f7;border-radius:99px;overflow:hidden}.fill{height:100%;border-radius:99px}.peak{background:#ff5449}.vigorous{background:#f5b82e}.moderate{background:#45c76b}.light{background:#6eb4ff}.below{background:#aeb9ca}
 .error{padding:20px;color:#b42318;background:#fff0ee;border:1px solid #ffd1cc;border-radius:14px;margin-top:14px}
@@ -125,7 +125,7 @@ function renderRun(index){
     ['Training load',n(w.trainingLoad,1),'Zone-weighted session load'],
     ['Steps',w.steps!==null?Math.round(w.steps).toLocaleString():'—',w.averageStepRate?Math.round(w.averageStepRate)+' steps/min':''],
     ['Vigorous + peak',w.vigorousPlusPeakMinutes!==null?Math.round(w.vigorousPlusPeakMinutes)+' min':'—','Hard-effort time'],
-    ['Active zone minutes',w.activeZoneMinutes!==null?Math.round(w.activeZoneMinutes):'—','Fitbit workout metric'],
+    ['Run-time minutes',w.activeSeconds!==null&&w.activeSeconds!==undefined?n(Number(w.activeSeconds)/60,1)+' min':'—','Total run/walk workout time'],
     ['Avg heat index',w.weather?.average?.heatIndexF!==null&&w.weather?.average?.heatIndexF!==undefined?n(w.weather.average.heatIndexF,1)+'°F':'—',w.weather?.average?.dewpointF!==null&&w.weather?.average?.dewpointF!==undefined?'Td '+n(w.weather.average.dewpointF,1)+'°F':'Tempest'],
     ['Solar load',w.weather?.average?.solarRadiationWm2!==null&&w.weather?.average?.solarRadiationWm2!==undefined?n(w.weather.average.solarRadiationWm2,0)+' W/m²':'—',w.weather?.maximum?.solarRadiationWm2!==null&&w.weather?.maximum?.solarRadiationWm2!==undefined?'Max '+n(w.weather.maximum.solarRadiationWm2,0)+' W/m²':'Tempest'],
     ['WX-adjusted efficiency',w.weatherAdjustedEfficiency?.score!==null&&w.weatherAdjustedEfficiency?.score!==undefined?n(w.weatherAdjustedEfficiency.score,1):'—',w.weatherAdjustedEfficiency?'Raw '+n(w.weatherAdjustedEfficiency.rawEfficiency,5)+' · factor '+n(w.weatherAdjustedEfficiency.weatherFactor,3):(Number(w.activeSeconds)<1800?'Excluded: run under 30 min':'Needs HR + pace + weather')]
@@ -198,7 +198,7 @@ function renderEfficiency(){
   const sub=document.getElementById('efficiency-sub');
   if(sub){
     sub.textContent=runs.length
-      ? '100 = median of earliest 3 qualifying runs ≥30 min · Heat + solar correction · '+(model.modelStatus||'')
+      ? 'Actual performance → adjust for cardiovascular effort → adjust for weather burden → compare to baseline of 100'
       : 'Needs pace, average HR, and Tempest weather for qualifying runs.';
   }
   charts.eff=new Chart(document.getElementById('efficiencyChart'),{
