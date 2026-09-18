@@ -52,7 +52,11 @@ function getHealthService_() {
 }
 
 
-function doGet() {
+function doGet(e) {
+  if (e && e.parameter && e.parameter.mode === 'public-data') {
+    return handlePublicDataExport_(e);
+  }
+
   const service = getHealthService_();
 
   if (!service.hasAccess()) {
