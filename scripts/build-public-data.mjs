@@ -468,9 +468,10 @@ for(const workout of runs.slice(0,DETAIL_RUNS)){
   });
 }
 
+const MIN_EFFICIENCY_SECONDS=30*60;
 const efficiencyCandidates=detailedRuns
   .map(w=>({w,calc:weatherAdjustedEfficiency(w)}))
-  .filter(x=>x.calc)
+  .filter(x=>x.calc && Number(x.w.activeSeconds)>=MIN_EFFICIENCY_SECONDS)
   .sort((a,b)=>String(a.w.startTime).localeCompare(String(b.w.startTime)));
 const baselinePool=efficiencyCandidates.slice(0,Math.min(3,efficiencyCandidates.length)).map(x=>x.calc.adjustedEfficiency);
 const weatherEfficiencyBaseline=median(baselinePool);
@@ -524,12 +525,13 @@ const output={
     weatherAdjusted:{
       runs:weatherAdjustedTrend,
       baseline:weatherEfficiencyBaseline,
-      baselineMethod:'Median adjusted efficiency of earliest 3 qualifying detailed runs',
+      baselineMethod:'Median adjusted efficiency of earliest 3 qualifying detailed runs (minimum 30 minutes)',
       formula:'(speedMph / avgHR) × [1 + 0.0035 × max(HI−80,0) + 0.00008 × solarWm2]',
       heatIndexThresholdF:80,
       heatPenaltyPerDegree:0.0035,
       solarPenaltyPerWm2:0.00008,
       dewpointHandling:'Not added separately because heat index already incorporates humidity.',
+      minimumDurationSeconds:MIN_EFFICIENCY_SECONDS,
       modelStatus:weatherAdjustedTrend.length>=30?'30+ qualifying runs available; ready for personalized-model evaluation.':'Provisional transparent weather correction; more runs are needed before fitting a personalized model.'
     }
   },
