@@ -128,7 +128,7 @@ function renderRun(index){
     ['Active zone minutes',w.activeZoneMinutes!==null?Math.round(w.activeZoneMinutes):'—','Fitbit workout metric'],
     ['Avg heat index',w.weather?.average?.heatIndexF!==null&&w.weather?.average?.heatIndexF!==undefined?n(w.weather.average.heatIndexF,1)+'°F':'—',w.weather?.average?.dewpointF!==null&&w.weather?.average?.dewpointF!==undefined?'Td '+n(w.weather.average.dewpointF,1)+'°F':'Tempest'],
     ['Solar load',w.weather?.average?.solarRadiationWm2!==null&&w.weather?.average?.solarRadiationWm2!==undefined?n(w.weather.average.solarRadiationWm2,0)+' W/m²':'—',w.weather?.maximum?.solarRadiationWm2!==null&&w.weather?.maximum?.solarRadiationWm2!==undefined?'Max '+n(w.weather.maximum.solarRadiationWm2,0)+' W/m²':'Tempest'],
-    ['WX-adjusted efficiency',w.weatherAdjustedEfficiency?.score!==null&&w.weatherAdjustedEfficiency?.score!==undefined?n(w.weatherAdjustedEfficiency.score,1):'—',w.weatherAdjustedEfficiency?'Raw '+n(w.weatherAdjustedEfficiency.rawEfficiency,5)+' · factor '+n(w.weatherAdjustedEfficiency.weatherFactor,3):'Needs HR + pace + weather']
+    ['WX-adjusted efficiency',w.weatherAdjustedEfficiency?.score!==null&&w.weatherAdjustedEfficiency?.score!==undefined?n(w.weatherAdjustedEfficiency.score,1):'—',w.weatherAdjustedEfficiency?'Raw '+n(w.weatherAdjustedEfficiency.rawEfficiency,5)+' · factor '+n(w.weatherAdjustedEfficiency.weatherFactor,3):(Number(w.activeSeconds)<1800?'Excluded: run under 30 min':'Needs HR + pace + weather')]
   ];
   document.getElementById('metric-grid').innerHTML=metrics.map(x=>'<div class="card metric"><div class="label">'+x[0]+'</div><div class="value">'+x[1]+'</div><div class="detail">'+x[2]+'</div></div>').join('');
 
@@ -198,7 +198,7 @@ function renderEfficiency(){
   const sub=document.getElementById('efficiency-sub');
   if(sub){
     sub.textContent=runs.length
-      ? '100 = median of earliest 3 qualifying runs · Heat + solar correction · '+(model.modelStatus||'')
+      ? '100 = median of earliest 3 qualifying runs ≥30 min · Heat + solar correction · '+(model.modelStatus||'')
       : 'Needs pace, average HR, and Tempest weather for qualifying runs.';
   }
   charts.eff=new Chart(document.getElementById('efficiencyChart'),{
