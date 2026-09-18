@@ -1,0 +1,104 @@
+<script>
+function renderWorkoutZones(workout) {
+      const box = document.getElementById('workout-zone-breakdown');
+      const rows = workout.zoneSummary || [];
+
+      box.innerHTML = rows.map(item => `
+        <div class="zone-row">
+          <div>
+            <div class="zone-name">${escapeHtml(item.label)}</div>
+            <div class="zone-threshold">${escapeHtml(item.threshold || '')}</div>
+          </div>
+          <div class="zone-track">
+            <div class="zone-fill zone-${escapeHtml(item.key)}" style="width:${Math.max(0, Math.min(100, Number(item.percent) || 0))}%"></div>
+          </div>
+          <div class="zone-value">${Math.round(Number(item.minutes) || 0)} min · ${Math.round(Number(item.percent) || 0)}%</div>
+        </div>
+      `).join('');
+    }
+
+
+    function renderWorkoutTakeaways(workout) {
+      const box = document.getElementById('workout-takeaways');
+      const note = document.getElementById('workout-note');
+      const intervals = workout.intervalBreakdown || [];
+      const zones = workout.zoneSummary || [];
+      const peakZone = zones.find(item => item.key === 'peak');
+      const vigorousZone = zones.find(item => item.key === 'vigorous');
+      const vigPeakPct = Math.round(
+        zones
+          .filter(item => item.key === 'vigorous' || item.key === 'peak')
+          .reduce((sum, item) => sum + Number(item.percent || 0), 0)
+      );
+
+      const takeaways = [];
+
+      if (vigPeakPct >= 70) {
+        takeaways.push({
+          title: 'Hard effort',
+          body: `${vigPeakPct}% of the tracked heart-rate time sat in vigorous or peak. That’s a real workout, not fake “I moved around a little” cardio.`
+        });
+      } else if (vigPeakPct >= 40) {
+        takeaways.push({
+          title: 'Moderately hard',
+          body: `${vigPeakPct}% of the session was vigorous or peak. Plenty of work, but not a full redline from start to finish.`
+        });
+      } else {
+        takeaways.push({
+          title: 'Controlled effort',
+          body: `Only ${vigPeakPct}% of tracked time was vigorous or peak, so this session leaned more controlled than savage.`
+        });
+      }
+
+      if (peakZone && Number(peakZone.minutes) >= 8) {
+        takeaways.push({
+          title: 'Peak-zone time',
+          body: `You stacked ${Math.round(Number(peakZone.minutes))} minutes in peak. That’s enough to matter and enough to hurt a little.`
+        });
+      }
+
+      if (workout.aerobicDecoupling && Number.isFinite(Number(workout.aerobicDecoupling.percent))) {
+        const decoupling = Number(workout.aerobicDecoupling.percent);
+        takeaways.push({
+          title: 'Aerobic decoupling',
+          body: decoupling > 5
+            ? `Speed-per-heartbeat efficiency fell ${decoupling.toFixed(1)}% from the first half to the second. That is meaningful drift; heat, dehydration, fatigue, terrain, or pacing can all contribute.`
+            : decoupling < -2
+              ? `Efficiency improved ${Math.abs(decoupling).toFixed(1)}% in the second half. You finished more efficiently than you started.`
+              : `Efficiency changed only ${Math.abs(decoupling).toFixed(1)}% between halves. That is a pretty stable aerobic response.`
+        });
+      }
+
+      if (workout.heartRateRecovery && workout.heartRateRecovery.minute1Drop !== null) {
+        takeaways.push({
+          title: 'Heart-rate recovery',
+          body: `Heart rate fell ${Math.round(workout.heartRateRecovery.minute1Drop)} bpm in the first minute after the recorded finish. Track the trend across similar sessions rather than judging one run in isolation.`
+        });
+      }
+
+      if (workout.averageStepRate) {
+        takeaways.push({
+          title: 'Step rhythm',
+          body: `Average step rate was ${Math.round(workout.averageStepRate)} steps/min. That’s a clean, useful number to watch as you build pace and durability.`
+        });
+      }
+
+      box.innerHTML = takeaways.slice(0, 5).map(item => `
+        <div class="takeaway-item">
+          <strong>${escapeHtml(item.title)}</strong>
+          ${escapeHtml(item.body)}
+        </div>
+      `).join('');
+
+      const missing = [];
+      if (workout.distanceMiles === null || workout.distanceMiles === undefined) {
+        missing.push('distance / pace');
+      }
+      if (workout.elevationGainFeet === null || workout.elevationGainFeet === undefined) {
+        missing.push('elevation gain');
+      }
+      note.textContent = missing.length
+        ? `Not shown because Google Health did not return it for this workout: ${missing.join(', ')}. I’m not fabricating data just to make the screen pretty.`
+        : 'Everything shown here is grounded in returned workout / heart-rate / step data.';
+    }
+</script>

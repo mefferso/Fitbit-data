@@ -1,0 +1,183 @@
+<script>
+function renderWorkoutCalendar(records) {
+      const wrapper = document.getElementById('workout-calendar');
+      const byDate = {};
+
+      (records || []).forEach(item => {
+        if (!byDate[item.date]) byDate[item.date] = [];
+        byDate[item.date].push(item);
+      });
+
+      const monthKey = selectedWorkoutMonth ||
+        (dashboardData && dashboardData.fitbit && dashboardData.fitbit.stepsDate
+          ? dashboardData.fitbit.stepsDate.slice(0, 7)
+          : dateToKey(new Date()).slice(0, 7));
+
+      const [year, month] = monthKey.split('-').map(Number);
+      const first = new Date(year, month - 1, 1);
+      const last = new Date(year, month, 0);
+      const start = new Date(first);
+      start.setDate(first.getDate() - first.getDay());
+      const end = new Date(last);
+      end.setDate(last.getDate() + (6 - last.getDay()));
+
+      document.getElementById('workout-month-label').textContent =
+        new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric' }).format(first);
+
+      updateWorkoutMonthControls();
+
+      const grid = document.createElement('div');
+      grid.className = 'workout-calendar';
+
+      ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].forEach(day => {
+        const label = document.createElement('div');
+        label.className = 'workout-weekday';
+        label.textContent = day;
+        grid.appendChild(label);
+      });
+
+      let cursor = new Date(start);
+
+      while (cursor <= end) {
+        const key = dateToKey(cursor);
+        const inMonth = cursor.getMonth() === month - 1;
+        const workouts = inMonth ? (byDate[key] || []) : [];
+        const cell = document.createElement('div');
+        cell.className = 'workout-cell';
+
+        if (!inMonth) {
+          cell.classList.add('outside');
+          cell.innerHTML = `<div class="workout-date">${cursor.getDate()}</div>`;
+          grid.appendChild(cell);
+          cursor.setDate(cursor.getDate() + 1);
+          continue;
+        }
+
+        if (key === selectedWorkoutDate) {
+          cell.classList.add('selected');
+        }
+
+        if (!workouts.length) {
+          cell.innerHTML = `<div class="workout-date">${cursor.getDate()}</div>`;
+        } else {
+          const primary = choosePrimaryWorkout_(workouts);
+          const type = workoutTypeClass_(primary.type);
+          const totalSeconds = workouts.reduce(
+            (sum, workout) => sum + (Number(workout.activeSeconds) || 0),
+            0
+          );
+
+          cell.classList.add('has-workout');
+          cell.classList.add(`workout-${type}`);
+          cell.title = workouts.map(workout => workoutTooltip_(workout)).join('\n\n');
+
+          cell.innerHTML = `
+            <div class="workout-date">${cursor.getDate()}</div>
+            <div class="workout-type">${escapeHtml(workoutShortName_(primary.type))}</div>
+            <div class="workout-duration">${formatWorkoutDuration_(totalSeconds)}</div>
+            <div class="workout-secondary">${escapeHtml(formatClock(primary.startTime))}</div>
+            ${workouts.length > 1 ? `<div class="workout-count">${workouts.length}x</div>` : ''}
+          `;
+
+          cell.addEventListener('click', () => {
+            selectedWorkoutDate = key;
+            selectedWorkoutIndex = 0;
+            renderWorkoutCalendar(workoutCalendarRecords);
+            loadWorkoutDayDetails(key);
+          });
+        }
+
+        grid.appendChild(cell);
+        cursor.setDate(cursor.getDate() + 1);
+      }
+
+      wrapper.innerHTML = '';
+      wrapper.appendChild(grid);
+    }
+
+
+    function changeWorkoutMonth(delta) {
+      if (!selectedWorkoutMonth) return;
+      const [year, month] = selectedWorkoutMonth.split('-').map(Number);
+      const date = new Date(year, month - 1 + Number(delta), 1);
+      const candidate = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      const currentMonth = dashboardData.fitbit.stepsDate.slice(0, 7);
+
+      if (candidate > currentMonth) return;
+
+      selectedWorkoutMonth = candidate;
+      selectedWorkoutDate = '';
+      selectedWorkoutIndex = 0;
+      loadWorkoutMonth();
+    }
+
+
+    function loadWorkoutMonth() {
+      const wrapper = document.getElementById('workout-calendar');
+      wrapper.innerHTML = '<div style="padding:28px 0;color:#6d778c">Loading workout month…</div>';
+      updateWorkoutMonthControls();
+
+      google.script.run
+        .withSuccessHandler(data => {
+          selectedWorkoutMonth = data.monthKey;
+          workoutCalendarRecords = data.workouts || [];
+          selectedWorkoutDate = '';
+          selectedWorkoutIndex = 0;
+          renderWorkoutCalendar(workoutCalendarRecords);
+
+          if (workoutCalendarRecords.length) {
+            selectedWorkoutDate = workoutCalendarRecords[workoutCalendarRecords.length - 1].date;
+            renderWorkoutCalendar(workoutCalendarRecords);
+            loadWorkoutDayDetails(selectedWorkoutDate);
+          } else {
+            renderWorkoutDetailEmpty(
+              `No workouts were found in ${document.getElementById('workout-month-label').textContent}.`
+            );
+          }
+        })
+        .withFailureHandler(error => {
+          wrapper.innerHTML = `<div style="padding:28px 0;color:#c43b3b">${escapeHtml(error && error.message ? error.message : String(error))}</div>`;
+        })
+        .getWorkoutMonthData(selectedWorkoutMonth);
+    }
+
+
+    function updateWorkoutMonthControls() {
+      if (!selectedWorkoutMonth || !dashboardData || !dashboardData.fitbit) return;
+      const currentMonth = dashboardData.fitbit.stepsDate.slice(0, 7);
+      document.getElementById('workout-month-next').disabled = selectedWorkoutMonth >= currentMonth;
+      document.getElementById('workout-month-current').disabled = selectedWorkoutMonth === currentMonth;
+    }
+
+
+    function loadWorkoutDayDetails(dateKey) {
+      renderWorkoutDetailEmpty(`Loading workout detail for ${formatDate(dateKey)}…`);
+      document.getElementById('workout-detail-subtitle').textContent =
+        `${formatDate(dateKey)} · pulling the workout apart now`;
+
+      google.script.run
+        .withSuccessHandler(data => {
+          workoutDayDetails = data;
+          selectedWorkoutDate = data.date;
+          selectedWorkoutIndex = Math.min(selectedWorkoutIndex, Math.max((data.workouts || []).length - 1, 0));
+          renderWorkoutCalendar(workoutCalendarRecords);
+          renderWorkoutDetail();
+        })
+        .withFailureHandler(error => {
+          renderWorkoutDetailEmpty(
+            error && error.message
+              ? error.message
+              : String(error)
+          );
+        })
+        .getWorkoutDayDetails(dateKey);
+    }
+
+
+    function renderWorkoutDetailEmpty(message) {
+      document.getElementById('workout-detail-empty').hidden = false;
+      document.getElementById('workout-detail-empty').textContent = message;
+      document.getElementById('workout-detail-content').hidden = true;
+      selectedWorkoutRecord = null;
+    }
+</script>

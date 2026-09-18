@@ -1,0 +1,195 @@
+<script>
+let dashboardData = null;
+    let selectedRangeDays = 180;
+    let selectedHeartRange = '24h';
+    let heartRateData = null;
+    let selectedPersonalDays = 30;
+    let selectedStepDate = '';
+    let stepDayData = null;
+    let selectedStepHistoryRange = 'daily';
+    let stepHistoryData = null;
+    let workoutDayDetails = null;
+    let selectedWorkoutDate = '';
+    let selectedWorkoutIndex = 0;
+    let selectedWorkoutRecord = null;
+    let workoutPaceOverlayEnabled = false;
+    let workoutPaceMode = 'raw';
+    let runningTrendData = null;
+    let trainingLoadData = null;
+    let workoutRouteMap = null;
+    let selectedWorkoutMonth = '';
+    let workoutCalendarRecords = [];
+
+    google.charts.load('current', {
+      packages: ['corechart']
+    });
+
+    google.charts.setOnLoadCallback(loadDashboard);
+
+    document
+      .getElementById('workout-pace-toggle')
+      .addEventListener('change', event => {
+        workoutPaceOverlayEnabled = Boolean(event.target.checked);
+        updateWorkoutPaceToggle(selectedWorkoutRecord);
+        if (selectedWorkoutRecord) {
+          drawWorkoutHeartChart(selectedWorkoutRecord);
+        }
+      });
+
+    document
+      .getElementById('workout-pace-mode')
+      .addEventListener('change', event => {
+        workoutPaceMode = event.target.value === 'smooth' ? 'smooth' : 'raw';
+        if (selectedWorkoutRecord && workoutPaceOverlayEnabled) {
+          drawWorkoutHeartChart(selectedWorkoutRecord);
+        }
+      });
+
+    document
+      .getElementById('workout-route-load')
+      .addEventListener('click', () => {
+        if (selectedWorkoutRecord) loadWorkoutRoute(selectedWorkoutRecord);
+      });
+
+    document
+      .querySelectorAll('#weight-range-buttons .range-button')
+      .forEach(button => {
+        button.addEventListener('click', () => {
+          selectedRangeDays =
+            Number(button.dataset.days);
+
+          document
+            .querySelectorAll('#weight-range-buttons .range-button')
+            .forEach(item =>
+              item.classList.remove('active')
+            );
+
+          button.classList.add('active');
+          drawWeightChart();
+        });
+      });
+
+    document
+      .querySelectorAll('#heart-range-buttons .range-button')
+      .forEach(button => {
+        button.addEventListener('click', () => {
+          selectedHeartRange = button.dataset.range;
+
+          document
+            .querySelectorAll('#heart-range-buttons .range-button')
+            .forEach(item => item.classList.remove('active'));
+
+          button.classList.add('active');
+          loadHeartRate();
+        });
+      });
+
+
+
+    document
+      .querySelectorAll('#step-history-buttons .range-button')
+      .forEach(button => {
+        button.addEventListener('click', () => {
+          selectedStepHistoryRange = button.dataset.stepRange;
+
+          document
+            .querySelectorAll('#step-history-buttons .range-button')
+            .forEach(item => item.classList.remove('active'));
+
+          button.classList.add('active');
+          loadStepHistory();
+        });
+      });
+
+    document
+      .getElementById('step-day-date')
+      .addEventListener('change', event => {
+        if (!event.target.value) return;
+        selectedStepDate = event.target.value;
+        loadStepDay();
+      });
+
+    document
+      .getElementById('step-day-previous')
+      .addEventListener('click', () => changeStepDate(-1));
+
+    document
+      .getElementById('step-day-next')
+      .addEventListener('click', () => changeStepDate(1));
+
+    document
+      .getElementById('step-day-today')
+      .addEventListener('click', () => {
+        selectedStepDate = dashboardData.fitbit.stepsDate;
+        document.getElementById('step-day-date').value = selectedStepDate;
+        loadStepDay();
+      });
+
+    document
+      .querySelectorAll('#personal-range-buttons .range-button')
+      .forEach(button => {
+        button.addEventListener('click', () => {
+          selectedPersonalDays = Number(button.dataset.personalDays);
+          document
+            .querySelectorAll('#personal-range-buttons .range-button')
+            .forEach(item => item.classList.remove('active'));
+          button.classList.add('active');
+          loadPersonalRanges();
+        });
+      });
+
+    document
+      .getElementById('workout-month-previous')
+      .addEventListener('click', () => changeWorkoutMonth(-1));
+
+    document
+      .getElementById('workout-month-next')
+      .addEventListener('click', () => changeWorkoutMonth(1));
+
+    document
+      .getElementById('workout-month-current')
+      .addEventListener('click', () => {
+        if (!dashboardData || !dashboardData.fitbit || !dashboardData.fitbit.stepsDate) return;
+        selectedWorkoutMonth = dashboardData.fitbit.stepsDate.slice(0, 7);
+        loadWorkoutMonth();
+      });
+
+    window.addEventListener('resize', debounce(() => {
+      if (dashboardData) {
+        drawWeightChart();
+      }
+
+      if (heartRateData) {
+        drawHeartRateChart();
+      }
+
+
+      if (stepDayData) {
+        drawStepDayChart();
+      }
+
+      if (stepHistoryData) {
+        drawStepHistoryChart();
+      }
+
+      if (selectedWorkoutRecord) {
+        drawWorkoutHeartChart(selectedWorkoutRecord);
+        drawWorkoutStepChart(selectedWorkoutRecord);
+      }
+      if (runningTrendData) drawRunningTrendChart();
+      if (runningTrendData) drawVo2Chart();
+      if (trainingLoadData) drawTrainingLoadChart();
+      if (workoutRouteMap) workoutRouteMap.invalidateSize();
+    }, 150));
+
+function loadDashboard() {
+      document.getElementById('loading').hidden = false;
+      document.getElementById('error').hidden = true;
+      document.getElementById('dashboard').hidden = true;
+
+      google.script.run
+        .withSuccessHandler(renderDashboard)
+        .withFailureHandler(showError)
+        .getDashboardData();
+    }
+</script>

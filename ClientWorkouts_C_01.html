@@ -1,0 +1,217 @@
+<script>
+function drawWorkoutHeartChart(workout) {
+      const target = document.getElementById('workout-heart-chart');
+      const points = workout && workout.heartRateSeries ? workout.heartRateSeries : [];
+      const rawPace = workout && workout.paceSeries ? workout.paceSeries : [];
+      const smoothPace = workout && workout.paceSeriesSmoothed ? workout.paceSeriesSmoothed : [];
+      const pacePoints = workoutPaceMode === 'smooth' && smoothPace.length ? smoothPace : rawPace;
+      const showPace = workoutPaceOverlayEnabled && pacePoints.length > 0;
+
+      if (!points.length) {
+        target.innerHTML = '<div style="padding:40px;color:#6d778c">No heart-rate trace was returned for this workout.</div>';
+        return;
+      }
+
+      const table = new google.visualization.DataTable();
+      table.addColumn('datetime', 'Time');
+      table.addColumn('number', 'Below zone');
+      table.addColumn('number', 'Light');
+      table.addColumn('number', 'Moderate');
+      table.addColumn('number', 'Vigorous');
+      table.addColumn('number', 'Peak');
+      if (showPace) table.addColumn('number', workoutPaceMode === 'smooth' ? '3-min pace' : '1-min pace');
+
+      const rows = points.map(point => {
+        const value = Number(point.value);
+        const zone = workoutZoneIndex(point.zoneKey);
+        const values = [null, null, null, null, null];
+        values[zone] = value;
+        const row = [new Date(point.time), ...values];
+        if (showPace) row.push(null);
+        return row;
+      });
+
+      for (let index = 1; index < rows.length; index += 1) {
+        const previous = rows[index - 1];
+        const current = rows[index];
+        const previousSeries = previous.slice(1, 6).findIndex(value => value !== null);
+        const currentSeries = current.slice(1, 6).findIndex(value => value !== null);
+        if (previousSeries !== currentSeries && previousSeries >= 0 && currentSeries >= 0) {
+          previous[currentSeries + 1] = previous[previousSeries + 1];
+        }
+      }
+
+      if (showPace) {
+        pacePoints.forEach(point => {
+          rows.push([
+            new Date(point.time),
+            null, null, null, null, null,
+            Number(point.paceSecondsPerMile)
+          ]);
+        });
+      }
+
+      rows.sort((a, b) => a[0].getTime() - b[0].getTime());
+      table.addRows(rows);
+
+      const values = points.map(point => Number(point.value));
+      const minimum = Math.max(40, Math.floor(Math.min(...values) - 8));
+      const maximum = Math.ceil(Math.max(...values) + 8);
+      const series = {
+        0: { type: 'line', lineWidth: 2, pointSize: 1, targetAxisIndex: 0 },
+        1: { type: 'line', lineWidth: 3, pointSize: 1, targetAxisIndex: 0 },
+        2: { type: 'line', lineWidth: 3, pointSize: 1, targetAxisIndex: 0 },
+        3: { type: 'line', lineWidth: 3, pointSize: 1, targetAxisIndex: 0 },
+        4: { type: 'line', lineWidth: 3, pointSize: 1, targetAxisIndex: 0 }
+      };
+      const colors = ['#a9b3c6', '#7bb8ff', '#56cf73', '#f5bf36', '#ff5449'];
+      const vAxes = {
+        0: {
+          title: 'Heart rate (bpm)', viewWindow: { min: minimum, max: maximum },
+          gridlines: { color: '#e7ebf2' }, minorGridlines: { color: '#f5f6f9' },
+          textStyle: { color: '#697386' }, titleTextStyle: { color: '#697386' }
+        }
+      };
+
+      if (showPace) {
+        const paceValues = pacePoints.map(point => Number(point.paceSecondsPerMile)).filter(Number.isFinite);
+        const paceMin = Math.max(60, Math.floor(Math.min(...paceValues) / 30) * 30 - 30);
+        const paceMax = Math.ceil(Math.max(...paceValues) / 30) * 30 + 30;
+        series[5] = {
+          type: 'steppedArea', lineWidth: 2, areaOpacity: .05, pointSize: 0,
+          targetAxisIndex: 1
+        };
+        colors.push('#6f42c1');
+        vAxes[1] = {
+          title: workoutPaceMode === 'smooth' ? '3-min pace (min/mi)' : '1-min pace (min/mi)',
+          direction: -1,
+          viewWindow: { min: paceMin, max: paceMax },
+          ticks: buildPaceAxisTicks(paceMin, paceMax),
+          gridlines: { color: 'transparent' },
+          textStyle: { color: '#6f42c1' }, titleTextStyle: { color: '#6f42c1' }
+        };
+      }
+
+      const chart = new google.visualization.ComboChart(target);
+      chart.draw(table, {
+        backgroundColor: 'transparent',
+        chartArea: { left: 62, right: showPace ? 78 : 30, top: 18, width: showPace ? '82%' : '89%', height: '74%' },
+        colors: colors,
+        fontName: 'Arial',
+        interpolateNulls: false,
+        legend: { position: 'bottom', textStyle: { color: '#5f6980', fontSize: 11 } },
+        hAxis: { format: 'h:mm a', gridlines: { color: '#eef1f6' }, textStyle: { color: '#697386', fontSize: 11 } },
+        vAxes: vAxes,
+        series: series,
+        tooltip: { trigger: 'both' }
+      });
+    }
+
+
+    function interpolateWorkoutPace(time, pacePoints) {
+  if (!pacePoints || pacePoints.length < 2) {
+    return null;
+  }
+
+  const targetTime = new Date(time).getTime();
+
+  /*
+   * If we're before the first pace observation
+   * or after the last one, don't invent anything.
+   */
+  const firstTime =
+    new Date(pacePoints[0].time).getTime();
+
+  const lastTime =
+    new Date(
+      pacePoints[pacePoints.length - 1].time
+    ).getTime();
+
+  if (
+    targetTime < firstTime ||
+    targetTime > lastTime
+  ) {
+    return null;
+  }
+
+  /*
+   * Find the two REAL Fitbit pace observations
+   * surrounding this HR timestamp.
+   */
+  for (
+    let index = 0;
+    index < pacePoints.length - 1;
+    index += 1
+  ) {
+    const before = pacePoints[index];
+    const after = pacePoints[index + 1];
+
+    const beforeTime =
+      new Date(before.time).getTime();
+
+    const afterTime =
+      new Date(after.time).getTime();
+
+    if (
+      targetTime >= beforeTime &&
+      targetTime <= afterTime
+    ) {
+      const beforePace =
+        Number(before.paceSecondsPerMile);
+
+      const afterPace =
+        Number(after.paceSecondsPerMile);
+
+      if (
+        !Number.isFinite(beforePace) ||
+        !Number.isFinite(afterPace)
+      ) {
+        return null;
+      }
+
+      const interval =
+        afterTime - beforeTime;
+
+      /*
+       * Protect against duplicate timestamps.
+       */
+      if (interval <= 0) {
+        return {
+          paceSecondsPerMile: beforePace,
+          interpolated: false
+        };
+      }
+
+      /*
+       * Where are we between the two real samples?
+       *
+       * 0.00 = exactly at first sample
+       * 0.50 = halfway
+       * 1.00 = exactly at second sample
+       */
+      const fraction =
+        (targetTime - beforeTime) / interval;
+
+      const interpolatedPace =
+        beforePace +
+        (afterPace - beforePace) * fraction;
+
+      return {
+        paceSecondsPerMile:
+          Math.round(interpolatedPace),
+
+        interpolated:
+          fraction > 0 && fraction < 1,
+
+        beforeTime:
+          before.time,
+
+        afterTime:
+          after.time
+      };
+    }
+  }
+
+  return null;
+}
+</script>

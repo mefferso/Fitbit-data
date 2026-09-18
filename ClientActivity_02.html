@@ -1,0 +1,138 @@
+<script>
+
+
+    function drawStepHistoryChart() {
+      const chartBox = document.getElementById('step-history-chart');
+
+      if (
+        !stepHistoryData ||
+        !stepHistoryData.periods ||
+        !stepHistoryData.periods.length
+      ) {
+        chartBox.innerHTML =
+          '<div style="padding:40px;color:#6d778c">No step history was returned.</div>';
+        return;
+      }
+
+      const table = new google.visualization.DataTable();
+      table.addColumn('string', 'Period');
+      table.addColumn('number', 'Steps');
+      table.addColumn({ type: 'string', role: 'annotation' });
+
+      table.addRows(
+        stepHistoryData.periods.map(period => [
+          period.label,
+          period.steps === null ? null : Number(period.steps),
+          period.isPartial ? 'Partial' : null
+        ])
+      );
+
+      const range = stepHistoryData.granularity;
+      const options = {
+        backgroundColor: 'transparent',
+        chartArea: {
+          left: 70,
+          top: 34,
+          width: '88%',
+          height: '70%'
+        },
+        colors: ['#1769e0'],
+        fontName: 'Arial',
+        legend: { position: 'none' },
+        bar: {
+          groupWidth: range === 'monthly' ? '58%' : '72%'
+        },
+        hAxis: {
+          slantedText: range !== 'monthly',
+          slantedTextAngle: range === 'daily' ? 50 : 35,
+          showTextEvery: range === 'daily' ? 3 : range === 'weekly' ? 2 : 1,
+          textStyle: { color: '#697386', fontSize: 10 }
+        },
+        vAxis: {
+          title: 'Steps',
+          minValue: 0,
+          format: 'short',
+          gridlines: { color: '#e7ebf2' },
+          minorGridlines: { color: '#f5f6f9' },
+          textStyle: { color: '#697386' },
+          titleTextStyle: { color: '#697386' }
+        },
+        annotations: {
+          alwaysOutside: true,
+          textStyle: {
+            fontSize: 10,
+            bold: true,
+            color: '#0b4ca3'
+          }
+        },
+        tooltip: { trigger: 'both' }
+      };
+
+      const chart = new google.visualization.ColumnChart(chartBox);
+      chart.draw(table, options);
+    }
+
+function loadHeartRate() {
+      const chart = document.getElementById('heart-rate-chart');
+      chart.innerHTML = '<div style="padding:40px;color:#6d778c">Loading heart-rate history…</div>';
+
+      google.script.run
+        .withSuccessHandler(data => {
+          heartRateData = data;
+          renderHeartSummary(data);
+          drawHeartRateChart();
+        })
+        .withFailureHandler(error => {
+          chart.innerHTML =
+            `<div style="padding:35px;color:#c43b3b">${
+              escapeHtml(error && error.message ? error.message : String(error))
+            }</div>`;
+        })
+        .getHeartRateData(selectedHeartRange);
+    }
+
+
+    function renderHeartSummary(data) {
+      const box = document.getElementById('heart-rate-summary');
+      const stats = data.stats || {};
+      const zones = data.zones || {};
+      const start = new Date(data.start);
+      const end = new Date(data.end);
+      const period = document.getElementById('heart-rate-period');
+
+      if (data.rangeKey === '24h') {
+        period.textContent =
+          `Today — ${start.toLocaleDateString('en-US', {
+            weekday: 'long',
+            month: 'long',
+            day: 'numeric',
+            year: 'numeric'
+          })} · midnight through ${end.toLocaleTimeString('en-US', {
+            hour: 'numeric',
+            minute: '2-digit'
+          })}`;
+      } else {
+        period.textContent =
+          `${start.toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric'
+          })} through ${end.toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric'
+          })} · hover anywhere on the line for the sampled value`;
+      }
+
+      box.innerHTML = `
+        <span class="summary-chip"><strong>${stats.latest ?? '—'}</strong> latest bpm</span>
+        <span class="summary-chip"><strong>${stats.average ?? '—'}</strong> average</span>
+        <span class="summary-chip"><strong>${stats.minimum ?? '—'}</strong> low</span>
+        <span class="summary-chip"><strong>${stats.maximum ?? '—'}</strong> high</span>
+        <span class="summary-chip">
+          Zones: light ${zones.lightMin ?? '—'} · moderate ${zones.moderateMin ?? '—'} ·
+          vigorous ${zones.vigorousMin ?? '—'} · peak ${zones.peakMin ?? '—'}
+        </span>
+      `;
+    }
+</script>

@@ -1,0 +1,137 @@
+<script>
+
+
+    function renderWorkoutIntervals(workout) {
+      const tbody = document.getElementById('workout-interval-body');
+      const rows = workout.intervalBreakdown || [];
+
+      tbody.innerHTML = rows.map((row, index) => `
+        <tr>
+          <td>${index + 1}${row.isPartial ? ' (partial)' : ''}</td>
+          <td>${escapeHtml(row.label)}</td>
+          <td>${row.avgHeartRate !== null && row.avgHeartRate !== undefined ? `${Math.round(row.avgHeartRate)} bpm` : '—'}</td>
+          <td>${row.maxHeartRate !== null && row.maxHeartRate !== undefined ? `${Math.round(row.maxHeartRate)} bpm` : '—'}</td>
+          <td><span class="interval-zone-pill zone-${escapeHtml(row.zoneKey || 'below')}">${escapeHtml(row.zoneName || '—')}</span></td>
+          <td>${row.averagePaceSecondsPerMile !== null && row.averagePaceSecondsPerMile !== undefined ? formatPace(row.averagePaceSecondsPerMile) : '—'}</td>
+          <td>${row.steps !== null && row.steps !== undefined ? Math.round(row.steps).toLocaleString() : '—'}</td>
+          <td>${row.stepRate !== null && row.stepRate !== undefined ? `${Math.round(row.stepRate)} /min` : '—'}</td>
+          <td>${row.cumulativeSteps !== null && row.cumulativeSteps !== undefined ? Math.round(row.cumulativeSteps).toLocaleString() : '—'}</td>
+        </tr>
+      `).join('');
+    }
+
+function renderRunWalkIntervals(workout) {
+      const card = document.getElementById('run-walk-card');
+      const body = document.getElementById('run-walk-body');
+      const rows = workout.runWalkIntervals || [];
+      card.hidden = !rows.length;
+      if (!rows.length) { body.innerHTML = ''; return; }
+      body.innerHTML = rows.map((row, index) => `
+        <tr>
+          <td>${index + 1}</td>
+          <td class="interval-type-${escapeHtml(row.type)}">${escapeHtml(row.type.toUpperCase())}</td>
+          <td>${formatWorkoutDurationDetailed_(row.seconds)}</td>
+          <td>${row.averagePaceSecondsPerMile ? formatPace(row.averagePaceSecondsPerMile) : '—'}</td>
+          <td>${row.averageHeartRate !== null ? `${Math.round(row.averageHeartRate)} bpm` : '—'}</td>
+          <td>${row.startHeartRate !== null && row.endHeartRate !== null ? `${Math.round(row.startHeartRate)} → ${Math.round(row.endHeartRate)}` : '—'}</td>
+        </tr>
+      `).join('');
+    }
+
+    function renderWorkoutSplits(workout) {
+      const card = document.getElementById('workout-splits-card');
+      const body = document.getElementById('workout-splits-body');
+      const rows = workout.splitSummaries || [];
+      card.hidden = !rows.length;
+      if (!rows.length) { body.innerHTML = ''; return; }
+      body.innerHTML = rows.map(row => `
+        <tr>
+          <td>${row.index}</td>
+          <td>${escapeHtml(row.type || '—')}</td>
+          <td>${row.distanceMiles !== null && row.distanceMiles !== undefined ? `${Number(row.distanceMiles).toFixed(2)} mi` : '—'}</td>
+          <td>${row.activeSeconds !== null && row.activeSeconds !== undefined ? formatWorkoutDurationDetailed_(row.activeSeconds) : '—'}</td>
+          <td>${row.paceSecondsPerMile ? formatPace(row.paceSecondsPerMile) : '—'}</td>
+          <td>${row.averageHeartRate !== null && row.averageHeartRate !== undefined ? `${Math.round(row.averageHeartRate)} bpm` : '—'}</td>
+        </tr>
+      `).join('');
+    }
+
+    function prepareWorkoutRoute(workout) {
+      const card = document.getElementById('workout-route-card');
+      const status = document.getElementById('workout-route-status');
+      const mapBox = document.getElementById('workout-route-map');
+      card.hidden = !(workout && workout.hasGps && workout.resourceName);
+      status.textContent = workout && workout.hasGps ? 'GPS track available' : '';
+      mapBox.hidden = true;
+      if (workoutRouteMap) {
+        workoutRouteMap.remove();
+        workoutRouteMap = null;
+      }
+    }
+
+    function loadWorkoutRoute(workout) {
+      const status = document.getElementById('workout-route-status');
+      const button = document.getElementById('workout-route-load');
+      if (!workout || !workout.resourceName) return;
+      button.disabled = true;
+      status.textContent = 'Loading TCX route…';
+      google.script.run
+        .withSuccessHandler(data => {
+          button.disabled = false;
+          drawWorkoutRoute(data);
+        })
+        .withFailureHandler(error => {
+          button.disabled = false;
+          status.textContent = error && error.message ? error.message : String(error);
+        })
+        .getWorkoutRouteData(workout.resourceName);
+    }
+
+    function drawWorkoutRoute(data) {
+      const status = document.getElementById('workout-route-status');
+      const mapBox = document.getElementById('workout-route-map');
+      const points = data && data.points ? data.points : [];
+      if (!points.length || typeof L === 'undefined') {
+        status.textContent = points.length ? 'Map library did not load.' : 'No coordinates were returned in the TCX route.';
+        return;
+      }
+      mapBox.hidden = false;
+      status.textContent = `${points.length.toLocaleString()} GPS trackpoints`;
+      if (workoutRouteMap) workoutRouteMap.remove();
+      workoutRouteMap = L.map(mapBox);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; OpenStreetMap contributors'
+      }).addTo(workoutRouteMap);
+      const latLngs = points.map(point => [Number(point.latitude), Number(point.longitude)]);
+      const route = L.polyline(latLngs, { weight: 4 }).addTo(workoutRouteMap);
+      workoutRouteMap.fitBounds(route.getBounds(), { padding: [20, 20] });
+      setTimeout(() => workoutRouteMap.invalidateSize(), 50);
+    }
+
+    function updateWorkoutPaceToggle(workout) {
+      const toggle = document.getElementById('workout-pace-toggle');
+      const status = document.getElementById('pace-toggle-status');
+      const mode = document.getElementById('workout-pace-mode');
+      const hasPace = Boolean(
+        workout &&
+        workout.paceSeries &&
+        workout.paceSeries.length
+      );
+
+      toggle.disabled = !hasPace;
+      mode.disabled = !hasPace;
+
+      if (!hasPace) {
+        toggle.checked = false;
+        workoutPaceOverlayEnabled = false;
+        status.textContent = 'Pace unavailable';
+        return;
+      }
+
+      toggle.checked = workoutPaceOverlayEnabled;
+      status.textContent = workoutPaceOverlayEnabled
+        ? 'Pace on'
+        : 'Pace off';
+    }
+</script>

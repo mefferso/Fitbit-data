@@ -1,0 +1,50 @@
+<script>
+
+
+    function renderRunnerMetrics(workout) {
+      const grid = document.getElementById('runner-metrics-grid');
+      const drift = workout.aerobicDecoupling;
+      const recovery = workout.heartRateRecovery;
+      const hrr1 = recovery && recovery.minute1Drop !== null && recovery.minute1Drop !== undefined
+        ? `${Math.round(recovery.minute1Drop)} bpm`
+        : '—';
+      const driftValue = drift && drift.percent !== null && drift.percent !== undefined
+        ? `${drift.percent > 0 ? '+' : ''}${Number(drift.percent).toFixed(1)}%`
+        : '—';
+
+      const metrics = [
+        {
+          label: 'Aerobic decoupling',
+          value: driftValue,
+          detail: drift
+            ? `${formatPace(drift.firstHalfPaceSecondsPerMile)} @ ${Math.round(drift.firstHalfHeartRate)} bpm → ${formatPace(drift.secondHalfPaceSecondsPerMile)} @ ${Math.round(drift.secondHalfHeartRate)} bpm`
+            : 'Needs usable HR + distance in both halves'
+        },
+        {
+          label: '1-min HR recovery',
+          value: hrr1,
+          detail: recovery
+            ? `${Math.round(recovery.endHeartRate)} bpm at finish${recovery.minute1HeartRate !== null ? ` → ${Math.round(recovery.minute1HeartRate)} bpm` : ''}`
+            : 'Needs post-workout HR samples'
+        },
+        {
+          label: 'Training load',
+          value: workout.trainingLoad !== null && workout.trainingLoad !== undefined ? Number(workout.trainingLoad).toFixed(1) : '—',
+          detail: 'Transparent zone-weighted session load'
+        },
+        {
+          label: 'Zone thresholds',
+          value: workout.zonesDate ? formatDate(workout.zonesDate) : '—',
+          detail: 'Workout-date Fitbit HR zones, not today’s thresholds'
+        }
+      ];
+
+      grid.innerHTML = metrics.map(metric => `
+        <div class="runner-metric-card">
+          <div class="runner-metric-label">${escapeHtml(metric.label)}</div>
+          <div class="runner-metric-value">${escapeHtml(String(metric.value))}</div>
+          <div class="runner-metric-detail">${escapeHtml(metric.detail)}</div>
+        </div>
+      `).join('');
+    }
+</script>

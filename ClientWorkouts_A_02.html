@@ -1,0 +1,133 @@
+<script>
+
+function renderWorkoutDetail() {
+      const workouts = workoutDayDetails && workoutDayDetails.workouts
+        ? workoutDayDetails.workouts
+        : [];
+
+      if (!workouts.length) {
+        renderWorkoutDetailEmpty(`No workouts were returned for ${formatDate(selectedWorkoutDate)}.`);
+        return;
+      }
+
+      const workout = workouts[selectedWorkoutIndex] || workouts[0];
+      selectedWorkoutRecord = workout;
+
+      document.getElementById('workout-detail-empty').hidden = true;
+      document.getElementById('workout-detail-content').hidden = false;
+      document.getElementById('workout-detail-subtitle').textContent =
+        `${formatDate(workout.date)} · ${workout.displayName || workoutShortName_(workout.type)}`;
+
+      renderWorkoutSelector(workouts);
+      renderWorkoutSummary(workout);
+      renderRunnerMetrics(workout);
+      renderWorkoutZones(workout);
+      renderWorkoutTakeaways(workout);
+      renderWorkoutIntervals(workout);
+      renderRunWalkIntervals(workout);
+      renderWorkoutSplits(workout);
+      prepareWorkoutRoute(workout);
+      updateWorkoutPaceToggle(workout);
+      drawWorkoutHeartChart(workout);
+      drawWorkoutStepChart(workout);
+    }
+
+
+    function renderWorkoutSelector(workouts) {
+      const box = document.getElementById('workout-selector');
+      box.innerHTML = '';
+
+      if (!workouts || workouts.length <= 1) {
+        return;
+      }
+
+      workouts.forEach((workout, index) => {
+        const button = document.createElement('button');
+        button.className = `workout-selector-button${index === selectedWorkoutIndex ? ' active' : ''}`;
+        button.innerHTML = `
+          ${escapeHtml(workout.displayName || workoutShortName_(workout.type))}
+          <small>${escapeHtml(formatClock(workout.startTime))} · ${escapeHtml(formatWorkoutDurationDetailed_(workout.activeSeconds))}</small>
+        `;
+        button.addEventListener('click', () => {
+          selectedWorkoutIndex = index;
+          renderWorkoutDetail();
+        });
+        box.appendChild(button);
+      });
+    }
+
+
+    function renderWorkoutSummary(workout) {
+      const grid = document.getElementById('workout-summary-grid');
+      const vigorousPeak = (workout.zoneSummary || [])
+        .filter(item => item.key === 'vigorous' || item.key === 'peak')
+        .reduce((sum, item) => sum + Number(item.minutes || 0), 0);
+
+      const cards = [
+        {
+          label: 'Workout',
+          value: workout.displayName || workoutShortName_(workout.type),
+          detail: `${formatClock(workout.startTime)} start`
+        },
+        {
+          label: 'Duration',
+          value: formatWorkoutDurationDetailed_(workout.activeSeconds),
+          detail: workout.endTime ? `Ended ${formatClock(workout.endTime)}` : '—'
+        },
+        {
+          label: 'Distance',
+          value: workout.distanceMiles !== null && workout.distanceMiles !== undefined
+            ? `${Number(workout.distanceMiles).toFixed(2)} mi`
+            : '—',
+          detail: workout.averagePaceSecondsPerMile
+            ? `${formatPace(workout.averagePaceSecondsPerMile)} average pace`
+            : 'Distance/pace not returned'
+        },
+        {
+          label: 'Calories',
+          value: workout.calories !== null && workout.calories !== undefined
+            ? `${Math.round(workout.calories).toLocaleString()}`
+            : '—',
+          detail: 'Energy burned'
+        },
+        {
+          label: 'Avg heart rate',
+          value: workout.averageHeartRateActual !== null && workout.averageHeartRateActual !== undefined
+            ? `${Math.round(workout.averageHeartRateActual)} bpm`
+            : '—',
+          detail: workout.peakHeartRate ? `Peak ${Math.round(workout.peakHeartRate)} bpm` : 'No peak available'
+        },
+        {
+          label: 'Steps',
+          value: workout.steps !== null && workout.steps !== undefined
+            ? `${Math.round(workout.steps).toLocaleString()}`
+            : '—',
+          detail: workout.averageStepRate
+            ? `${Math.round(workout.averageStepRate)} steps/min`
+            : 'Step rate unavailable'
+        },
+        {
+          label: 'Vigorous + peak',
+          value: `${Math.round(vigorousPeak || workout.vigorousPlusPeakMinutes || 0)} min`,
+          detail: 'Hard-effort time'
+        },
+        {
+          label: 'Active zone minutes',
+          value: workout.activeZoneMinutes !== null && workout.activeZoneMinutes !== undefined
+            ? `${Math.round(workout.activeZoneMinutes)}`
+            : '—',
+          detail: workout.elevationGainFeet !== null && workout.elevationGainFeet !== undefined
+            ? `${Math.round(workout.elevationGainFeet)} ft elevation gain`
+            : 'Elevation not returned'
+        }
+      ];
+
+      grid.innerHTML = cards.map(card => `
+        <div class="workout-summary-card">
+          <div class="workout-summary-label">${escapeHtml(card.label)}</div>
+          <div class="workout-summary-value">${escapeHtml(String(card.value))}</div>
+          <div class="workout-summary-detail">${escapeHtml(card.detail)}</div>
+        </div>
+      `).join('');
+    }
+</script>

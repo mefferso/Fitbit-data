@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Fitbit Health Dashboard</title>
+<style>
+:root{font-family:Inter,system-ui,Arial,sans-serif;color:#14213d;background:#f5f7fb}
+body{margin:0}.wrap{max-width:1100px;margin:auto;padding:42px 22px 70px}
+.hero,.card{background:#fff;border:1px solid #dfe5ef;border-radius:18px;box-shadow:0 8px 26px rgba(31,52,90,.06)}
+.hero{padding:32px}.eyebrow{font-weight:800;color:#5d6b85;text-transform:uppercase;letter-spacing:.08em;font-size:12px}
+h1{font-size:38px;margin:8px 0}.sub{font-size:18px;line-height:1.55;color:#53617a;max-width:820px}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:22px}
+.metric{padding:18px}.label{font-size:12px;font-weight:800;color:#687791;text-transform:uppercase}.value{font-size:28px;font-weight:850;margin-top:8px}.detail{font-size:12px;color:#7a879d;margin-top:4px}
+.section{margin-top:20px;padding:24px}.bar{height:10px;background:#e9eef6;border-radius:999px;overflow:hidden;margin-top:10px}.fill{height:100%;background:linear-gradient(90deg,#45c26b,#f0b429,#ef5350);width:78%}
+.tags{display:flex;flex-wrap:wrap;gap:9px;margin-top:16px}.tag{padding:8px 11px;border-radius:999px;background:#eef3fb;color:#385379;font-weight:700;font-size:13px}
+.note{margin-top:16px;color:#64728a;font-size:13px}
+@media(max-width:760px){.grid{grid-template-columns:repeat(2,1fr)}h1{font-size:30px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <section class="hero">
+    <div class="eyebrow">GitHub Pages preview · synthetic data</div>
+    <h1>Fitbit Health Dashboard</h1>
+    <div class="sub">A personal running and recovery dashboard built on Google Health. The live version runs privately in Apps Script; this page is a public preview of the analysis features without exposing personal health data.</div>
+    <div class="grid">
+      <div class="card metric"><div class="label">Average HR</div><div class="value">154 bpm</div><div class="detail">Peak 170 bpm</div></div>
+      <div class="card metric"><div class="label">Average pace</div><div class="value">12:38/mi</div><div class="detail">Demo run</div></div>
+      <div class="card metric"><div class="label">Aerobic decoupling</div><div class="value">+4.8%</div><div class="detail">Speed / HR efficiency</div></div>
+      <div class="card metric"><div class="label">1-min HR recovery</div><div class="value">21 bpm</div><div class="detail">Post-workout decline</div></div>
+    </div>
+  </section>
+
+  <section class="card section">
+    <div class="eyebrow">Workout analysis</div>
+    <h2>Built for comparing effort, not just pace</h2>
+    <div class="tags">
+      <span class="tag">Workout-date HR zones</span>
+      <span class="tag">Raw + smoothed pace</span>
+      <span class="tag">Run / walk detection</span>
+      <span class="tag">Training load</span>
+      <span class="tag">Heart-rate recovery</span>
+      <span class="tag">VO2 Max trends</span>
+      <span class="tag">GPS / TCX routes</span>
+      <span class="tag">Sleep + personal baselines</span>
+    </div>
+    <div class="bar"><div class="fill"></div></div>
+    <div class="note">The private live dashboard reads the account's Google Health data at runtime. No personal health values are published by this Pages preview.</div>
+  </section>
+</div>
+</body>
+</html>

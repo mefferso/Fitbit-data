@@ -1,0 +1,193 @@
+<script>
+function changeStepDate(days) {
+      if (!selectedStepDate || !dashboardData) return;
+
+      const date = parseSheetDate(selectedStepDate);
+      date.setDate(date.getDate() + Number(days));
+
+      const candidate = dateToKey(date);
+      const today = dashboardData.fitbit.stepsDate;
+
+      selectedStepDate = candidate > today
+        ? today
+        : candidate;
+
+      document.getElementById('step-day-date').value = selectedStepDate;
+      loadStepDay();
+    }
+
+
+    function loadStepDay() {
+      const chart = document.getElementById('step-day-chart');
+      chart.innerHTML = '<div style="padding:40px;color:#6d778c">Loading cumulative steps…</div>';
+      updateStepDayControls();
+
+      google.script.run
+        .withSuccessHandler(data => {
+          stepDayData = data;
+          renderStepDaySummary(data);
+          drawStepDayChart();
+          updateStepDayControls();
+        })
+        .withFailureHandler(error => {
+          chart.innerHTML =
+            `<div style="padding:35px;color:#c43b3b">${
+              escapeHtml(error && error.message ? error.message : String(error))
+            }</div>`;
+        })
+        .getStepDayData(selectedStepDate);
+    }
+
+
+    function updateStepDayControls() {
+      if (!dashboardData || !selectedStepDate) return;
+
+      const today = dashboardData.fitbit.stepsDate;
+      document.getElementById('step-day-next').disabled =
+        selectedStepDate >= today;
+      document.getElementById('step-day-today').disabled =
+        selectedStepDate === today;
+    }
+
+
+    function renderStepDaySummary(data) {
+      const start = new Date(data.start);
+      const end = new Date(data.end);
+      const period = document.getElementById('step-day-period');
+      const summary = document.getElementById('step-day-summary');
+
+      period.textContent =
+        `${start.toLocaleDateString('en-US', {
+          weekday: 'long',
+          month: 'long',
+          day: 'numeric',
+          year: 'numeric'
+        })} · cumulative ${data.windowMinutes}-minute intervals` +
+        (data.isToday
+          ? ` through ${end.toLocaleTimeString('en-US', {
+              hour: 'numeric',
+              minute: '2-digit'
+            })}`
+          : '');
+
+      if (!data.hasData) {
+        summary.innerHTML = `
+          <span class="summary-chip">
+            <strong>No step data returned</strong> for this day
+          </span>
+        `;
+        return;
+      }
+
+      const peakLabel = data.peakWindowStart
+        ? new Date(data.peakWindowStart).toLocaleTimeString('en-US', {
+            hour: 'numeric',
+            minute: '2-digit'
+          })
+        : '—';
+
+      summary.innerHTML = `
+        <span class="summary-chip">
+          <strong>${Number(data.totalSteps).toLocaleString()}</strong> total steps
+        </span>
+        <span class="summary-chip">
+          <strong>${Number(data.peakIntervalSteps).toLocaleString()}</strong>
+          best ${data.windowMinutes}-minute interval
+        </span>
+        <span class="summary-chip">
+          Peak interval started <strong>${escapeHtml(peakLabel)}</strong>
+        </span>
+      `;
+    }
+
+
+    function drawStepDayChart() {
+      const chartBox = document.getElementById('step-day-chart');
+
+      if (
+        !stepDayData ||
+        !stepDayData.hasData ||
+        !stepDayData.points ||
+        !stepDayData.points.length
+      ) {
+        chartBox.innerHTML =
+          '<div style="padding:40px;color:#6d778c">No step data was returned for this day.</div>';
+        return;
+      }
+
+      const table = new google.visualization.DataTable();
+      table.addColumn('datetime', 'Time');
+      table.addColumn('number', 'Cumulative steps');
+
+      table.addRows(
+        stepDayData.points.map(point => [
+          new Date(point.time),
+          Number(point.cumulative)
+        ])
+      );
+
+      const total = Math.max(100, Number(stepDayData.totalSteps) || 0);
+
+      const options = {
+        backgroundColor: 'transparent',
+        chartArea: {
+          left: 66,
+          top: 20,
+          width: '88%',
+          height: '76%'
+        },
+        colors: ['#1769e0'],
+        fontName: 'Arial',
+        areaOpacity: .12,
+        legend: { position: 'none' },
+        hAxis: {
+          format: 'h a',
+          viewWindow: {
+            min: new Date(stepDayData.start),
+            max: new Date(stepDayData.end)
+          },
+          gridlines: { color: '#eef1f6' },
+          textStyle: { color: '#697386', fontSize: 11 }
+        },
+        vAxis: {
+          title: 'Cumulative steps',
+          viewWindow: {
+            min: 0,
+            max: Math.ceil(total * 1.08)
+          },
+          format: 'short',
+          gridlines: { color: '#e7ebf2' },
+          minorGridlines: { color: '#f5f6f9' },
+          textStyle: { color: '#697386' },
+          titleTextStyle: { color: '#697386' }
+        },
+        lineWidth: 3,
+        pointSize: 0,
+        tooltip: { trigger: 'both' }
+      };
+
+      const chart = new google.visualization.SteppedAreaChart(chartBox);
+      chart.draw(table, options);
+    }
+
+
+    function loadStepHistory() {
+      const chart = document.getElementById('step-history-chart');
+      chart.innerHTML = '<div style="padding:40px;color:#6d778c">Loading step totals…</div>';
+
+      google.script.run
+        .withSuccessHandler(data => {
+          stepHistoryData = data;
+          document.getElementById('step-history-period').textContent =
+            `${data.description} · current period is partial`;
+          drawStepHistoryChart();
+        })
+        .withFailureHandler(error => {
+          chart.innerHTML =
+            `<div style="padding:35px;color:#c43b3b">${
+              escapeHtml(error && error.message ? error.message : String(error))
+            }</div>`;
+        })
+        .getStepHistoryData(selectedStepHistoryRange);
+    }
+</script>

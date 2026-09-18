@@ -1,0 +1,156 @@
+<script>
+
+
+    function drawHeartRateChart() {
+      if (!heartRateData || !heartRateData.points || !heartRateData.points.length) {
+        document.getElementById('heart-rate-chart').innerHTML =
+          '<div style="padding:40px;color:#6d778c">No heart-rate samples were returned for this range.</div>';
+        return;
+      }
+
+      const table = new google.visualization.DataTable();
+      table.addColumn('datetime', 'Time');
+      table.addColumn('number', 'Below zone');
+      table.addColumn('number', 'Light');
+      table.addColumn('number', 'Moderate');
+      table.addColumn('number', 'Vigorous');
+      table.addColumn('number', 'Peak');
+
+      const zones = heartRateData.zones || {};
+      const rows = heartRateData.points.map(point => {
+        const value = Number(point.value);
+        const zone = heartZoneIndex(value, zones);
+        const values = [null, null, null, null, null];
+        values[zone] = value;
+
+        return [
+          new Date(point.time),
+          values[0],
+          values[1],
+          values[2],
+          values[3],
+          values[4]
+        ];
+      });
+
+      /*
+       * Add the previous point to the new series when a zone changes.
+       * This keeps the colored line visually connected instead of
+       * leaving tiny gaps at every threshold crossing.
+       */
+      for (let index = 1; index < rows.length; index += 1) {
+        const previous = rows[index - 1];
+        const current = rows[index];
+
+        const previousSeries = previous.slice(1).findIndex(value => value !== null);
+        const currentSeries = current.slice(1).findIndex(value => value !== null);
+
+        if (previousSeries !== currentSeries && currentSeries >= 0) {
+          previous[currentSeries + 1] = previous[previousSeries + 1];
+        }
+      }
+
+      table.addRows(rows);
+
+      const values = heartRateData.points.map(point => Number(point.value));
+      const minimum = Math.max(35, Math.floor(Math.min(...values) - 8));
+      const maximum = Math.ceil(Math.max(...values) + 10);
+
+      const range = selectedHeartRange;
+      const options = {
+        backgroundColor: 'transparent',
+        chartArea: {
+          left: 62,
+          top: 22,
+          width: '89%',
+          height: '74%'
+        },
+        colors: ['#4f7cac', '#2a9d8f', '#e9c46a', '#f4a261', '#d1495b'],
+        fontName: 'Arial',
+        interpolateNulls: false,
+        legend: {
+          position: 'bottom',
+          textStyle: { color: '#5f6980', fontSize: 11 }
+        },
+        hAxis: {
+          format:
+            range === '24h' ? 'h:mm a' :
+            range === '7d' ? 'EEE h a' :
+            range === '30d' ? 'MMM d' :
+            range === '3m' || range === '6m' ? 'MMM d' :
+            'MMM yyyy',
+          gridlines: { color: '#eef1f6' },
+          textStyle: { color: '#697386', fontSize: 11 }
+        },
+        vAxis: {
+          title: 'Heart rate (bpm)',
+          viewWindow: { min: minimum, max: maximum },
+          gridlines: { color: '#e7ebf2' },
+          minorGridlines: { color: '#f5f6f9' },
+          textStyle: { color: '#697386' },
+          titleTextStyle: { color: '#697386' }
+        },
+        series: {
+          0: { lineWidth: 2, pointSize: range === '24h' ? 1 : 0 },
+          1: { lineWidth: 3, pointSize: range === '24h' ? 1 : 0 },
+          2: { lineWidth: 3, pointSize: range === '24h' ? 1 : 0 },
+          3: { lineWidth: 3, pointSize: range === '24h' ? 1 : 0 },
+          4: { lineWidth: 3, pointSize: range === '24h' ? 1 : 0 }
+        },
+        focusTarget: 'category',
+        tooltip: { trigger: 'both', isHtml: false },
+        explorer: {
+          actions: ['dragToZoom', 'rightClickToReset'],
+          axis: 'horizontal',
+          keepInBounds: true,
+          maxZoomIn: .005
+        }
+      };
+
+      const chart = new google.visualization.LineChart(
+        document.getElementById('heart-rate-chart')
+      );
+
+      chart.draw(table, options);
+    }
+
+
+    function heartZoneIndex(value, zones) {
+      if (zones.peakMin !== null && value >= zones.peakMin) return 4;
+      if (zones.vigorousMin !== null && value >= zones.vigorousMin) return 3;
+      if (zones.moderateMin !== null && value >= zones.moderateMin) return 2;
+      if (zones.lightMin !== null && value >= zones.lightMin) return 1;
+      return 0;
+    }
+
+
+    function renderWhatChanged(items) {
+      const box = document.getElementById('what-changed');
+      box.innerHTML = '';
+
+      if (!items.length) {
+        box.innerHTML =
+          '<div class="change-detail">Not enough history yet to compare two complete weeks.</div>';
+        return;
+      }
+
+      items.forEach(item => {
+        const element = document.createElement('div');
+        const directionClass =
+          item.sentiment === 'good' ? 'good' :
+          item.sentiment === 'bad' ? 'bad' : '';
+
+        element.className = 'change-item';
+        element.innerHTML = `
+          <div class="change-name">${escapeHtml(item.name)}</div>
+          <div class="change-value ${directionClass}">
+            ${escapeHtml(item.displayChange)}
+          </div>
+          <div class="change-detail">
+            ${escapeHtml(item.currentLabel)} vs ${escapeHtml(item.previousLabel)}
+          </div>
+        `;
+        box.appendChild(element);
+      });
+    }
+</script>

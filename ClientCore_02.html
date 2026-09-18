@@ -1,0 +1,268 @@
+<script>
+
+
+    function renderDashboard(data) {
+      dashboardData = data;
+      renderFitbit(data.fitbit);
+      renderWhatChanged(data.changes || []);
+      selectedWorkoutMonth = data.workoutCalendar && data.workoutCalendar.monthKey
+        ? data.workoutCalendar.monthKey
+        : data.fitbit.stepsDate.slice(0, 7);
+      workoutCalendarRecords = data.workoutCalendar && data.workoutCalendar.workouts
+        ? data.workoutCalendar.workouts
+        : [];
+      renderWorkoutCalendar(workoutCalendarRecords);
+
+      const summary = data.weight.summary;
+
+      setText(
+        'current-weight',
+        `${summary.latestWeight.toFixed(1)} lb`
+      );
+
+      setText(
+        'current-date',
+        `Recorded ${formatDate(summary.latestDate)}`
+      );
+
+      setText(
+        'total-loss',
+        `${summary.totalLoss.toFixed(1)} lb`
+      );
+
+      setText(
+        'starting-weight',
+        `From ${summary.startingWeight.toFixed(1)} lb`
+      );
+
+      setText(
+        'average-seven',
+        `${summary.average7.toFixed(1)} lb`
+      );
+
+      const change30Element =
+        document.getElementById('change-thirty');
+
+      change30Element.textContent =
+        `${formatSigned(summary.change30)} lb`;
+
+      change30Element.classList.remove('good', 'bad');
+
+      if (summary.change30 < 0) {
+        change30Element.classList.add('good');
+      } else if (summary.change30 > 0) {
+        change30Element.classList.add('bad');
+      }
+
+      setText(
+        'lowest-weight',
+        `Low: ${summary.lowestWeight.toFixed(1)} lb on ` +
+        formatDate(summary.lowestDate)
+      );
+
+      setText(
+        'source',
+        `${summary.measurements} measurements over ` +
+        `${summary.daysTracked} days · ` +
+        `Live from ${data.weight.sourceName}`
+      );
+
+      renderMedicationTimeline(
+        data.weight.medicationChanges
+      );
+
+
+      document.getElementById('loading').hidden = true;
+      document.getElementById('dashboard').hidden = false;
+
+      selectedStepDate = data.fitbit.stepsDate;
+      const stepDateInput = document.getElementById('step-day-date');
+      stepDateInput.value = selectedStepDate;
+      stepDateInput.max = selectedStepDate;
+
+      drawWeightChart();
+      loadStepDay();
+      loadStepHistory();
+      loadHeartRate();
+      loadPersonalRanges();
+      loadRunningTrends();
+      loadTrainingLoad();
+
+      const workouts = workoutCalendarRecords;
+      if (workouts.length) {
+        selectedWorkoutDate = workouts[workouts.length - 1].date;
+        loadWorkoutDayDetails(selectedWorkoutDate);
+      } else {
+        renderWorkoutDetailEmpty('No workouts were found in this month. Use the arrows to browse earlier months.');
+      }
+    }
+
+
+    function drawWeightChart() {
+      const allPoints = dashboardData.weight.points;
+
+      if (!allPoints.length) {
+        return;
+      }
+
+      const latestDate =
+        parseSheetDate(allPoints[allPoints.length - 1].date);
+
+      let visiblePoints = allPoints;
+
+      if (selectedRangeDays > 0) {
+        const cutoff = new Date(latestDate);
+        cutoff.setDate(
+          cutoff.getDate() - selectedRangeDays
+        );
+
+        visiblePoints = allPoints.filter(point =>
+          parseSheetDate(point.date) >= cutoff
+        );
+      }
+
+      const table =
+        new google.visualization.DataTable();
+
+      table.addColumn('date', 'Date');
+      table.addColumn('number', 'Weight');
+
+      table.addColumn({
+        type: 'string',
+        role: 'annotation'
+      });
+
+      table.addColumn({
+        type: 'string',
+        role: 'annotationText'
+      });
+
+      table.addColumn('number', '7-day average');
+
+      table.addRows(
+        visiblePoints.map(point => [
+          parseSheetDate(point.date),
+          point.weight,
+          point.medication || null,
+          point.medication || null,
+          point.average7
+        ])
+      );
+
+      const weights = visiblePoints.flatMap(point => [
+        point.weight,
+        point.average7
+      ]);
+
+      const minimum =
+        Math.floor(Math.min(...weights) - 2);
+
+      const maximum =
+        Math.ceil(Math.max(...weights) + 2);
+
+      const options = {
+        backgroundColor: 'transparent',
+
+        chartArea: {
+          left: 62,
+          top: 35,
+          width: '88%',
+          height: '72%'
+        },
+
+        colors: [
+          '#1769e0',
+          '#e07a35'
+        ],
+
+        fontName: 'Arial',
+
+        legend: {
+          position: 'bottom',
+          textStyle: {
+            color: '#5f6980'
+          }
+        },
+
+        hAxis: {
+          format: selectedRangeDays <= 90
+            ? 'MMM d'
+            : 'MMM yyyy',
+
+          gridlines: {
+            color: '#eef1f6'
+          },
+
+          textStyle: {
+            color: '#697386',
+            fontSize: 11
+          }
+        },
+
+        vAxis: {
+          title: 'Weight (lb)',
+
+          viewWindow: {
+            min: minimum,
+            max: maximum
+          },
+
+          gridlines: {
+            color: '#e7ebf2'
+          },
+
+          minorGridlines: {
+            color: '#f5f6f9'
+          },
+
+          textStyle: {
+            color: '#697386'
+          },
+
+          titleTextStyle: {
+            color: '#697386'
+          }
+        },
+
+        series: {
+          0: {
+            lineWidth: 2,
+            pointSize: selectedRangeDays <= 90 ? 3 : 1
+          },
+
+          1: {
+            lineWidth: 4,
+            pointSize: 0
+          }
+        },
+
+        annotations: {
+          style: 'line',
+
+          textStyle: {
+            fontSize: 10,
+            bold: true,
+            color: '#0b4ca3'
+          }
+        },
+
+        tooltip: {
+          trigger: 'both'
+        },
+
+        explorer: {
+          actions: ['dragToZoom', 'rightClickToReset'],
+          axis: 'horizontal',
+          keepInBounds: true,
+          maxZoomIn: .01
+        }
+      };
+
+      const chart =
+        new google.visualization.LineChart(
+          document.getElementById('weight-chart')
+        );
+
+      chart.draw(table, options);
+    }
+</script>

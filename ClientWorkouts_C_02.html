@@ -1,0 +1,177 @@
+<script>
+
+
+    function buildPaceAxisTicks(minimum, maximum) {
+      const span = maximum - minimum;
+      let step = 60;
+      if (span > 900) step = 180;
+      else if (span > 480) step = 120;
+
+      const start = Math.floor(minimum / step) * step;
+      const ticks = [];
+
+      for (let value = start; value <= maximum + step; value += step) {
+        if (value < minimum - step) continue;
+        ticks.push({
+          v: value,
+          f: formatPace(value).replace(' /mi', '')
+        });
+      }
+
+      return ticks;
+    }
+
+function drawWorkoutStepChart(workout) {
+      const target = document.getElementById('workout-step-chart');
+      const points = workout && workout.stepSeries ? workout.stepSeries : [];
+
+      if (!points.length) {
+        target.innerHTML = '<div style="padding:40px;color:#6d778c">No step rollup trace was returned for this workout.</div>';
+        return;
+      }
+
+      const table = new google.visualization.DataTable();
+      table.addColumn('datetime', 'Time');
+      table.addColumn('number', 'Steps/min');
+      table.addColumn('number', 'Cumulative');
+
+      table.addRows(points.map(point => [
+        new Date(point.time),
+        Number(point.intervalSteps || 0),
+        Number(point.cumulativeSteps || 0)
+      ]));
+
+      const chart = new google.visualization.ComboChart(target);
+      chart.draw(table, {
+        backgroundColor: 'transparent',
+        chartArea: { left: 62, top: 18, width: '86%', height: '74%' },
+        colors: ['#8fb2ea', '#1769e0'],
+        fontName: 'Arial',
+        legend: { position: 'bottom', textStyle: { color: '#5f6980', fontSize: 11 } },
+        seriesType: 'bars',
+        series: {
+          0: { type: 'bars', targetAxisIndex: 0 },
+          1: { type: 'line', targetAxisIndex: 1, lineWidth: 3, pointSize: 0 }
+        },
+        hAxis: {
+          format: 'h:mm a',
+          gridlines: { color: '#eef1f6' },
+          textStyle: { color: '#697386', fontSize: 11 }
+        },
+        vAxes: {
+          0: {
+            title: 'Steps / min',
+            minValue: 0,
+            gridlines: { color: '#e7ebf2' },
+            minorGridlines: { color: '#f5f6f9' },
+            textStyle: { color: '#697386' },
+            titleTextStyle: { color: '#697386' }
+          },
+          1: {
+            title: 'Cumulative steps',
+            minValue: 0,
+            gridlines: { color: 'transparent' },
+            textStyle: { color: '#697386' },
+            titleTextStyle: { color: '#697386' }
+          }
+        },
+        tooltip: { trigger: 'both' }
+      });
+    }
+
+
+    function choosePrimaryWorkout_(workouts) {
+      return workouts
+        .slice()
+        .sort((a, b) => Number(b.activeSeconds || 0) - Number(a.activeSeconds || 0))[0];
+    }
+
+
+    function workoutTypeClass_(type) {
+      const value = String(type || '').toUpperCase();
+
+      if (value.includes('RUN')) return 'run';
+      if (value.includes('WALK') || value.includes('HIK')) return 'walk';
+      if (value.includes('BIK') || value.includes('CYCL')) return 'bike';
+      return 'other';
+    }
+
+
+    function workoutTypeLabel_(type) {
+      const value = String(type || '')
+        .replaceAll('_', ' ')
+        .replace('EXERCISE TYPE ', '')
+        .trim();
+      return value ? value : 'Workout';
+    }
+
+
+    function workoutShortName_(type) {
+      const value = String(type || '').replaceAll('_', ' ').trim().toUpperCase();
+      if (value.includes('RUN')) return 'RUN';
+      if (value.includes('WALK')) return 'WALK';
+      if (value.includes('HIK')) return 'HIKE';
+      if (value.includes('BIK') || value.includes('CYCL')) return 'BIKE';
+      return value.replace('EXERCISE TYPE ', '').split(' ').slice(0, 2).join(' ').substring(0, 10);
+    }
+
+
+    function workoutTooltip_(workout) {
+      const lines = [];
+      lines.push(workout.displayName || workoutShortName_(workout.type));
+      if (workout.activeSeconds) lines.push(`Duration: ${formatWorkoutDurationDetailed_(workout.activeSeconds)}`);
+      if (workout.distanceMiles !== null && workout.distanceMiles !== undefined) lines.push(`Distance: ${Number(workout.distanceMiles).toFixed(2)} mi`);
+      if (workout.calories !== null && workout.calories !== undefined) lines.push(`Calories: ${Math.round(workout.calories).toLocaleString()}`);
+      if (workout.averageHeartRate !== null && workout.averageHeartRate !== undefined) lines.push(`Avg HR: ${Math.round(workout.averageHeartRate)} bpm`);
+      if (workout.steps !== null && workout.steps !== undefined) lines.push(`Steps: ${Math.round(workout.steps).toLocaleString()}`);
+      return lines.join('\n');
+    }
+
+
+    function workoutZoneIndex(zoneKey) {
+      if (zoneKey === 'light') return 1;
+      if (zoneKey === 'moderate') return 2;
+      if (zoneKey === 'vigorous') return 3;
+      if (zoneKey === 'peak') return 4;
+      return 0;
+    }
+
+
+    function formatWorkoutDuration_(seconds) {
+      const minutes = Math.round(Number(seconds || 0) / 60);
+      if (minutes < 60) return `${minutes}m`;
+      const hours = Math.floor(minutes / 60);
+      const remainder = minutes % 60;
+      return remainder ? `${hours}h ${remainder}m` : `${hours}h`;
+    }
+
+
+    function formatWorkoutDurationDetailed_(seconds) {
+      if (seconds === null || seconds === undefined) return '—';
+      const total = Math.round(Number(seconds));
+      const hours = Math.floor(total / 3600);
+      const minutes = Math.floor((total % 3600) / 60);
+      const remainder = total % 60;
+      if (hours) return `${hours}h ${minutes}m ${String(remainder).padStart(2, '0')}s`;
+      return `${minutes}m ${String(remainder).padStart(2, '0')}s`;
+    }
+
+
+    function formatClock(value) {
+      if (!value) return '—';
+      const date = value instanceof Date ? value : new Date(value);
+      return date.toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit'
+      });
+    }
+
+
+    function formatPace(secondsPerMile) {
+      if (secondsPerMile === null || secondsPerMile === undefined) return '—';
+      const total = Math.round(Number(secondsPerMile));
+      const minutes = Math.floor(total / 60);
+      const seconds = total % 60;
+      return `${minutes}:${String(seconds).padStart(2, '0')} /mi`;
+    }
+</script>
