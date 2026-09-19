@@ -1,6 +1,16 @@
-# Only push the Apps Script source files at the repository root.
-# Keep GitHub Pages, workflows, Node build scripts, and other repo files out of GAS.
+# Ignore everything by default.
 **/**
-!/*.gs
-!/*.html
-!/appsscript.json
+
+# Allow Apps Script source files and manifest anywhere under rootDir.
+!**/appsscript.json
+!**/*.gs
+!**/*.html
+
+# Never push repo/dependency metadata.
+.git/**
+.github/**
+node_modules/**
+docs/**
+scripts/**
+README.md
+CLASP_SETUP.md
