@@ -63,51 +63,75 @@ function buildWorkoutDetail_(workout, zones) {
    */
   let paceSeries = [];
   let paceSeriesSmoothed = [];
+  let paceSeriesSmoothed10 = [];
+  let paceSeriesSmoothed30 = [];
   let paceSeriesSource = 'distance-rollup';
   let paceRawLabel = '1-min pace';
   let paceSmoothedLabel = '3-min pace';
   let paceDiagnostics = {
     source: 'distance-rollup',
+    tcxAttempted: false,
+    tcxError: null,
     trackpointCount: null,
+    usablePaceIntervals: null,
     medianSeconds: 60,
     p25Seconds: 60,
     p75Seconds: 60,
+    minSeconds: 60,
+    maxSeconds: 60,
     smoothingSeconds: 180
   };
 
   if (workout.hasGps && workout.resourceName) {
+    paceDiagnostics.tcxAttempted = true;
     try {
       const tcxRoute = getWorkoutRouteData(workout.resourceName);
       const tcxPoints = tcxRoute && tcxRoute.points ? tcxRoute.points : [];
-      paceSeries = buildTcxPaceSeries_(tcxPoints);
+      const cadence = summarizeTcxCadence_(tcxPoints);
+      const tcxPace = buildTcxPaceSeries_(tcxPoints);
 
-      if (paceSeries.length) {
+      if (tcxPace.length) {
+        paceSeries = tcxPace;
+        paceSeriesSmoothed10 = smoothWorkoutPaceSeriesByTime_(tcxPace, 10);
+        paceSeriesSmoothed30 = smoothWorkoutPaceSeriesByTime_(tcxPace, 30);
+        paceSeriesSmoothed = paceSeriesSmoothed10;
         paceSeriesSource = 'tcx';
-        paceRawLabel = 'Trackpoint pace';
-        paceSmoothedLabel = '30-sec pace';
-        paceSeriesSmoothed = smoothWorkoutPaceSeriesByTime_(paceSeries, 30);
-
-        const cadence = summarizeTcxCadence_(tcxPoints);
+        paceRawLabel = '1-sec raw';
+        paceSmoothedLabel = '10-sec responsive';
         paceDiagnostics = Object.assign({}, cadence, {
           source: 'tcx',
-          usablePaceIntervals: paceSeries.length,
-          smoothingSeconds: 30
+          tcxAttempted: true,
+          tcxError: null,
+          usablePaceIntervals: tcxPace.length,
+          smoothingSeconds: 10,
+          smoothingOptionsSeconds: [10, 30]
+        });
+      } else {
+        paceDiagnostics = Object.assign({}, paceDiagnostics, cadence, {
+          tcxError: `TCX returned ${cadence.trackpointCount || 0} trackpoints but no usable distance intervals.`
         });
       }
     } catch (error) {
-      console.warn(`TCX pace unavailable for ${workout.resourceName}: ${error.message}`);
+      paceDiagnostics.tcxError = error && error.message ? error.message : String(error);
+      console.warn(`TCX pace unavailable for ${workout.resourceName}: ${paceDiagnostics.tcxError}`);
     }
   }
 
   if (!paceSeries.length) {
     paceSeries = buildWorkoutPaceSeries_(start, end, distanceRollups);
     paceSeriesSmoothed = smoothWorkoutPaceSeries_(paceSeries, 3);
+    paceSeriesSmoothed10 = [];
+    paceSeriesSmoothed30 = [];
+    paceDiagnostics.usablePaceIntervals = paceSeries.length;
   }
   const intervalBreakdown = buildWorkoutIntervalBreakdown_(
     start, end, heartRateSeries, stepSeries, paceSeries, zones, 300
   );
   const runWalkIntervals = detectRunWalkIntervals_(
-    workout, start, end, heartRateSeries, stepSeries, paceSeries
+    workout, start, end, heartRateSeries, stepSeries,
+    paceSeriesSource === 'tcx' && paceSeriesSmoothed10.length
+      ? paceSeriesSmoothed10
+      : paceSeries
   );
   const aerobicDecoupling = calculateAerobicDecoupling_(
     start, end, heartRateSeries, paceSeries
@@ -131,6 +155,8 @@ function buildWorkoutDetail_(workout, zones) {
     stepSeries: stepSeries,
     paceSeries: paceSeries,
     paceSeriesSmoothed: paceSeriesSmoothed,
+    paceSeriesSmoothed10: paceSeriesSmoothed10,
+    paceSeriesSmoothed30: paceSeriesSmoothed30,
     paceSeriesSource: paceSeriesSource,
     paceRawLabel: paceRawLabel,
     paceSmoothedLabel: paceSmoothedLabel,
