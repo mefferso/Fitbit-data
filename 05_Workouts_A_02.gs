@@ -66,17 +66,33 @@ function buildWorkoutDetail_(workout, zones) {
   let paceSeriesSource = 'distance-rollup';
   let paceRawLabel = '1-min pace';
   let paceSmoothedLabel = '3-min pace';
+  let paceDiagnostics = {
+    source: 'distance-rollup',
+    trackpointCount: null,
+    medianSeconds: 60,
+    p25Seconds: 60,
+    p75Seconds: 60,
+    smoothingSeconds: 180
+  };
 
   if (workout.hasGps && workout.resourceName) {
     try {
       const tcxRoute = getWorkoutRouteData(workout.resourceName);
-      paceSeries = buildTcxPaceSeries_(tcxRoute && tcxRoute.points ? tcxRoute.points : []);
+      const tcxPoints = tcxRoute && tcxRoute.points ? tcxRoute.points : [];
+      paceSeries = buildTcxPaceSeries_(tcxPoints);
 
       if (paceSeries.length) {
         paceSeriesSource = 'tcx';
         paceRawLabel = 'Trackpoint pace';
         paceSmoothedLabel = '30-sec pace';
         paceSeriesSmoothed = smoothWorkoutPaceSeriesByTime_(paceSeries, 30);
+
+        const cadence = summarizeTcxCadence_(tcxPoints);
+        paceDiagnostics = Object.assign({}, cadence, {
+          source: 'tcx',
+          usablePaceIntervals: paceSeries.length,
+          smoothingSeconds: 30
+        });
       }
     } catch (error) {
       console.warn(`TCX pace unavailable for ${workout.resourceName}: ${error.message}`);
@@ -118,6 +134,7 @@ function buildWorkoutDetail_(workout, zones) {
     paceSeriesSource: paceSeriesSource,
     paceRawLabel: paceRawLabel,
     paceSmoothedLabel: paceSmoothedLabel,
+    paceDiagnostics: paceDiagnostics,
     zoneSummary: zoneSummary,
     intervalBreakdown: intervalBreakdown,
     runWalkIntervals: runWalkIntervals,
