@@ -19,7 +19,10 @@ function drawWorkoutHeartChart(workout) {
       table.addColumn('number', 'Moderate');
       table.addColumn('number', 'Vigorous');
       table.addColumn('number', 'Peak');
-      if (showPace) table.addColumn('number', workoutPaceMode === 'smooth' ? '3-min pace' : '1-min pace');
+      const paceLabel = workoutPaceMode === 'smooth'
+        ? (workout.paceSmoothedLabel || 'Smoothed pace')
+        : (workout.paceRawLabel || 'Pace');
+      if (showPace) table.addColumn('number', paceLabel);
 
       const rows = points.map(point => {
         const value = Number(point.value);
@@ -83,7 +86,7 @@ function drawWorkoutHeartChart(workout) {
         };
         colors.push('#6f42c1');
         vAxes[1] = {
-          title: workoutPaceMode === 'smooth' ? '3-min pace (min/mi)' : '1-min pace (min/mi)',
+          title: `${paceLabel} (min/mi)`,
           direction: -1,
           viewWindow: { min: paceMin, max: paceMax },
           ticks: buildPaceAxisTicks(paceMin, paceMax),
