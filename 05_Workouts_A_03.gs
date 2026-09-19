@@ -199,3 +199,45 @@ function smoothWorkoutPaceSeriesByTime_(paceSeries, windowSeconds) {
     });
   });
 }
+
+
+/*
+ * Summarize the actual TCX sampling cadence so we can see what Fitbit is
+ * really returning for each GPS workout instead of guessing.
+ */
+function summarizeTcxCadence_(trackpoints) {
+  const times = (trackpoints || [])
+    .map(point => point && point.time ? new Date(point.time).getTime() : NaN)
+    .filter(Number.isFinite)
+    .sort((a, b) => a - b);
+
+  const gaps = [];
+  for (let index = 1; index < times.length; index += 1) {
+    const seconds = (times[index] - times[index - 1]) / 1000;
+    if (Number.isFinite(seconds) && seconds > 0 && seconds <= 120) {
+      gaps.push(seconds);
+    }
+  }
+
+  gaps.sort((a, b) => a - b);
+
+  function percentile_(values, percentile) {
+    if (!values.length) return null;
+    const position = (values.length - 1) * percentile;
+    const lower = Math.floor(position);
+    const upper = Math.ceil(position);
+    if (lower === upper) return values[lower];
+    const weight = position - lower;
+    return values[lower] * (1 - weight) + values[upper] * weight;
+  }
+
+  return {
+    trackpointCount: times.length,
+    intervalCount: gaps.length,
+    medianSeconds: gaps.length ? roundTo_(percentile_(gaps, 0.50), 1) : null,
+    p25Seconds: gaps.length ? roundTo_(percentile_(gaps, 0.25), 1) : null,
+    p75Seconds: gaps.length ? roundTo_(percentile_(gaps, 0.75), 1) : null,
+    minSeconds: gaps.length ? roundTo_(gaps[0], 1) : null,
+    maxSeconds: gaps.length ? roundTo_(gaps[gaps.length - 1], 1) : null
+  };
+}
