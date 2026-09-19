@@ -13,12 +13,12 @@
 h1{font-size:34px;margin:7px 0 5px}h2{font-size:20px;margin:0}.sub{color:#637087;line-height:1.5}.status{font-size:12px;color:#748198;margin-top:9px}
 .grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:13px;margin-top:18px}.metric{padding:17px}.label{font-size:11px;font-weight:850;color:#6a7890;text-transform:uppercase}.value{font-size:27px;font-weight:850;margin-top:7px}.detail{font-size:12px;color:#748198;margin-top:4px;line-height:1.35}
 .section{padding:22px;margin-top:16px}.two{display:grid;grid-template-columns:1.35fr .65fr;gap:16px}.chart{height:330px;margin-top:14px}.chart.small{height:250px}
-.table-wrap{overflow:auto;margin-top:13px;border:1px solid #dfe6f0;border-radius:12px}table{width:100%;border-collapse:separate;border-spacing:0;font-size:13px}th,td{text-align:left;padding:10px 9px;border-bottom:1px solid #dfe6f0;border-right:1px solid #edf1f6;white-space:nowrap}th:last-child,td:last-child{border-right:0}th{font-size:11px;text-transform:uppercase;color:#5f6f87;background:#f3f6fa;font-weight:850}tbody tr:nth-child(even){background:#f8fafc}tbody tr:last-child td{border-bottom:0}tr.clickable{cursor:pointer}tr.clickable:hover{background:#eef4fb}tbody td:first-child{font-weight:700;color:#183153}
+.table-wrap{overflow:auto;margin-top:13px;border:1px solid #dfe6f0;border-radius:12px}table{width:100%;border-collapse:separate;border-spacing:0;font-size:13px}th,td{text-align:left;padding:10px 9px;border-bottom:1px solid #dfe6f0;border-right:1px solid #edf1f6;white-space:nowrap}th:last-child,td:last-child{border-right:0}th{font-size:11px;text-transform:uppercase;color:#5f6f87;background:#f3f6fa;font-weight:850}tbody tr:nth-child(even){background:#f8fafc}tbody tr:last-child td{border-bottom:0}tr.clickable{cursor:pointer}tr.clickable:hover{background:#eef4fb}tr.clickable.selected-run{background:#dbeafe!important;box-shadow:inset 4px 0 0 #2563eb}tr.clickable.selected-run td{font-weight:700;color:#10203d}tbody td:first-child{font-weight:700;color:#183153}
 .pills{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.pill{background:#eef3fa;border-radius:999px;padding:7px 10px;font-size:12px;font-weight:750;color:#3d587d}
 .zone-row{display:grid;grid-template-columns:90px 1fr 70px;gap:10px;align-items:center;margin-top:9px;font-size:12px}.track{height:9px;background:#edf1f7;border-radius:99px;overflow:hidden}.fill{height:100%;border-radius:99px}.peak{background:#ff5449}.vigorous{background:#f5b82e}.moderate{background:#45c76b}.light{background:#6eb4ff}.below{background:#aeb9ca}
 .error{padding:20px;color:#b42318;background:#fff0ee;border:1px solid #ffd1cc;border-radius:14px;margin-top:14px}
 .muted{color:#748198}.footer{font-size:12px;color:#7b8798;margin-top:18px;text-align:center}
-.pace-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px}.pace-controls label{font-size:11px;font-weight:850;color:#6a7890;text-transform:uppercase}.pace-controls select{border:1px solid #dce4ef;border-radius:8px;background:#fff;color:#183153;padding:6px 9px;font:inherit;font-size:12px;font-weight:750}
+.pace-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px}.pace-controls label{font-size:11px;font-weight:850;color:#6a7890;text-transform:uppercase}.pace-controls select{border:1px solid #dce4ef;border-radius:8px;background:#fff;color:#183153;padding:6px 9px;font:inherit;font-size:12px;font-weight:750}.stacked-charts{display:grid;gap:8px;margin-top:14px}.stacked-panel{min-width:0}.stacked-panel-title{display:flex;justify-content:space-between;gap:12px;align-items:baseline;font-size:12px;font-weight:850;color:#52627a;margin:0 2px 4px}.stacked-panel-title span:last-child{font-weight:650;color:#7a8799}.stacked-chart{height:205px}.metric-formula{font-size:10px;color:#8995a8;line-height:1.35;margin-top:8px;padding-top:7px;border-top:1px solid #edf1f6}
 @media(max-width:900px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.two{grid-template-columns:1fr}}@media(max-width:540px){.grid{grid-template-columns:1fr}.hero{padding:22px}.section{padding:17px}h1{font-size:28px}}
 </style>
 </head>
@@ -40,15 +40,24 @@ h1{font-size:34px;margin:7px 0 5px}h2{font-size:20px;margin:0}.sub{color:#637087
       <div class="pace-controls">
         <label for="pace-mode">Pace trace</label>
         <select id="pace-mode">
+          <option value="30" selected>30-sec smooth</option>
           <option value="10">10-sec responsive</option>
-          <option value="30">30-sec smooth</option>
           <option value="raw">1-sec raw</option>
         </select>
         <span id="pace-source" class="status"></span>
       </div>
       <div class="two">
         <div>
-          <div class="chart"><canvas id="hrPaceChart"></canvas></div>
+          <div class="stacked-charts">
+            <div class="stacked-panel">
+              <div class="stacked-panel-title"><span>Heart rate</span><span id="hr-panel-summary"></span></div>
+              <div class="stacked-chart"><canvas id="hrChart"></canvas></div>
+            </div>
+            <div class="stacked-panel">
+              <div class="stacked-panel-title"><span>Pace</span><span id="pace-panel-summary"></span></div>
+              <div class="stacked-chart"><canvas id="paceChart"></canvas></div>
+            </div>
+          </div>
         </div>
         <div>
           <h2 style="font-size:16px">Heart-rate zones</h2>
@@ -60,8 +69,8 @@ h1{font-size:34px;margin:7px 0 5px}h2{font-size:20px;margin:0}.sub{color:#637087
 
     <section class="two">
       <div class="card section">
-        <h2>Weather-adjusted running efficiency</h2>
-        <div class="sub" id="efficiency-sub">Normalized score: 100 = your early-run baseline. Higher is better.</div>
+        <h2>Adjusted Performance Index</h2>
+        <div class="sub" id="efficiency-sub">100 = your early-run baseline. Higher is better.</div>
         <div class="chart small"><canvas id="efficiencyChart"></canvas></div>
       </div>
       <div class="card section">
@@ -76,7 +85,7 @@ h1{font-size:34px;margin:7px 0 5px}h2{font-size:20px;margin:0}.sub{color:#637087
       <div class="sub">Click a row to load its detailed HR/pace trace when available.</div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Date</th><th>Distance</th><th>Duration</th><th>Pace</th><th>Avg HR</th><th>Heat Index</th><th>Dewpoint</th><th>Solar</th><th>WX Eff</th><th>Cardio drift</th><th>HRR1</th><th>Load</th></tr></thead>
+          <thead><tr><th>Date</th><th>Distance</th><th>Duration</th><th>Pace</th><th>Avg HR</th><th>Heat Index</th><th>Dewpoint</th><th>Solar</th><th>Adj. Perf.</th><th>Cardio drift</th><th>HRR1</th><th>Load</th></tr></thead>
           <tbody id="runs-body"></tbody>
         </table>
       </div>
@@ -87,7 +96,7 @@ h1{font-size:34px;margin:7px 0 5px}h2{font-size:20px;margin:0}.sub{color:#637087
 </div>
 
 <script>
-let DATA=null, selectedRun=0, charts={}, selectedPaceMode='10';
+let DATA=null, selectedRun=0, charts={}, selectedPaceMode='30';
 
 function fmtPace(sec){
   if(sec===null||sec===undefined||!isFinite(sec)) return '—';
@@ -180,9 +189,16 @@ function renderRun(index){
     ['Run-time minutes',w.activeSeconds!==null&&w.activeSeconds!==undefined?n(Number(w.activeSeconds)/60,1)+' min':'—','Total run/walk workout time'],
     ['Avg heat index',w.weather?.average?.heatIndexF!==null&&w.weather?.average?.heatIndexF!==undefined?n(w.weather.average.heatIndexF,1)+'°F':'—',w.weather?.average?.dewpointF!==null&&w.weather?.average?.dewpointF!==undefined?'Td '+n(w.weather.average.dewpointF,1)+'°F':'Tempest'],
     ['Solar load',w.weather?.average?.solarRadiationWm2!==null&&w.weather?.average?.solarRadiationWm2!==undefined?n(w.weather.average.solarRadiationWm2,0)+' W/m²':'—',w.weather?.maximum?.solarRadiationWm2!==null&&w.weather?.maximum?.solarRadiationWm2!==undefined?'Max '+n(w.weather.maximum.solarRadiationWm2,0)+' W/m²':'Tempest'],
-    ['WX-adjusted efficiency',w.weatherAdjustedEfficiency?.score!==null&&w.weatherAdjustedEfficiency?.score!==undefined?n(w.weatherAdjustedEfficiency.score,1):'—',w.weatherAdjustedEfficiency?'Raw '+n(w.weatherAdjustedEfficiency.rawEfficiency,5)+' · factor '+n(w.weatherAdjustedEfficiency.weatherFactor,3):(Number(w.activeSeconds)<1800?'Excluded: run under 30 min':'Needs HR + pace + weather')]
+    ['Adjusted Performance Index',
+      w.weatherAdjustedEfficiency?.score!==null&&w.weatherAdjustedEfficiency?.score!==undefined?n(w.weatherAdjustedEfficiency.score,1):'—',
+      w.weatherAdjustedEfficiency?.score!==null&&w.weatherAdjustedEfficiency?.score!==undefined
+        ? (Number(w.weatherAdjustedEfficiency.score)>=100
+            ? n(Number(w.weatherAdjustedEfficiency.score)-100,1)+'% above baseline'
+            : n(100-Number(w.weatherAdjustedEfficiency.score),1)+'% below baseline')
+        : (Number(w.activeSeconds)<1800?'Excluded: run under 30 min':'Needs HR + pace + weather'),
+      'Actual performance → adjusted for cardiovascular effort → adjusted for weather burden']
   ];
-  document.getElementById('metric-grid').innerHTML=metrics.map(x=>'<div class="card metric"><div class="label">'+x[0]+'</div><div class="value">'+x[1]+'</div><div class="detail">'+x[2]+'</div></div>').join('');
+  document.getElementById('metric-grid').innerHTML=metrics.map(x=>'<div class="card metric"><div class="label">'+x[0]+'</div><div class="value">'+x[1]+'</div><div class="detail">'+x[2]+'</div>'+(x[3]?'<div class="metric-formula">'+x[3]+'</div>':'')+'</div>').join('');
 
   const z=w.zoneSummary||[];
   document.getElementById('zones').innerHTML=z.map(x=>'<div class="zone-row"><div>'+x.label+'</div><div class="track"><div class="fill '+x.key+'" style="width:'+Math.min(100,Number(x.percent)||0)+'%"></div></div><div>'+Math.round(Number(x.minutes)||0)+'m · '+Math.round(Number(x.percent)||0)+'%</div></div>').join('');
@@ -192,7 +208,7 @@ function renderRun(index){
 }
 
 function renderHrPace(w){
-  destroy('hr');
+  destroy('hr'); destroy('pace');
   const hr=w.heartRateSeries||[], pace=selectedPaceSeries(w);
   const paceSelect=document.getElementById('pace-mode');
   const paceSource=document.getElementById('pace-source');
@@ -205,55 +221,110 @@ function renderHrPace(w){
   }else{
     paceSource.textContent='60-sec distance rollup fallback';
   }
+
   const labels=[...new Set(hr.map(x=>x.time).concat(pace.map(x=>x.time)))].sort();
   const hrMap=Object.fromEntries(hr.map(x=>[x.time,x.value]));
   const zoneMap=Object.fromEntries(hr.map(x=>[x.time,x.zoneKey||'below']));
   const paceMap=Object.fromEntries(pace.map(x=>[x.time,x.paceSecondsPerMile]));
-  const zoneColors={
-    below:'#9aa8bd',
-    light:'#6eb4ff',
-    moderate:'#45c76b',
-    vigorous:'#f5b82e',
-    peak:'#ff5449'
-  };
+  const zoneColors={below:'#9aa8bd',light:'#6eb4ff',moderate:'#45c76b',vigorous:'#f5b82e',peak:'#ff5449'};
   const hrValues=labels.map(t=>hrMap[t]??null);
   const hrZones=labels.map(t=>zoneMap[t]||null);
 
-  charts.hr=new Chart(document.getElementById('hrPaceChart'),{
-    type:'line',
-    data:{labels,datasets:[
-      {
-        label:'Heart rate',
-        data:hrValues,
-        yAxisID:'y',
-        spanGaps:true,
-        borderWidth:2.5,
-        pointRadius:0,
-        borderColor:zoneColors.moderate,
-        segment:{
-          borderColor:ctx=>{
-            const i=ctx.p1DataIndex;
-            const zone=hrZones[i]||hrZones[ctx.p0DataIndex]||'below';
-            return zoneColors[zone]||zoneColors.below;
-          }
-        }
-      },
-      {
-        label:usingTcx?(selectedPaceMode==='raw'?'1-sec raw pace':selectedPaceMode+'-sec pace'):'1-min pace',
-        data:labels.map(t=>paceMap[t]??null),
-        yAxisID:'pace',
-        spanGaps:true,
-        borderWidth:2,
-        pointRadius:0,
-        borderColor:'#ff6f91'
-      }
-    ]},
-    options:{maintainAspectRatio:false,interaction:{mode:'index',intersect:false},scales:{
-      x:{ticks:{maxTicksLimit:8,callback:(v,i)=>new Date(labels[i]).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})}},
-      y:{title:{display:true,text:'Heart rate (bpm)'}},
-      pace:{position:'right',reverse:true,grid:{drawOnChartArea:false},title:{display:true,text:'Pace (sec/mi)'},ticks:{callback:v=>fmtPace(v).replace('/mi','')}}
-    }}
+  // Keep obviously bad GPS/stop artifacts out of the pace plot while still
+  // auto-scaling tightly to the actual workout.
+  const PACE_FLOOR=6*60, PACE_CEILING=30*60;
+  const plottedPace=labels.map(t=>{
+    const v=Number(paceMap[t]);
+    return Number.isFinite(v)&&v>=PACE_FLOOR&&v<=PACE_CEILING?v:null;
   });
+  const validPace=plottedPace.filter(Number.isFinite);
+  let paceMin=PACE_FLOOR, paceMax=PACE_CEILING;
+  if(validPace.length){
+    const actualMin=Math.min(...validPace), actualMax=Math.max(...validPace);
+    const span=Math.max(1,actualMax-actualMin);
+    const pad=Math.max(20,span*.08);
+    paceMin=Math.max(PACE_FLOOR,Math.floor((actualMin-pad)/10)*10);
+    paceMax=Math.min(PACE_CEILING,Math.ceil((actualMax+pad)/10)*10);
+    if(paceMax-paceMin<120){
+      const mid=(paceMax+paceMin)/2;
+      paceMin=Math.max(PACE_FLOOR,Math.floor((mid-60)/10)*10);
+      paceMax=Math.min(PACE_CEILING,Math.ceil((mid+60)/10)*10);
+    }
+  }
+
+  const avgHr=w.averageHeartRate!==null&&w.averageHeartRate!==undefined?Math.round(w.averageHeartRate)+' bpm':'';
+  const peakHr=w.peakHeartRate!==null&&w.peakHeartRate!==undefined?'Peak '+Math.round(w.peakHeartRate)+' bpm':'';
+  document.getElementById('hr-panel-summary').textContent=[avgHr,peakHr].filter(Boolean).join(' · ');
+  const avgPace=w.averagePaceSecondsPerMile!==null&&w.averagePaceSecondsPerMile!==undefined?'Avg '+fmtPace(w.averagePaceSecondsPerMile):'';
+  document.getElementById('pace-panel-summary').textContent=avgPace;
+
+  const commonX={
+    ticks:{maxTicksLimit:8,callback:(v,i)=>new Date(labels[i]).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})},
+    grid:{color:'rgba(100,116,139,.10)'}
+  };
+
+  charts.hr=new Chart(document.getElementById('hrChart'),{
+    type:'line',
+    data:{labels,datasets:[{
+      label:'Heart rate',data:hrValues,spanGaps:true,borderWidth:2.5,pointRadius:0,borderColor:zoneColors.moderate,
+      segment:{borderColor:ctx=>{
+        const i=ctx.p1DataIndex;
+        const zone=hrZones[i]||hrZones[ctx.p0DataIndex]||'below';
+        return zoneColors[zone]||zoneColors.below;
+      }}
+    }]},
+    options:{
+      maintainAspectRatio:false,
+      animation:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{...commonX,ticks:{...commonX.ticks,display:false}},
+        y:{title:{display:true,text:'Heart rate (bpm)'},grace:'5%'}
+      }
+    }
+  });
+
+  charts.pace=new Chart(document.getElementById('paceChart'),{
+    type:'line',
+    data:{labels,datasets:[{
+      label:usingTcx?(selectedPaceMode==='raw'?'1-sec raw pace':selectedPaceMode+'-sec pace'):'1-min pace',
+      data:plottedPace,spanGaps:true,borderWidth:2,pointRadius:0,borderColor:'#ff6f91'
+    }]},
+    options:{
+      maintainAspectRatio:false,
+      animation:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{legend:{display:false}},
+      scales:{
+        x:commonX,
+        y:{reverse:true,min:paceMin,max:paceMax,title:{display:true,text:'Pace (min/mi)'},ticks:{callback:v=>fmtPace(v).replace('/mi','')}}
+      }
+    }
+  });
+
+  const sync=(source,target,event)=>{
+    const rect=source.canvas.getBoundingClientRect();
+    const x=event.clientX-rect.left;
+    const a=source.chartArea;
+    if(!a||x<a.left||x>a.right){
+      [source,target].forEach(c=>{c.setActiveElements([]);c.tooltip?.setActiveElements([], {x:0,y:0});c.update('none');});
+      return;
+    }
+    const ratio=(x-a.left)/(a.right-a.left);
+    const idx=Math.max(0,Math.min(labels.length-1,Math.round(ratio*(labels.length-1))));
+    [source,target].forEach(c=>{
+      c.setActiveElements([{datasetIndex:0,index:idx}]);
+      if(c.tooltip) c.tooltip.setActiveElements([{datasetIndex:0,index:idx}],{x:c.chartArea.left+ratio*(c.chartArea.right-c.chartArea.left),y:(c.chartArea.top+c.chartArea.bottom)/2});
+      c.update('none');
+    });
+  };
+  const bindSync=(source,target)=>{
+    source.canvas.addEventListener('mousemove',e=>sync(source,target,e));
+    source.canvas.addEventListener('mouseleave',()=>{[source,target].forEach(c=>{c.setActiveElements([]);c.tooltip?.setActiveElements([], {x:0,y:0});c.update('none');});});
+  };
+  bindSync(charts.hr,charts.pace);
+  bindSync(charts.pace,charts.hr);
 }
 
 function renderEfficiency(){
@@ -261,12 +332,12 @@ function renderEfficiency(){
   const sub=document.getElementById('efficiency-sub');
   if(sub){
     sub.textContent=runs.length
-      ? 'Actual performance → adjust for cardiovascular effort → adjust for weather burden → compare to baseline of 100'
+      ? '100 = baseline. Scores show percent above or below baseline after adjustment.'
       : 'Needs pace, average HR, and Tempest weather for qualifying runs.';
   }
   charts.eff=new Chart(document.getElementById('efficiencyChart'),{
     type:'line',
-    data:{labels:runs.map(x=>x.date),datasets:[{label:'Weather-adjusted efficiency',data:runs.map(x=>x.score),borderWidth:2,pointRadius:3}]},
+    data:{labels:runs.map(x=>x.date),datasets:[{label:'Adjusted Performance Index',data:runs.map(x=>x.score),borderWidth:2,pointRadius:3}]},
     options:{
       maintainAspectRatio:false,
       plugins:{
@@ -276,7 +347,7 @@ function renderEfficiency(){
           return r ? ['Weather factor '+n(r.weatherFactor,3),'Heat +'+n(r.heatPenaltyPct,1)+'% · Solar +'+n(r.solarPenaltyPct,1)+'%'] : [];
         }}}
       },
-      scales:{x:{ticks:{maxTicksLimit:7}},y:{title:{display:true,text:'Efficiency score'},suggestedMin:85,suggestedMax:115}}
+      scales:{x:{ticks:{maxTicksLimit:7}},y:{title:{display:true,text:'Performance index'},suggestedMin:85,suggestedMax:115}}
     }
   });
 }
@@ -298,7 +369,13 @@ function renderTable(){
     const wx=w.weather?.average||{};
     return '<tr class="clickable" data-i="'+i+'"><td>'+fmtDate(w.date)+'</td><td>'+n(w.distanceMiles,2)+' mi</td><td>'+fmtDuration(w.activeSeconds)+'</td><td>'+fmtPace(w.averagePaceSecondsPerMile)+'</td><td>'+n(w.averageHeartRate,0)+' bpm</td><td>'+n(wx.heatIndexF,1)+'°F</td><td>'+n(wx.dewpointF,1)+'°F</td><td>'+n(wx.solarRadiationWm2,0)+' W/m²</td><td>'+(w.weatherAdjustedEfficiency?.score!==null&&w.weatherAdjustedEfficiency?.score!==undefined?n(w.weatherAdjustedEfficiency.score,1):'—')+'</td><td>'+(dec!==null&&dec!==undefined?(dec>0?'+':'')+n(dec,1)+'%':'—')+'</td><td>'+(hrr!==null&&hrr!==undefined?n(hrr,0)+' bpm':'—')+'</td><td>'+n(w.trainingLoad,1)+'</td></tr>';
   }).join('');
-  document.querySelectorAll('#runs-body tr').forEach(tr=>tr.addEventListener('click',()=>renderRun(Number(tr.dataset.i))));
+  document.querySelectorAll('#runs-body tr').forEach(tr=>{
+    tr.classList.toggle('selected-run',Number(tr.dataset.i)===selectedRun);
+    tr.addEventListener('click',()=>{
+      renderRun(Number(tr.dataset.i));
+      document.querySelectorAll('#runs-body tr').forEach(row=>row.classList.toggle('selected-run',Number(row.dataset.i)===selectedRun));
+    });
+  });
 }
 init();
 </script>
