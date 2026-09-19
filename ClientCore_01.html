@@ -13,7 +13,7 @@ let dashboardData = null;
     let selectedWorkoutIndex = 0;
     let selectedWorkoutRecord = null;
     let workoutPaceOverlayEnabled = false;
-    let workoutPaceMode = 'raw';
+    let workoutPaceMode = '10';
     let runningTrendData = null;
     let trainingLoadData = null;
     let workoutRouteMap = null;
@@ -39,7 +39,7 @@ let dashboardData = null;
     document
       .getElementById('workout-pace-mode')
       .addEventListener('change', event => {
-        workoutPaceMode = event.target.value === 'smooth' ? 'smooth' : 'raw';
+        workoutPaceMode = ['10', '30', 'raw'].includes(event.target.value) ? event.target.value : '10';
         if (selectedWorkoutRecord && workoutPaceOverlayEnabled) {
           drawWorkoutHeartChart(selectedWorkoutRecord);
         }
