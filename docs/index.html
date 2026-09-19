@@ -18,6 +18,7 @@ h1{font-size:34px;margin:7px 0 5px}h2{font-size:20px;margin:0}.sub{color:#637087
 .zone-row{display:grid;grid-template-columns:90px 1fr 70px;gap:10px;align-items:center;margin-top:9px;font-size:12px}.track{height:9px;background:#edf1f7;border-radius:99px;overflow:hidden}.fill{height:100%;border-radius:99px}.peak{background:#ff5449}.vigorous{background:#f5b82e}.moderate{background:#45c76b}.light{background:#6eb4ff}.below{background:#aeb9ca}
 .error{padding:20px;color:#b42318;background:#fff0ee;border:1px solid #ffd1cc;border-radius:14px;margin-top:14px}
 .muted{color:#748198}.footer{font-size:12px;color:#7b8798;margin-top:18px;text-align:center}
+.pace-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px}.pace-controls label{font-size:11px;font-weight:850;color:#6a7890;text-transform:uppercase}.pace-controls select{border:1px solid #dce4ef;border-radius:8px;background:#fff;color:#183153;padding:6px 9px;font:inherit;font-size:12px;font-weight:750}
 @media(max-width:900px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.two{grid-template-columns:1fr}}@media(max-width:540px){.grid{grid-template-columns:1fr}.hero{padding:22px}.section{padding:17px}h1{font-size:28px}}
 </style>
 </head>
@@ -36,6 +37,15 @@ h1{font-size:34px;margin:7px 0 5px}h2{font-size:20px;margin:0}.sub{color:#637087
     <section class="card section">
       <h2 id="workout-title">Latest run</h2>
       <div class="sub" id="workout-subtitle"></div>
+      <div class="pace-controls">
+        <label for="pace-mode">Pace trace</label>
+        <select id="pace-mode">
+          <option value="10">10-sec responsive</option>
+          <option value="30">30-sec smooth</option>
+          <option value="raw">1-sec raw</option>
+        </select>
+        <span id="pace-source" class="status"></span>
+      </div>
       <div class="two">
         <div>
           <div class="chart"><canvas id="hrPaceChart"></canvas></div>
@@ -77,7 +87,7 @@ h1{font-size:34px;margin:7px 0 5px}h2{font-size:20px;margin:0}.sub{color:#637087
 </div>
 
 <script>
-let DATA=null, selectedRun=0, charts={};
+let DATA=null, selectedRun=0, charts={}, selectedPaceMode='10';
 
 function fmtPace(sec){
   if(sec===null||sec===undefined||!isFinite(sec)) return '—';
@@ -92,6 +102,43 @@ function fmtDate(d){ return new Date(d+'T12:00:00').toLocaleDateString('en-US',{
 function n(v,d=0){ return v===null||v===undefined||!isFinite(Number(v))?'—':Number(v).toFixed(d); }
 function destroy(name){ if(charts[name]){charts[name].destroy();delete charts[name];} }
 
+function smoothTcxPace(series,windowSeconds){
+  const pts=(series||[]).slice().sort((a,b)=>new Date(a.time)-new Date(b.time));
+  const windowMs=Math.max(5,Number(windowSeconds)||10)*1000;
+  return pts.map((point,index)=>{
+    const pointSeconds=Math.max(.001,Number(point.seconds)||1);
+    const midpoint=new Date(point.time).getTime();
+    const targetEnd=midpoint+(pointSeconds*1000/2);
+    const targetStart=targetEnd-windowMs;
+    let distance=0, elapsed=0;
+    for(let cursor=index;cursor>=0;cursor--){
+      const item=pts[cursor], sec=Math.max(.001,Number(item.seconds)||1);
+      const mid=new Date(item.time).getTime();
+      const itemStart=mid-(sec*1000/2), itemEnd=mid+(sec*1000/2);
+      if(itemEnd<=targetStart) break;
+      const overlapStart=Math.max(itemStart,targetStart);
+      const overlapEnd=Math.min(itemEnd,targetEnd);
+      const overlapMs=Math.max(0,overlapEnd-overlapStart);
+      if(overlapMs<=0) continue;
+      const fraction=overlapMs/(sec*1000);
+      distance+=(Number(item.distanceMiles)||0)*fraction;
+      elapsed+=overlapMs/1000;
+    }
+    return {
+      ...point,
+      paceSecondsPerMile:distance>0&&elapsed>0?Math.round(elapsed/distance):point.paceSecondsPerMile
+    };
+  });
+}
+
+function selectedPaceSeries(w){
+  const raw=w?.paceSeries||[];
+  if(w?.paceSeriesSource!=='tcx') return raw;
+  if(selectedPaceMode==='raw') return raw;
+  return smoothTcxPace(raw,Number(selectedPaceMode)||10);
+}
+
+
 async function init(){
   try{
     const r=await fetch('data.json',{cache:'no-store'});
@@ -100,6 +147,11 @@ async function init(){
     if(DATA.error) throw new Error(DATA.error);
     document.getElementById('status').textContent='Updated '+new Date(DATA.generatedAt).toLocaleString();
     document.getElementById('app').hidden=false;
+    document.getElementById('pace-mode').addEventListener('change',event=>{
+      selectedPaceMode=event.target.value;
+      const run=(DATA.detailedRuns||[])[selectedRun];
+      if(run) renderHrPace(run);
+    });
     renderRun(0); renderEfficiency(); renderLoad(); renderTable();
   }catch(err){
     document.getElementById('error').innerHTML='<div class="error"><strong>Real-data feed is not ready yet.</strong><br>'+String(err.message||err)+'</div>';
@@ -141,7 +193,18 @@ function renderRun(index){
 
 function renderHrPace(w){
   destroy('hr');
-  const hr=w.heartRateSeries||[], pace=w.paceSeries||[];
+  const hr=w.heartRateSeries||[], pace=selectedPaceSeries(w);
+  const paceSelect=document.getElementById('pace-mode');
+  const paceSource=document.getElementById('pace-source');
+  const usingTcx=w?.paceSeriesSource==='tcx';
+  paceSelect.disabled=!usingTcx;
+  if(usingTcx){
+    const d=w.paceDiagnostics||{};
+    const median=d.medianSeconds!==null&&d.medianSeconds!==undefined?d.medianSeconds+'s median':'high-resolution';
+    paceSource.textContent='TCX GPS · '+Number(d.trackpointCount||0).toLocaleString()+' trackpoints · '+median;
+  }else{
+    paceSource.textContent='60-sec distance rollup fallback';
+  }
   const labels=[...new Set(hr.map(x=>x.time).concat(pace.map(x=>x.time)))].sort();
   const hrMap=Object.fromEntries(hr.map(x=>[x.time,x.value]));
   const zoneMap=Object.fromEntries(hr.map(x=>[x.time,x.zoneKey||'below']));
@@ -176,7 +239,7 @@ function renderHrPace(w){
         }
       },
       {
-        label:'1-min pace',
+        label:usingTcx?(selectedPaceMode==='raw'?'1-sec raw pace':selectedPaceMode+'-sec pace'):'1-min pace',
         data:labels.map(t=>paceMap[t]??null),
         yAxisID:'pace',
         spanGaps:true,

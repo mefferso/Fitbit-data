@@ -3,8 +3,14 @@ function drawWorkoutHeartChart(workout) {
       const target = document.getElementById('workout-heart-chart');
       const points = workout && workout.heartRateSeries ? workout.heartRateSeries : [];
       const rawPace = workout && workout.paceSeries ? workout.paceSeries : [];
-      const smoothPace = workout && workout.paceSeriesSmoothed ? workout.paceSeriesSmoothed : [];
-      const pacePoints = workoutPaceMode === 'smooth' && smoothPace.length ? smoothPace : rawPace;
+      const pace10 = workout && workout.paceSeriesSmoothed10 ? workout.paceSeriesSmoothed10 : [];
+      const pace30 = workout && workout.paceSeriesSmoothed30 ? workout.paceSeriesSmoothed30 : [];
+      const legacySmooth = workout && workout.paceSeriesSmoothed ? workout.paceSeriesSmoothed : [];
+      const pacePoints =
+        workoutPaceMode === '30' && pace30.length ? pace30 :
+        workoutPaceMode === '10' && pace10.length ? pace10 :
+        workoutPaceMode === '10' && legacySmooth.length ? legacySmooth :
+        rawPace;
       const showPace = workoutPaceOverlayEnabled && pacePoints.length > 0;
 
       if (!points.length) {
@@ -19,9 +25,10 @@ function drawWorkoutHeartChart(workout) {
       table.addColumn('number', 'Moderate');
       table.addColumn('number', 'Vigorous');
       table.addColumn('number', 'Peak');
-      const paceLabel = workoutPaceMode === 'smooth'
-        ? (workout.paceSmoothedLabel || 'Smoothed pace')
-        : (workout.paceRawLabel || 'Pace');
+      const paceLabel =
+        workoutPaceMode === '30' ? '30-sec smooth' :
+        workoutPaceMode === '10' ? (workout.paceSmoothedLabel || '10-sec responsive') :
+        (workout.paceRawLabel || '1-sec raw');
       if (showPace) table.addColumn('number', paceLabel);
 
       const rows = points.map(point => {

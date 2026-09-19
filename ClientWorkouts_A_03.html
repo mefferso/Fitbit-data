@@ -24,7 +24,7 @@
         const typical = paceDiagnostics.p25Seconds !== null && paceDiagnostics.p75Seconds !== null
           ? ` · typical ${paceDiagnostics.p25Seconds}–${paceDiagnostics.p75Seconds}s`
           : '';
-        paceSourceDetail += ` · median ${paceDiagnostics.medianSeconds}s${typical} · ${paceDiagnostics.smoothingSeconds}s smoothing`;
+        paceSourceDetail += ` · median ${paceDiagnostics.medianSeconds}s${typical} · 10s responsive / 30s smooth`;
       } else if (paceDiagnostics) {
         paceSourceDetail += ` · ~${paceDiagnostics.smoothingSeconds}s smoothing`;
       }
