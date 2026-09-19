@@ -18,7 +18,7 @@ h1{font-size:34px;margin:7px 0 5px}h2{font-size:20px;margin:0}.sub{color:#637087
 .zone-row{display:grid;grid-template-columns:90px 1fr 70px;gap:10px;align-items:center;margin-top:9px;font-size:12px}.track{height:9px;background:#edf1f7;border-radius:99px;overflow:hidden}.fill{height:100%;border-radius:99px}.peak{background:#ff5449}.vigorous{background:#f5b82e}.moderate{background:#45c76b}.light{background:#6eb4ff}.below{background:#aeb9ca}
 .error{padding:20px;color:#b42318;background:#fff0ee;border:1px solid #ffd1cc;border-radius:14px;margin-top:14px}
 .muted{color:#748198}.footer{font-size:12px;color:#7b8798;margin-top:18px;text-align:center}
-.pace-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px}.pace-controls label{font-size:11px;font-weight:850;color:#6a7890;text-transform:uppercase}.pace-controls select{border:1px solid #dce4ef;border-radius:8px;background:#fff;color:#183153;padding:6px 9px;font:inherit;font-size:12px;font-weight:750}.stacked-charts{display:grid;gap:8px;margin-top:14px}.stacked-panel{min-width:0}.stacked-panel-title{display:flex;justify-content:space-between;gap:12px;align-items:baseline;font-size:12px;font-weight:850;color:#52627a;margin:0 2px 4px}.stacked-panel-title span:last-child{font-weight:650;color:#7a8799}.stacked-chart{height:205px}.metric-formula{font-size:10px;color:#8995a8;line-height:1.35;margin-top:8px;padding-top:7px;border-top:1px solid #edf1f6}.api-delta{font-size:27px;font-weight:900;margin-top:7px}.api-score{font-size:15px;font-weight:800;color:#637087;margin-top:2px}
+.pace-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px}.pace-controls label{font-size:11px;font-weight:850;color:#6a7890;text-transform:uppercase}.pace-controls select{border:1px solid #dce4ef;border-radius:8px;background:#fff;color:#183153;padding:6px 9px;font:inherit;font-size:12px;font-weight:750}.stacked-charts{display:grid;gap:8px;margin-top:14px;position:relative}.sync-cursor{position:absolute;top:0;left:0;width:1px;background:rgba(15,23,42,.72);pointer-events:none;z-index:5;display:none;transform:translateX(0);will-change:transform,height}.stacked-panel{min-width:0}.stacked-panel-title{display:flex;justify-content:space-between;gap:12px;align-items:baseline;font-size:12px;font-weight:850;color:#52627a;margin:0 2px 4px}.stacked-panel-title span:last-child{font-weight:650;color:#7a8799}.stacked-chart{height:205px}.metric-formula{font-size:10px;color:#8995a8;line-height:1.35;margin-top:8px;padding-top:7px;border-top:1px solid #edf1f6}.api-delta{font-size:27px;font-weight:900;margin-top:7px}.api-score{font-size:15px;font-weight:800;color:#637087;margin-top:2px}
 @media(max-width:900px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.two{grid-template-columns:1fr}}@media(max-width:540px){.grid{grid-template-columns:1fr}.hero{padding:22px}.section{padding:17px}h1{font-size:28px}}
 </style>
 </head>
@@ -48,7 +48,8 @@ h1{font-size:34px;margin:7px 0 5px}h2{font-size:20px;margin:0}.sub{color:#637087
       </div>
       <div class="two">
         <div>
-          <div class="stacked-charts">
+          <div class="stacked-charts" id="stacked-charts">
+            <div id="sync-cursor" class="sync-cursor"></div>
             <div class="stacked-panel">
               <div class="stacked-panel-title"><span>Heart rate</span><span id="hr-panel-summary"></span></div>
               <div class="stacked-chart"><canvas id="hrChart"></canvas></div>
@@ -211,29 +212,6 @@ function renderRun(index){
   renderHrPace(w);
 }
 
-const syncedCrosshairPlugin={
-  id:'syncedCrosshair',
-  afterDraw(chart){
-    const idx=chart.$syncIndex;
-    if(idx===null||idx===undefined||!chart.chartArea||!chart.scales?.x) return;
-    const meta=chart.getDatasetMeta(0);
-    const el=meta?.data?.[idx];
-    if(!el) return;
-    const x=el.x;
-    const {top,bottom}=chart.chartArea;
-    const ctx=chart.ctx;
-    ctx.save();
-    ctx.beginPath();
-    ctx.moveTo(x,top);
-    ctx.lineTo(x,bottom);
-    ctx.lineWidth=1;
-    ctx.strokeStyle='rgba(15,23,42,.65)';
-    ctx.setLineDash([5,4]);
-    ctx.stroke();
-    ctx.restore();
-  }
-};
-
 function renderHrPace(w){
   destroy('hr'); destroy('pace');
   const hr=w.heartRateSeries||[], pace=selectedPaceSeries(w);
@@ -300,7 +278,6 @@ function renderHrPace(w){
         return zoneColors[zone]||zoneColors.below;
       }}
     }]},
-    plugins:[syncedCrosshairPlugin],
     options:{
       maintainAspectRatio:false,
       animation:false,
@@ -325,7 +302,6 @@ function renderHrPace(w){
       label:usingTcx?(selectedPaceMode==='raw'?'1-sec raw pace':selectedPaceMode+'-sec pace'):'1-min pace',
       data:plottedPace,spanGaps:true,borderWidth:2,pointRadius:0,borderColor:'#ff6f91'
     }]},
-    plugins:[syncedCrosshairPlugin],
     options:{
       maintainAspectRatio:false,
       animation:false,
@@ -344,29 +320,71 @@ function renderHrPace(w){
     }
   });
 
-  const sync=(source,target,event)=>{
-    const rect=source.canvas.getBoundingClientRect();
-    const x=event.clientX-rect.left;
-    const a=source.chartArea;
-    if(!a||x<a.left||x>a.right){
-      [source,target].forEach(c=>{c.$syncIndex=null;c.setActiveElements([]);c.tooltip?.setActiveElements([], {x:0,y:0});c.update('none');});
-      return;
-    }
-    const ratio=(x-a.left)/(a.right-a.left);
-    const idx=Math.max(0,Math.min(labels.length-1,Math.round(ratio*(labels.length-1))));
-    [source,target].forEach(c=>{
-      c.$syncIndex=idx;
-      c.setActiveElements([{datasetIndex:0,index:idx}]);
-      if(c.tooltip) c.tooltip.setActiveElements([{datasetIndex:0,index:idx}],{x:c.chartArea.left+ratio*(c.chartArea.right-c.chartArea.left),y:(c.chartArea.top+c.chartArea.bottom)/2});
-      c.update('none');
+  const stack=document.getElementById('stacked-charts');
+  const cursor=document.getElementById('sync-cursor');
+  let tooltipFrame=0, pendingRatio=null, lastTooltipIndex=-1;
+
+  const hideSyncedHover=()=>{
+    cursor.style.display='none';
+    pendingRatio=null;
+    lastTooltipIndex=-1;
+    if(tooltipFrame){ cancelAnimationFrame(tooltipFrame); tooltipFrame=0; }
+    [charts.hr,charts.pace].forEach(c=>{
+      c.setActiveElements([]);
+      if(c.tooltip) c.tooltip.setActiveElements([], {x:0,y:0});
+      c.draw();
     });
   };
-  const bindSync=(source,target)=>{
-    source.canvas.addEventListener('mousemove',e=>sync(source,target,e));
-    source.canvas.addEventListener('mouseleave',()=>{[source,target].forEach(c=>{c.$syncIndex=null;c.setActiveElements([]);c.tooltip?.setActiveElements([], {x:0,y:0});c.update('none');});});
+
+  const drawSyncedTooltips=()=>{
+    tooltipFrame=0;
+    const ratio=pendingRatio;
+    if(ratio===null) return;
+    const idx=Math.max(0,Math.min(labels.length-1,Math.round(ratio*(labels.length-1))));
+    if(idx===lastTooltipIndex) return;
+    lastTooltipIndex=idx;
+
+    [charts.hr,charts.pace].forEach(c=>{
+      c.setActiveElements([{datasetIndex:0,index:idx}]);
+      if(c.tooltip){
+        c.tooltip.setActiveElements(
+          [{datasetIndex:0,index:idx}],
+          {
+            x:c.chartArea.left+ratio*(c.chartArea.right-c.chartArea.left),
+            y:(c.chartArea.top+c.chartArea.bottom)/2
+          }
+        );
+      }
+      c.draw();
+    });
   };
-  bindSync(charts.hr,charts.pace);
-  bindSync(charts.pace,charts.hr);
+
+  stack.onpointermove=event=>{
+    const stackRect=stack.getBoundingClientRect();
+    const hrRect=charts.hr.canvas.getBoundingClientRect();
+    const paceRect=charts.pace.canvas.getBoundingClientRect();
+    const left=hrRect.left+charts.hr.chartArea.left;
+    const right=hrRect.left+charts.hr.chartArea.right;
+    const x=event.clientX;
+
+    if(x<left||x>right){
+      hideSyncedHover();
+      return;
+    }
+
+    const ratio=(x-left)/(right-left);
+    const cursorTop=(hrRect.top+charts.hr.chartArea.top)-stackRect.top;
+    const cursorBottom=(paceRect.top+charts.pace.chartArea.bottom)-stackRect.top;
+
+    cursor.style.display='block';
+    cursor.style.top=cursorTop+'px';
+    cursor.style.height=Math.max(0,cursorBottom-cursorTop)+'px';
+    cursor.style.transform='translateX('+(x-stackRect.left)+'px)';
+
+    pendingRatio=ratio;
+    if(!tooltipFrame) tooltipFrame=requestAnimationFrame(drawSyncedTooltips);
+  };
+  stack.onpointerleave=hideSyncedHover;
 }
 
 function renderEfficiency(){
