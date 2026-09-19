@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
     paths:
-      - "docs/**"
+      - "docs/index.html"
       - "scripts/**"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
@@ -12,7 +12,7 @@ on:
     - cron: "17 * * * *"
 
 permissions:
-  contents: read
+  contents: write
   pages: write
   id-token: write
 
@@ -53,6 +53,18 @@ jobs:
               raise SystemExit("Export is missing expected workout fields")
           print(f"Validated {len(data.get('recentRuns', []))} recent runs and {len(data.get('detailedRuns', []))} detailed runs")
           PY
+
+      - name: Commit sanitized run data
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/data.json
+          if git diff --cached --quiet; then
+            echo "No workout-data changes to commit."
+          else
+            git commit -m "Update sanitized workout data [skip ci]"
+            git push origin HEAD:main
+          fi
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
