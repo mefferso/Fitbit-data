@@ -200,7 +200,7 @@ function renderRun(index){
       true]
   ];
   document.getElementById('metric-grid').innerHTML=metrics.map(x=>{
-    if(x[4]) return '<div class="card metric"><div class="label">'+x[0]+'</div><div class="api-delta">'+x[2]+'</div><div class="api-score">Index '+x[1]+'</div>'+(x[3]?'<div class="metric-formula">'+x[3]+'</div>':'')+'</div>';
+    if(x[4]) return '<div class="card metric"><div class="label">'+x[0]+'</div><div class="api-delta">'+x[2]+'</div><div class="api-score">'+x[1]+'</div>'+(x[3]?'<div class="metric-formula">'+x[3]+'</div>':'')+'</div>';
     return '<div class="card metric"><div class="label">'+x[0]+'</div><div class="value">'+x[1]+'</div><div class="detail">'+x[2]+'</div>'+(x[3]?'<div class="metric-formula">'+x[3]+'</div>':'')+'</div>';
   }).join('');
 
@@ -309,7 +309,7 @@ function renderHrPace(w){
         legend:{display:false},
         tooltip:{callbacks:{
           title:items=>items.length?new Date(labels[items[0].dataIndex]).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',second:'2-digit'}):'',
-          label:ctx=>'Heart rate: '+Math.round(Number(ctx.raw))+' bpm'
+          label:ctx=>Math.round(Number(ctx.raw))+' bpm'
         }}
       },
       scales:{
@@ -334,7 +334,7 @@ function renderHrPace(w){
         legend:{display:false},
         tooltip:{callbacks:{
           title:items=>items.length?new Date(labels[items[0].dataIndex]).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',second:'2-digit'}):'',
-          label:ctx=>'Pace: '+fmtPace(ctx.raw)
+          label:ctx=>fmtPace(ctx.raw)
         }}
       },
       scales:{
@@ -363,7 +363,7 @@ function renderHrPace(w){
   };
   const bindSync=(source,target)=>{
     source.canvas.addEventListener('mousemove',e=>sync(source,target,e));
-    source.canvas.addEventListener('mouseleave',()=>{[source,target].forEach(c=>{c.setActiveElements([]);c.tooltip?.setActiveElements([], {x:0,y:0});c.update('none');});});
+    source.canvas.addEventListener('mouseleave',()=>{[source,target].forEach(c=>{c.$syncIndex=null;c.setActiveElements([]);c.tooltip?.setActiveElements([], {x:0,y:0});c.update('none');});});
   };
   bindSync(charts.hr,charts.pace);
   bindSync(charts.pace,charts.hr);
@@ -386,7 +386,7 @@ function renderEfficiency(){
         legend:{display:false},
         tooltip:{callbacks:{afterLabel:ctx=>{
           const r=runs[ctx.dataIndex];
-          return r ? ['Weather factor '+n(r.weatherFactor,3),'Heat +'+n(r.heatPenaltyPct,1)+'% · Solar +'+n(r.solarPenaltyPct,1)+'%'] : [];
+          return r ? ['Weather factor '+n(r.weatherFactor,3),'Heat +'+n(r.heatPenaltyPct,1)+'% · Sun +'+n(r.solarPenaltyPct,1)+'%'] : [];
         }}}
       },
       scales:{x:{ticks:{maxTicksLimit:7}},y:{title:{display:true,text:'Performance index'},suggestedMin:85,suggestedMax:115}}
