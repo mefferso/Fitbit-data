@@ -218,6 +218,88 @@ async function listAll(path) {
   return out;
 }
 
+async function exportExerciseTcx(resourceName) {
+  if (!resourceName || !String(resourceName).startsWith('users/')) {
+    throw new Error('Valid exercise resourceName required for TCX export');
+  }
+  const url = `https://health.googleapis.com/v4/${resourceName}:exportExerciseTcx?alt=media`;
+  const response = await fetch(url, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: 'application/tcx+xml'
+    }
+  });
+  const text = await response.text();
+  if (!response.ok) {
+    throw new Error(`TCX export failed ${response.status}: ${text.slice(0,500)}`);
+  }
+  return text;
+}
+
+function parseTcxTrackpoints(xml) {
+  const points = [];
+  const re = /<Trackpoint\b[^>]*>([\s\S]*?)<\/Trackpoint>/gi;
+  let match;
+  while ((match = re.exec(String(xml || ''))) !== null) {
+    const block = match[1];
+    const time = block.match(/<Time>([^<]+)<\/Time>/i)?.[1]?.trim() || '';
+    const distanceText = block.match(/<DistanceMeters>([^<]+)<\/DistanceMeters>/i)?.[1];
+    const distanceMeters = num(distanceText);
+    if (time && distanceMeters !== null) {
+      points.push({ time, distanceMeters });
+    }
+  }
+  return points.sort((a,b)=>new Date(a.time)-new Date(b.time));
+}
+
+function tcxPaceSeries(trackpoints) {
+  const result = [];
+  for (let i=1;i<trackpoints.length;i++) {
+    const prev=trackpoints[i-1], cur=trackpoints[i];
+    const a=new Date(prev.time).getTime(), b=new Date(cur.time).getTime();
+    const seconds=(b-a)/1000;
+    const meters=Number(cur.distanceMeters)-Number(prev.distanceMeters);
+    if (!Number.isFinite(seconds) || seconds<=0 || seconds>60) continue;
+    if (!Number.isFinite(meters) || meters<=0) continue;
+    const miles=meters/1609.344;
+    const pace=seconds/miles;
+    if (!Number.isFinite(pace) || pace<120 || pace>7200) continue;
+    result.push({
+      time:new Date((a+b)/2).toISOString(),
+      startTime:new Date(a).toISOString(),
+      endTime:new Date(b).toISOString(),
+      seconds:round(seconds,3),
+      distanceMiles:round(miles,6),
+      paceSecondsPerMile:round(pace,0)
+    });
+  }
+  return result;
+}
+
+function percentile(values,pct){
+  const a=(values||[]).filter(Number.isFinite).slice().sort((x,y)=>x-y);
+  if(!a.length)return null;
+  const idx=(pct/100)*(a.length-1), lo=Math.floor(idx), hi=Math.ceil(idx);
+  return lo===hi?a[lo]:a[lo]+(a[hi]-a[lo])*(idx-lo);
+}
+
+function tcxCadence(trackpoints){
+  const gaps=[];
+  for(let i=1;i<trackpoints.length;i++){
+    const sec=(new Date(trackpoints[i].time)-new Date(trackpoints[i-1].time))/1000;
+    if(Number.isFinite(sec)&&sec>0&&sec<=60)gaps.push(sec);
+  }
+  return {
+    trackpointCount:trackpoints.length,
+    intervalCount:gaps.length,
+    medianSeconds:round(percentile(gaps,50),2),
+    p25Seconds:round(percentile(gaps,25),2),
+    p75Seconds:round(percentile(gaps,75),2),
+    minSeconds:gaps.length?round(Math.min(...gaps),2):null,
+    maxSeconds:gaps.length?round(Math.max(...gaps),2):null
+  };
+}
+
 function workoutDate(exercise) {
   if (exercise?.interval?.civilStartTime?.date) return healthDateKey(exercise.interval.civilStartTime.date);
   if (exercise?.interval?.startTime) return dateKey(new Date(exercise.interval.startTime));
@@ -256,6 +338,8 @@ function parseWorkout(point) {
   const miles = distanceMiles(metrics);
   return {
     date: workoutDate(e),
+    resourceName: point.name || null,
+    hasGps: Boolean(e.exerciseMetadata?.hasGps),
     startTime, endTime, activeSeconds,
     type: String(e.exerciseType || e.activityType || e.exerciseName || ''),
     distanceMiles: miles,
@@ -446,7 +530,54 @@ for(const workout of runs.slice(0,DETAIL_RUNS)){
     getHeartRate(new Date(end.getTime()-60000),new Date(end.getTime()+5*60000)),
     tempestObservations(tempestDeviceId,weatherStart,weatherEnd)
   ]);
-  const paces=paceSeries(dist);
+  let paces=[];
+  let paceSeriesSource='distance-rollup';
+  let paceDiagnostics={
+    source:'distance-rollup',
+    tcxAttempted:false,
+    tcxError:null,
+    trackpointCount:null,
+    usablePaceIntervals:null,
+    medianSeconds:60,
+    p25Seconds:60,
+    p75Seconds:60,
+    minSeconds:60,
+    maxSeconds:60
+  };
+
+  if(workout.hasGps && workout.resourceName){
+    paceDiagnostics.tcxAttempted=true;
+    try{
+      const xml=await exportExerciseTcx(workout.resourceName);
+      const tcxPoints=parseTcxTrackpoints(xml);
+      const tcxPaces=tcxPaceSeries(tcxPoints);
+      if(tcxPaces.length){
+        paces=tcxPaces;
+        paceSeriesSource='tcx';
+        paceDiagnostics={
+          ...tcxCadence(tcxPoints),
+          source:'tcx',
+          tcxAttempted:true,
+          tcxError:null,
+          usablePaceIntervals:tcxPaces.length
+        };
+      }else{
+        paceDiagnostics={...paceDiagnostics,...tcxCadence(tcxPoints),tcxError:'TCX contained no usable moving pace intervals.'};
+      }
+    }catch(error){
+      paceDiagnostics.tcxError=String(error?.message||error);
+    }
+  }
+
+  if(!paces.length){
+    paces=paceSeries(dist).map(x=>({
+      ...x,
+      seconds:round((new Date(x.endTime)-new Date(x.startTime))/1000,3),
+      distanceMiles:round(x.distanceMiles,6)
+    }));
+    paceDiagnostics.usablePaceIntervals=paces.length;
+  }
+
   const avg=hr.length?hr.reduce((s,x)=>s+x.value,0)/hr.length:workout.averageHeartRate;
   const peak=hr.length?Math.max(...hr.map(x=>x.value)):null;
   const zoneSummary=workout.zoneDurations.hasData?reportedZoneSummary(workout.zoneDurations,workout.activeSeconds):derivedZoneSummary(hr,zones,start,end);
@@ -464,7 +595,14 @@ for(const workout of runs.slice(0,DETAIL_RUNS)){
     runWalkIntervals:[],
     splitSummaries:[],
     heartRateSeries:downsample(hr.map(x=>({...x,zoneKey:zoneKey(x.value,zones)}))),
-    paceSeries:paces.map(x=>({time:x.time,paceSecondsPerMile:x.paceSecondsPerMile}))
+    paceSeriesSource,
+    paceDiagnostics,
+    paceSeries:paces.map(x=>({
+      time:x.time,
+      seconds:x.seconds,
+      distanceMiles:x.distanceMiles,
+      paceSecondsPerMile:x.paceSecondsPerMile
+    }))
   });
 }
 
