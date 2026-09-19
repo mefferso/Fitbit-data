@@ -1,0 +1,6 @@
+# Only push the Apps Script source files at the repository root.
+# Keep GitHub Pages, workflows, Node build scripts, and other repo files out of GAS.
+**/**
+!/*.gs
+!/*.html
+!/appsscript.json

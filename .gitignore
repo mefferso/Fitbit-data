@@ -1,0 +1,6 @@
+# clasp local project mapping / auth
+.clasp.json
+.clasprc.json
+
+# local dependencies
+node_modules/
