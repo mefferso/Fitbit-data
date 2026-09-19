@@ -53,8 +53,40 @@ function buildWorkoutDetail_(workout, zones) {
       : summarizeWorkoutZones_(heartRateSeries, zones, start, end);
 
   const stepSeries = buildWorkoutStepSeries_(start, end, stepRollups);
-  const paceSeries = buildWorkoutPaceSeries_(start, end, distanceRollups);
-  const paceSeriesSmoothed = smoothWorkoutPaceSeries_(paceSeries, 3);
+
+  /*
+   * Outdoor Fitbit workouts can expose the detailed TCX GPS route at a much
+   * higher cadence than the generic distance telemetry. Prefer those
+   * non-overlapping trackpoint-to-trackpoint distance increments for pace.
+   * If TCX is unavailable for any reason, fall back to the existing 60-second
+   * distance rollups so older / indoor workouts still work.
+   */
+  let paceSeries = [];
+  let paceSeriesSmoothed = [];
+  let paceSeriesSource = 'distance-rollup';
+  let paceRawLabel = '1-min pace';
+  let paceSmoothedLabel = '3-min pace';
+
+  if (workout.hasGps && workout.resourceName) {
+    try {
+      const tcxRoute = getWorkoutRouteData(workout.resourceName);
+      paceSeries = buildTcxPaceSeries_(tcxRoute && tcxRoute.points ? tcxRoute.points : []);
+
+      if (paceSeries.length) {
+        paceSeriesSource = 'tcx';
+        paceRawLabel = 'Trackpoint pace';
+        paceSmoothedLabel = '30-sec pace';
+        paceSeriesSmoothed = smoothWorkoutPaceSeriesByTime_(paceSeries, 30);
+      }
+    } catch (error) {
+      console.warn(`TCX pace unavailable for ${workout.resourceName}: ${error.message}`);
+    }
+  }
+
+  if (!paceSeries.length) {
+    paceSeries = buildWorkoutPaceSeries_(start, end, distanceRollups);
+    paceSeriesSmoothed = smoothWorkoutPaceSeries_(paceSeries, 3);
+  }
   const intervalBreakdown = buildWorkoutIntervalBreakdown_(
     start, end, heartRateSeries, stepSeries, paceSeries, zones, 300
   );
@@ -83,6 +115,9 @@ function buildWorkoutDetail_(workout, zones) {
     stepSeries: stepSeries,
     paceSeries: paceSeries,
     paceSeriesSmoothed: paceSeriesSmoothed,
+    paceSeriesSource: paceSeriesSource,
+    paceRawLabel: paceRawLabel,
+    paceSmoothedLabel: paceSmoothedLabel,
     zoneSummary: zoneSummary,
     intervalBreakdown: intervalBreakdown,
     runWalkIntervals: runWalkIntervals,
