@@ -83,6 +83,13 @@ h1{font-size:34px;margin:7px 0 5px}h2{font-size:20px;margin:0}.sub{color:#637087
     </section>
 
     <section class="card section">
+      <h2>Heart-rate recovery trend</h2>
+      <div class="sub">How many beats your heart rate falls after the run ends. Higher is generally faster recovery; compare runs with a similar cooldown style.</div>
+      <div class="chart small"><canvas id="hrrChart"></canvas></div>
+      <div class="status" id="hrr-summary"></div>
+    </section>
+
+    <section class="card section">
       <h2>Correlation Lab</h2>
       <div class="sub">Compare any two run metrics. Each dot is one run. Correlation describes association, not causation.</div>
 
@@ -206,7 +213,7 @@ async function init(){
       const run=(DATA.detailedRuns||[])[selectedRun];
       if(run) renderHrPace(run);
     });
-    renderRun(0); renderEfficiency(); renderLoad(); renderCorrelationLab(); renderTable();
+    renderRun(0); renderEfficiency(); renderLoad(); renderHrrTrend(); renderCorrelationLab(); renderTable();
   }catch(err){
     document.getElementById('error').innerHTML='<div class="error"><strong>Real-data feed is not ready yet.</strong><br>'+String(err.message||err)+'</div>';
     document.getElementById('status').textContent='Waiting for the first successful GitHub Actions data publish.';
@@ -462,6 +469,83 @@ function renderLoad(){
     type:'bar',
     data:{labels:points.map(x=>x.date),datasets:[{label:'Daily load',data:points.map(x=>x.load)}]},
     options:{maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{maxTicksLimit:6}},y:{beginAtZero:true}}}
+  });
+}
+
+function renderHrrTrend(){
+  const runs=(DATA.detailedRuns||[])
+    .map((w,index)=>{
+      const h=w.heartRateRecovery||{};
+      const m1=numv(h.minute1Drop),m2=numv(h.minute2Drop),m3=numv(h.minute3Drop);
+      return (m1===null&&m2===null&&m3===null)?null:{
+        date:w.date,
+        startTime:w.startTime||w.date,
+        runIndex:index,
+        minute1:m1,
+        minute2:m2,
+        minute3:m3
+      };
+    })
+    .filter(Boolean)
+    .sort((a,b)=>String(a.startTime).localeCompare(String(b.startTime)));
+
+  destroy('hrr');
+  const summary=document.getElementById('hrr-summary');
+
+  if(!runs.length){
+    if(summary) summary.textContent='No post-run recovery samples are available yet.';
+    return;
+  }
+
+  const m1Runs=runs.filter(x=>x.minute1!==null);
+  const latest=m1Runs.length?m1Runs[m1Runs.length-1]:null;
+  const first=m1Runs.length?m1Runs[0]:null;
+  if(summary){
+    if(latest&&first&&latest!==first){
+      const change=latest.minute1-first.minute1;
+      summary.textContent='Latest HRR1: '+Math.round(latest.minute1)+' bpm · First available: '+Math.round(first.minute1)+' bpm · Change: '+(change>0?'+':'')+Math.round(change)+' bpm';
+    }else if(latest){
+      summary.textContent='Latest HRR1: '+Math.round(latest.minute1)+' bpm · More runs will make the trend more meaningful.';
+    }else{
+      summary.textContent='Post-run samples exist, but no valid 1-minute values are available yet.';
+    }
+  }
+
+  const datasets=[
+    {label:'1 min',data:runs.map(x=>x.minute1),borderWidth:3,pointRadius:4,spanGaps:false},
+    {label:'2 min',data:runs.map(x=>x.minute2),borderWidth:1.5,pointRadius:2,spanGaps:false},
+    {label:'3 min',data:runs.map(x=>x.minute3),borderWidth:1.5,pointRadius:2,spanGaps:false}
+  ];
+
+  charts.hrr=new Chart(document.getElementById('hrrChart'),{
+    type:'line',
+    data:{labels:runs.map(x=>x.date),datasets},
+    options:{
+      maintainAspectRatio:false,
+      animation:false,
+      interaction:{mode:'index',intersect:false},
+      onClick:(event,elements)=>{
+        const hit=elements.find(e=>e.datasetIndex===0) || elements[0];
+        if(!hit) return;
+        const idx=runs[hit.index]?.runIndex;
+        if(Number.isInteger(idx)){
+          renderRun(idx);
+          document.querySelectorAll('#runs-body tr').forEach(row=>row.classList.toggle('selected-run',Number(row.dataset.i)===selectedRun));
+          document.getElementById('workout-title')?.scrollIntoView({behavior:'smooth',block:'start'});
+        }
+      },
+      plugins:{
+        legend:{display:true},
+        tooltip:{callbacks:{
+          title:items=>items.length?fmtDate(runs[items[0].dataIndex].date):'',
+          label:ctx=>ctx.raw===null?' '+ctx.dataset.label+': —':' '+ctx.dataset.label+': '+Math.round(Number(ctx.raw))+' bpm'
+        }}
+      },
+      scales:{
+        x:{ticks:{maxTicksLimit:8}},
+        y:{beginAtZero:true,title:{display:true,text:'HR drop (bpm)'},grace:'10%'}
+      }
+    }
   });
 }
 
