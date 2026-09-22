@@ -467,7 +467,7 @@ function renderLoad(){
 
 const CORR_METRICS=[
   {key:'api',label:'Adjusted Performance Index',unit:'',dir:'higher',get:w=>numv(w.weatherAdjustedEfficiency?.score)},
-  {key:'rawEfficiency',label:'Raw cardiovascular efficiency',unit:' mph/bpm',dir:'higher',get:w=>numv(w.weatherAdjustedEfficiency?.rawEfficiency)},
+  {key:'rawEfficiency',label:'Raw cardiovascular efficiency',unit:' mph/bpm',dir:'higher',get:w=>{const pace=numv(w.averagePaceSecondsPerMile),hr=numv(w.averageHeartRate);return pace&&hr?(3600/pace)/hr:null;}},
   {key:'adjustedEfficiency',label:'Weather-adjusted efficiency',unit:' mph/bpm',dir:'higher',get:w=>numv(w.weatherAdjustedEfficiency?.adjustedEfficiency)},
   {key:'pace',label:'Average pace',unit:' sec/mi',dir:'lower',get:w=>numv(w.averagePaceSecondsPerMile),format:v=>fmtPace(v)},
   {key:'avgHr',label:'Average HR',unit:' bpm',dir:'lower',get:w=>numv(w.averageHeartRate)},
@@ -476,7 +476,7 @@ const CORR_METRICS=[
   {key:'hrr1',label:'1-min HR recovery',unit:' bpm',dir:'higher',get:w=>numv(w.heartRateRecovery?.minute1Drop)},
   {key:'trainingLoad',label:'Training load',unit:'',dir:'context',get:w=>numv(w.trainingLoad)},
   {key:'distance',label:'Distance',unit:' mi',dir:'context',get:w=>numv(w.distanceMiles)},
-  {key:'duration',label:'Run time',unit:' min',dir:'context',get:w=>numv(w.activeSeconds)/60},
+  {key:'duration',label:'Run time',unit:' min',dir:'context',get:w=>{const v=numv(w.activeSeconds);return v===null?null:v/60;}},
   {key:'steps',label:'Steps',unit:'',dir:'context',get:w=>numv(w.steps)},
   {key:'stepRate',label:'Average step rate',unit:' steps/min',dir:'context',get:w=>numv(w.averageStepRate)},
   {key:'vigPeak',label:'Vigorous + peak time',unit:' min',dir:'context',get:w=>numv(w.vigorousPlusPeakMinutes)},
@@ -491,7 +491,7 @@ const CORR_METRICS=[
   {key:'solarPenalty',label:'API sun penalty',unit:'%',dir:'context',get:w=>numv(w.weatherAdjustedEfficiency?.solarPenaltyPct)},
   {key:'weatherFactor',label:'API weather factor',unit:'×',dir:'context',get:w=>numv(w.weatherAdjustedEfficiency?.weatherFactor)}
 ];
-function numv(v){const x=Number(v);return Number.isFinite(x)?x:null;}
+function numv(v){if(v===null||v===undefined||v==='')return null;const x=Number(v);return Number.isFinite(x)?x:null;}
 function corrMetric(key){return CORR_METRICS.find(x=>x.key===key)||CORR_METRICS[0];}
 function corrMean(a){return a.reduce((s,x)=>s+x,0)/a.length;}
 function pearson(xs,ys){
