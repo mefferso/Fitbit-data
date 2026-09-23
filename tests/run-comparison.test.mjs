@@ -7,6 +7,8 @@ const script=html.match(/<script>\s*([\s\S]*?)<\/script>/)?.[1].replace(/\binit\
 assert.ok(script,'dashboard script exists');
 const context=vm.createContext({});
 vm.runInContext(script,context);
+assert.equal(context.numv('12'),12,'shared numeric helper remains available to HR recovery rendering');
+assert.equal(context.numv(''),null);
 
 const run={startTime:'2026-09-22T12:00:00Z',activeSeconds:1800,heartRateSeries:[
   {time:'2026-09-22T12:00:10Z',value:100},
