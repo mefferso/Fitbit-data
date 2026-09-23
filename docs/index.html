@@ -19,7 +19,7 @@ h1{font-size:34px;margin:7px 0 5px}h2{font-size:20px;margin:0}.sub{color:#637087
 .error{padding:20px;color:#b42318;background:#fff0ee;border:1px solid #ffd1cc;border-radius:14px;margin-top:14px}
 .muted{color:#748198}.footer{font-size:12px;color:#7b8798;margin-top:18px;text-align:center}
 .pace-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px}.pace-controls label{font-size:11px;font-weight:850;color:#6a7890;text-transform:uppercase}.pace-controls select{border:1px solid #dce4ef;border-radius:8px;background:#fff;color:#183153;padding:6px 9px;font:inherit;font-size:12px;font-weight:750}.stacked-charts{display:grid;gap:8px;margin-top:14px;position:relative}.sync-cursor{position:absolute;top:0;left:0;width:1px;background:rgba(15,23,42,.72);pointer-events:none;z-index:5;display:none;transform:translateX(0);will-change:transform,height}.stacked-panel{min-width:0}.stacked-panel-title{display:flex;justify-content:space-between;gap:12px;align-items:baseline;font-size:12px;font-weight:850;color:#52627a;margin:0 2px 4px}.stacked-panel-title span:last-child{font-weight:650;color:#7a8799}.stacked-chart{height:205px}.metric-formula{font-size:10px;color:#8995a8;line-height:1.35;margin-top:8px;padding-top:7px;border-top:1px solid #edf1f6}.api-delta{font-size:27px;font-weight:900;margin-top:7px}.api-score{font-size:15px;font-weight:800;color:#637087;margin-top:2px}
-.corr-controls{display:grid;grid-template-columns:1fr 1fr auto;gap:12px;align-items:end;margin-top:16px}.corr-control label{display:block;font-size:11px;font-weight:850;color:#6a7890;text-transform:uppercase;margin-bottom:6px}.corr-control select{width:100%;border:1px solid #dce4ef;border-radius:10px;background:#fff;color:#183153;padding:9px 10px;font:inherit;font-size:13px;font-weight:750}.corr-swap{border:1px solid #dce4ef;background:#f8fafc;color:#183153;border-radius:10px;padding:9px 12px;font-weight:850;cursor:pointer}.corr-swap:hover{background:#eef4fb}.corr-presets{display:flex;gap:7px;flex-wrap:wrap;margin-top:12px}.corr-preset{border:1px solid #dce4ef;background:#fff;color:#405573;border-radius:999px;padding:6px 9px;font-size:11px;font-weight:800;cursor:pointer}.corr-preset:hover{background:#eef4fb}.corr-grid{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(260px,.55fr);gap:16px;margin-top:15px}.corr-chart{height:390px}.corr-stats{display:grid;grid-template-columns:1fr 1fr;gap:9px}.corr-stat{border:1px solid #e3e9f1;border-radius:12px;padding:12px;background:#fbfcfe}.corr-stat .k{font-size:10px;font-weight:850;text-transform:uppercase;color:#758399}.corr-stat .v{font-size:22px;font-weight:900;color:#173153;margin-top:4px}.corr-note{margin-top:10px;padding:12px;border-radius:12px;background:#f4f7fb;border:1px solid #dfe6f0;font-size:12px;line-height:1.45;color:#52627a}.corr-note strong{color:#183153}.corr-count{margin-top:8px;font-size:11px;color:#7b8798}.corr-run-list{margin-top:12px;max-height:165px;overflow:auto;border:1px solid #e3e9f1;border-radius:10px}.corr-run-item{display:flex;justify-content:space-between;gap:10px;padding:8px 10px;border-bottom:1px solid #edf1f6;font-size:11px;cursor:pointer}.corr-run-item:last-child{border-bottom:0}.corr-run-item:hover{background:#eef4fb}.corr-run-item span:first-child{font-weight:750;color:#183153}.corr-run-item span:last-child{color:#6b7890}@media(max-width:760px){.corr-controls{grid-template-columns:1fr}.corr-grid{grid-template-columns:1fr}.corr-chart{height:330px}}
+.comparison-controls{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:16px}.comparison-control label{display:block;font-size:11px;font-weight:850;color:#6a7890;text-transform:uppercase;margin-bottom:6px}.comparison-control select{width:100%;border:1px solid #dce4ef;border-radius:10px;background:#fff;color:#183153;padding:9px 10px;font:inherit;font-size:13px;font-weight:750}.comparison-stack{display:grid;gap:16px;margin-top:18px}.comparison-panel{min-width:0}.comparison-heading{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:baseline;font-size:13px;font-weight:800;color:#173153}.comparison-heading span:last-child{font-size:12px;font-weight:650;color:#637087}.comparison-chart{height:230px;margin-top:5px}.comparison-note{font-size:12px;color:#637087;line-height:1.45;margin-top:12px}@media(max-width:600px){.comparison-controls{grid-template-columns:1fr}.comparison-chart{height:205px}}
 @media(max-width:900px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.two{grid-template-columns:1fr}}@media(max-width:540px){.grid{grid-template-columns:1fr}.hero{padding:22px}.section{padding:17px}h1{font-size:28px}}
 </style>
 </head>
@@ -89,47 +89,24 @@ h1{font-size:34px;margin:7px 0 5px}h2{font-size:20px;margin:0}.sub{color:#637087
       <div class="status" id="hrr-summary"></div>
     </section>
 
-    <section class="card section">
-      <h2>Correlation Lab</h2>
-      <div class="sub">Compare any two run metrics. Each dot is one run. Correlation describes association, not causation.</div>
-
-      <div class="corr-controls">
-        <div class="corr-control">
-          <label for="corr-x">X axis</label>
-          <select id="corr-x"></select>
-        </div>
-        <div class="corr-control">
-          <label for="corr-y">Y axis</label>
-          <select id="corr-y"></select>
-        </div>
-        <button id="corr-swap" class="corr-swap" type="button">Swap axes</button>
+    <section class="card section" id="run-comparison">
+      <h2>Run-to-run comparison</h2>
+      <div class="sub">Compare heart rate at the same minutes into two runs. Both charts use the same heart-rate scale.</div>
+      <div class="comparison-controls">
+        <div class="comparison-control"><label for="compare-a">First run</label><select id="compare-a"></select></div>
+        <div class="comparison-control"><label for="compare-b">Second run</label><select id="compare-b"></select></div>
       </div>
-
-      <div class="corr-presets">
-        <button class="corr-preset" data-x="heatIndex" data-y="rawEfficiency">Raw efficiency vs heat</button>
-        <button class="corr-preset" data-x="heatIndex" data-y="api">API vs heat</button>
-        <button class="corr-preset" data-x="solar" data-y="api">API vs sun</button>
-        <button class="corr-preset" data-x="dewpoint" data-y="cardioDrift">Drift vs dewpoint</button>
-        <button class="corr-preset" data-x="trainingLoad" data-y="hrr1">HRR1 vs load</button>
-        <button class="corr-preset" data-x="avgHr" data-y="pace">Pace vs HR</button>
-      </div>
-
-      <div class="corr-grid">
-        <div>
-          <div class="corr-chart"><canvas id="correlationChart"></canvas></div>
+      <div class="comparison-stack">
+        <div class="comparison-panel">
+          <div class="comparison-heading"><span id="compare-a-title"></span><span id="compare-a-summary"></span></div>
+          <div class="comparison-chart"><canvas id="compareAChart"></canvas></div>
         </div>
-        <div>
-          <div class="corr-stats">
-            <div class="corr-stat"><div class="k">Pearson r</div><div class="v" id="corr-r">—</div></div>
-            <div class="corr-stat"><div class="k">Spearman ρ</div><div class="v" id="corr-rho">—</div></div>
-            <div class="corr-stat"><div class="k">R²</div><div class="v" id="corr-r2">—</div></div>
-            <div class="corr-stat"><div class="k">Runs</div><div class="v" id="corr-n">—</div></div>
-          </div>
-          <div class="corr-note" id="corr-interpretation">Choose two metrics to compare.</div>
-          <div class="corr-count" id="corr-coverage"></div>
-          <div class="corr-run-list" id="corr-run-list"></div>
+        <div class="comparison-panel">
+          <div class="comparison-heading"><span id="compare-b-title"></span><span id="compare-b-summary"></span></div>
+          <div class="comparison-chart"><canvas id="compareBChart"></canvas></div>
         </div>
       </div>
+      <div class="comparison-note" id="comparison-note"></div>
     </section>
 
     <section class="card section">
@@ -213,7 +190,7 @@ async function init(){
       const run=(DATA.detailedRuns||[])[selectedRun];
       if(run) renderHrPace(run);
     });
-    renderRun(0); renderEfficiency(); renderLoad(); renderHrrTrend(); renderCorrelationLab(); renderTable();
+    renderRun(0); renderEfficiency(); renderLoad(); renderHrrTrend(); renderRunComparison(); renderTable();
   }catch(err){
     document.getElementById('error').innerHTML='<div class="error"><strong>Real-data feed is not ready yet.</strong><br>'+String(err.message||err)+'</div>';
     document.getElementById('status').textContent='Waiting for the first successful GitHub Actions data publish.';
@@ -549,181 +526,75 @@ function renderHrrTrend(){
   });
 }
 
-const CORR_METRICS=[
-  {key:'api',label:'Adjusted Performance Index',unit:'',dir:'higher',get:w=>numv(w.weatherAdjustedEfficiency?.score)},
-  {key:'rawEfficiency',label:'Raw cardiovascular efficiency',unit:' mph/bpm',dir:'higher',get:w=>{const pace=numv(w.averagePaceSecondsPerMile),hr=numv(w.averageHeartRate);return pace&&hr?(3600/pace)/hr:null;}},
-  {key:'adjustedEfficiency',label:'Weather-adjusted efficiency',unit:' mph/bpm',dir:'higher',get:w=>numv(w.weatherAdjustedEfficiency?.adjustedEfficiency)},
-  {key:'pace',label:'Average pace',unit:' sec/mi',dir:'lower',get:w=>numv(w.averagePaceSecondsPerMile),format:v=>fmtPace(v)},
-  {key:'avgHr',label:'Average HR',unit:' bpm',dir:'lower',get:w=>numv(w.averageHeartRate)},
-  {key:'peakHr',label:'Peak HR',unit:' bpm',dir:'lower',get:w=>numv(w.peakHeartRate)},
-  {key:'cardioDrift',label:'Cardio drift',unit:'%',dir:'lower',get:w=>numv(w.aerobicDecoupling?.percent)},
-  {key:'hrr1',label:'1-min HR recovery',unit:' bpm',dir:'higher',get:w=>numv(w.heartRateRecovery?.minute1Drop)},
-  {key:'trainingLoad',label:'Training load',unit:'',dir:'context',get:w=>numv(w.trainingLoad)},
-  {key:'distance',label:'Distance',unit:' mi',dir:'context',get:w=>numv(w.distanceMiles)},
-  {key:'duration',label:'Run time',unit:' min',dir:'context',get:w=>{const v=numv(w.activeSeconds);return v===null?null:v/60;}},
-  {key:'steps',label:'Steps',unit:'',dir:'context',get:w=>numv(w.steps)},
-  {key:'stepRate',label:'Average step rate',unit:' steps/min',dir:'context',get:w=>numv(w.averageStepRate)},
-  {key:'vigPeak',label:'Vigorous + peak time',unit:' min',dir:'context',get:w=>numv(w.vigorousPlusPeakMinutes)},
-  {key:'temp',label:'Temperature',unit:'°F',dir:'context',get:w=>numv(w.weather?.average?.tempF)},
-  {key:'dewpoint',label:'Dewpoint',unit:'°F',dir:'context',get:w=>numv(w.weather?.average?.dewpointF)},
-  {key:'heatIndex',label:'Heat index',unit:'°F',dir:'context',get:w=>numv(w.weather?.average?.heatIndexF)},
-  {key:'solar',label:'Sun intensity',unit:' W/m²',dir:'context',get:w=>numv(w.weather?.average?.solarRadiationWm2)},
-  {key:'wind',label:'Average wind',unit:' mph',dir:'context',get:w=>numv(w.weather?.average?.windAvgMph)},
-  {key:'maxHi',label:'Maximum heat index',unit:'°F',dir:'context',get:w=>numv(w.weather?.maximum?.heatIndexF)},
-  {key:'maxSolar',label:'Maximum sun intensity',unit:' W/m²',dir:'context',get:w=>numv(w.weather?.maximum?.solarRadiationWm2)},
-  {key:'heatPenalty',label:'API heat penalty',unit:'%',dir:'context',get:w=>numv(w.weatherAdjustedEfficiency?.heatPenaltyPct)},
-  {key:'solarPenalty',label:'API sun penalty',unit:'%',dir:'context',get:w=>numv(w.weatherAdjustedEfficiency?.solarPenaltyPct)},
-  {key:'weatherFactor',label:'API weather factor',unit:'×',dir:'context',get:w=>numv(w.weatherAdjustedEfficiency?.weatherFactor)}
-];
-function numv(v){if(v===null||v===undefined||v==='')return null;const x=Number(v);return Number.isFinite(x)?x:null;}
-function corrMetric(key){return CORR_METRICS.find(x=>x.key===key)||CORR_METRICS[0];}
-function corrMean(a){return a.reduce((s,x)=>s+x,0)/a.length;}
-function pearson(xs,ys){
-  const n=xs.length;if(n<2)return null;
-  const mx=corrMean(xs),my=corrMean(ys);
-  let nume=0,dx=0,dy=0;
-  for(let i=0;i<n;i++){const a=xs[i]-mx,b=ys[i]-my;nume+=a*b;dx+=a*a;dy+=b*b;}
-  return dx>0&&dy>0?nume/Math.sqrt(dx*dy):null;
+function comparisonHeartRatePoints(run){
+  const start=Date.parse(run?.startTime)||Date.parse(run?.heartRateSeries?.[0]?.time);
+  const duration=Number(run?.activeSeconds);
+  if(!Number.isFinite(start))return [];
+  return (run.heartRateSeries||[]).map(sample=>{
+    const time=Date.parse(sample.time), bpm=sample.value===null?NaN:Number(sample.value);
+    return {x:(time-start)/60000,y:bpm};
+  }).filter(point=>Number.isFinite(point.x)&&point.x>=0&&Number.isFinite(point.y)&&point.y>0&&(!Number.isFinite(duration)||point.x<=duration/60))
+    .sort((a,b)=>a.x-b.x);
 }
-function ranks(values){
-  const sorted=values.map((v,i)=>({v,i})).sort((a,b)=>a.v-b.v),out=Array(values.length);
-  for(let i=0;i<sorted.length;){
-    let j=i;while(j+1<sorted.length&&sorted[j+1].v===sorted[i].v)j++;
-    const rank=(i+j+2)/2;
-    for(let k=i;k<=j;k++)out[sorted[k].i]=rank;
-    i=j+1;
-  }
-  return out;
+function comparisonRange(runs){
+  const points=runs.flatMap(comparisonHeartRatePoints);
+  const durations=runs.map(run=>Number(run.activeSeconds)/60).filter(Number.isFinite);
+  const maxMinutes=Math.max(1,...durations,...points.map(point=>point.x));
+  const values=points.map(point=>point.y);
+  return {
+    maxMinutes:Math.ceil(maxMinutes),
+    minBpm:values.length?Math.max(0,Math.floor((Math.min(...values)-10)/10)*10):90,
+    maxBpm:values.length?Math.ceil((Math.max(...values)+10)/10)*10:170
+  };
 }
-function regression(points){
-  if(points.length<2)return null;
-  const xs=points.map(p=>p.x),ys=points.map(p=>p.y),mx=corrMean(xs),my=corrMean(ys);
-  let nume=0,den=0;
-  for(const p of points){nume+=(p.x-mx)*(p.y-my);den+=(p.x-mx)*(p.x-mx);}
-  if(!den)return null;
-  const slope=nume/den,intercept=my-slope*mx;
-  return {slope,intercept};
+function renderRunComparison(){
+  const runs=(DATA.detailedRuns||[]).map((run,index)=>({run,index})).filter(({run})=>comparisonHeartRatePoints(run).length);
+  const first=document.getElementById('compare-a'),second=document.getElementById('compare-b');
+  const options=runs.map(({run,index})=>'<option value="'+index+'">'+fmtDate(run.date)+' · '+fmtDuration(run.activeSeconds)+'</option>').join('');
+  first.innerHTML=options;second.innerHTML=options;
+  if(!runs.length){document.getElementById('comparison-note').textContent='No runs with heart-rate traces are available yet.';return;}
+  first.value=String(runs[0].index);
+  second.value=String((runs[1]||runs[0]).index);
+  first.addEventListener('change',renderComparisonCharts);
+  second.addEventListener('change',renderComparisonCharts);
+  renderComparisonCharts();
 }
-function corrStrength(r){
-  const a=Math.abs(r);
-  if(a<.2)return 'very weak';
-  if(a<.4)return 'weak';
-  if(a<.6)return 'moderate';
-  if(a<.8)return 'strong';
-  return 'very strong';
-}
-function corrFmt(metric,v){
-  if(v===null||v===undefined||!Number.isFinite(Number(v)))return '—';
-  if(metric.format)return metric.format(v);
-  const abs=Math.abs(Number(v));
-  const d=abs>=100?0:abs>=10?1:2;
-  return Number(v).toFixed(d)+(metric.unit||'');
-}
-function correlationPoints(xm,ym){
-  return (DATA.detailedRuns||[]).map((w,index)=>{
-    const x=xm.get(w),y=ym.get(w);
-    return x===null||y===null?null:{x,y,w,index};
-  }).filter(Boolean);
-}
-function correlationInterpretation(r,rho,n,xm,ym){
-  if(n<3)return '<strong>Not enough paired runs yet.</strong> We need at least 3 runs with both metrics.';
-  const direction=r>0?'positive':r<0?'negative':'flat';
-  const sample=n<5?'tiny':n<8?'very small':n<15?'small':n<30?'developing':'useful';
-  let text='<strong>'+corrStrength(r)+' '+direction+' linear association</strong> (r='+r.toFixed(2)+'). ';
-  if(Math.abs(r-rho)>.18) text+='Pearson and Spearman differ noticeably, so outliers or a non-linear pattern may be influencing this. ';
-  if(n<15) text+='The sample is '+sample+' (n='+n+'), so treat this as preliminary. ';
-  else if(n<30) text+='The sample is still developing (n='+n+'). ';
-  else text+='The sample is large enough to take the pattern more seriously, while still avoiding causal claims. ';
-  if(ym.key==='api' && ['heatIndex','solar','dewpoint','temp','weatherFactor','heatPenalty','solarPenalty'].includes(xm.key)){
-    text+='For API validation, a weak relationship here is actually desirable because the weather adjustment is intended to remove weather-related performance bias.';
-  }
-  return text;
-}
-function renderCorrelationLab(){
-  const sx=document.getElementById('corr-x'),sy=document.getElementById('corr-y');
-  if(!sx||!sy)return;
-  const opts=CORR_METRICS.map(m=>'<option value="'+m.key+'">'+m.label+'</option>').join('');
-  sx.innerHTML=opts;sy.innerHTML=opts;
-  sx.value='heatIndex';sy.value='api';
-  const rerender=()=>renderCorrelationChart(sx.value,sy.value);
-  sx.addEventListener('change',rerender);sy.addEventListener('change',rerender);
-  document.getElementById('corr-swap').addEventListener('click',()=>{const a=sx.value;sx.value=sy.value;sy.value=a;rerender();});
-  document.querySelectorAll('.corr-preset').forEach(btn=>btn.addEventListener('click',()=>{sx.value=btn.dataset.x;sy.value=btn.dataset.y;rerender();}));
-  rerender();
-}
-function renderCorrelationChart(xKey,yKey){
-  const xm=corrMetric(xKey),ym=corrMetric(yKey),pts=correlationPoints(xm,ym);
-  const xs=pts.map(p=>p.x),ys=pts.map(p=>p.y);
-  const r=pearson(xs,ys),rho=pts.length>=2?pearson(ranks(xs),ranks(ys)):null;
-  const fit=regression(pts);
-  destroy('corr');
-
-  const datasets=[{
-    label:'Runs',
-    data:pts.map(p=>({x:p.x,y:p.y,runIndex:p.index,date:p.w.date})),
-    pointRadius:5,pointHoverRadius:7
-  }];
-  if(fit&&pts.length>=2){
-    const minX=Math.min(...xs),maxX=Math.max(...xs);
-    datasets.push({
-      label:'Linear trend',
-      data:[{x:minX,y:fit.intercept+fit.slope*minX},{x:maxX,y:fit.intercept+fit.slope*maxX}],
-      type:'line',pointRadius:0,borderWidth:2,borderDash:[6,5]
-    });
-  }
-
-  charts.corr=new Chart(document.getElementById('correlationChart'),{
-    type:'scatter',
-    data:{datasets},
-    options:{
-      maintainAspectRatio:false,
-      animation:false,
-      interaction:{mode:'nearest',intersect:true},
-      onClick:(event,elements)=>{
-        const hit=elements.find(e=>e.datasetIndex===0);
-        if(!hit)return;
-        const idx=datasets[0].data[hit.index]?.runIndex;
-        if(Number.isInteger(idx)){
-          renderRun(idx);
-          document.querySelectorAll('#runs-body tr').forEach(row=>row.classList.toggle('selected-run',Number(row.dataset.i)===selectedRun));
-          document.getElementById('workout-title')?.scrollIntoView({behavior:'smooth',block:'start'});
+function renderComparisonCharts(){
+  const runs=DATA.detailedRuns||[];
+  const a=runs[Number(document.getElementById('compare-a').value)];
+  const b=runs[Number(document.getElementById('compare-b').value)];
+  if(!a||!b)return;
+  const range=comparisonRange([a,b]);
+  document.getElementById('comparison-note').textContent=a===b
+    ?'Choose two different runs to compare their heart-rate patterns.'
+    :'Each trace starts at minute 0. Longer runs continue past the shorter run; the scale stays aligned.';
+  [a,b].forEach((run,index)=>{
+    const key=index?'compareB':'compareA',suffix=index?'b':'a';
+    const weather=run.weather?.average;
+    document.getElementById('compare-'+suffix+'-title').textContent=fmtDate(run.date)+' · '+fmtDuration(run.activeSeconds);
+    document.getElementById('compare-'+suffix+'-summary').textContent=
+      'Avg '+(run.averageHeartRate==null?'—':Math.round(run.averageHeartRate)+' bpm')+
+      (weather?.heatIndexF==null?'':' · HI '+n(weather.heatIndexF,1)+'°F');
+    destroy(key);
+    charts[key]=new Chart(document.getElementById(key+'Chart'),{
+      type:'line',
+      data:{datasets:[{label:fmtDate(run.date),data:comparisonHeartRatePoints(run),parsing:false,
+        borderColor:index?'#ec6684':'#2563eb',backgroundColor:index?'#ec6684':'#2563eb',
+        borderWidth:2,pointRadius:0,spanGaps:false}]},
+      options:{maintainAspectRatio:false,animation:false,normalized:true,
+        interaction:{mode:'nearest',intersect:false},
+        plugins:{legend:{display:false},tooltip:{callbacks:{
+          title:items=>items.length?Number(items[0].parsed.x).toFixed(1)+' min into run':'',
+          label:ctx=>Math.round(ctx.parsed.y)+' bpm'
+        }}},
+        scales:{
+          x:{type:'linear',min:0,max:range.maxMinutes,title:{display:true,text:'Minutes into run'},ticks:{maxTicksLimit:9,precision:0},grid:{color:'rgba(100,116,139,.10)'}},
+          y:{min:range.minBpm,max:range.maxBpm,title:{display:true,text:'Heart rate (bpm)'},grid:{color:'rgba(100,116,139,.10)'}}
         }
-      },
-      plugins:{
-        legend:{display:false},
-        tooltip:{callbacks:{
-          title:items=>items.length&&items[0].raw?.date?fmtDate(items[0].raw.date):'',
-          label:ctx=>{
-            if(ctx.datasetIndex!==0)return 'Trendline';
-            return [xm.label+': '+corrFmt(xm,ctx.raw.x),ym.label+': '+corrFmt(ym,ctx.raw.y)];
-          }
-        }}
-      },
-      scales:{
-        x:{title:{display:true,text:xm.label},ticks:{callback:v=>xm.format?xm.format(v).replace('/mi',''):v}},
-        y:{title:{display:true,text:ym.label},ticks:{callback:v=>ym.format?ym.format(v).replace('/mi',''):v}}
       }
-    }
+    });
   });
-
-  document.getElementById('corr-r').textContent=r===null?'—':r.toFixed(2);
-  document.getElementById('corr-rho').textContent=rho===null?'—':rho.toFixed(2);
-  document.getElementById('corr-r2').textContent=r===null?'—':(r*r).toFixed(2);
-  document.getElementById('corr-n').textContent=pts.length;
-  document.getElementById('corr-interpretation').innerHTML=r===null
-    ?'<strong>Not enough variation yet.</strong> One of these metrics may be constant or missing.'
-    :correlationInterpretation(r,rho,pts.length,xm,ym);
-  document.getElementById('corr-coverage').textContent=pts.length+' of '+((DATA.detailedRuns||[]).length)+' detailed runs have both metrics.';
-  document.getElementById('corr-run-list').innerHTML=pts.slice().sort((a,b)=>String(b.w.startTime||b.w.date).localeCompare(String(a.w.startTime||a.w.date))).map(p=>
-    '<div class="corr-run-item" data-run-index="'+p.index+'"><span>'+fmtDate(p.w.date)+'</span><span>'+corrFmt(xm,p.x)+' · '+corrFmt(ym,p.y)+'</span></div>'
-  ).join('');
-  document.querySelectorAll('.corr-run-item').forEach(el=>el.addEventListener('click',()=>{
-    const idx=Number(el.dataset.runIndex);renderRun(idx);
-    document.querySelectorAll('#runs-body tr').forEach(row=>row.classList.toggle('selected-run',Number(row.dataset.i)===selectedRun));
-    document.getElementById('workout-title')?.scrollIntoView({behavior:'smooth',block:'start'});
-  }));
 }
-
 
 function renderTable(){
   const detailed=DATA.detailedRuns||[];
