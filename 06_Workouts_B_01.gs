@@ -130,30 +130,87 @@ function calculateAerobicDecoupling_(start, end, heartRateSeries, paceSeries) {
   };
 }
 
-function nearestHeartRate_(points, targetMs, toleranceMs) {
-  let best = null;
-  let bestDelta = Infinity;
-  (points || []).forEach(point => {
-    const delta = Math.abs(new Date(point.time).getTime() - targetMs);
-    if (delta <= toleranceMs && delta < bestDelta && Number.isFinite(Number(point.value))) {
-      best = Number(point.value);
-      bestDelta = delta;
+function estimateHeartRateAt_(points, targetMs) {
+  const usable = (points || [])
+    .map(point => ({
+      timeMs: new Date(point.time).getTime(),
+      value: Number(point.value)
+    }))
+    .filter(point => Number.isFinite(point.timeMs) && Number.isFinite(point.value))
+    .sort((a, b) => a.timeMs - b.timeMs);
+
+  if (!usable.length) return null;
+
+  let before = null;
+  let after = null;
+  let nearest = null;
+  let nearestDelta = Infinity;
+
+  usable.forEach(point => {
+    const delta = Math.abs(point.timeMs - targetMs);
+    if (delta < nearestDelta) {
+      nearest = point;
+      nearestDelta = delta;
     }
+    if (point.timeMs <= targetMs && (!before || point.timeMs > before.timeMs)) before = point;
+    if (point.timeMs >= targetMs && (!after || point.timeMs < after.timeMs)) after = point;
   });
-  return best;
+
+  if (before && after) {
+    const beforeDelta = targetMs - before.timeMs;
+    const afterDelta = after.timeMs - targetMs;
+    const gap = after.timeMs - before.timeMs;
+
+    if (before.timeMs === after.timeMs) {
+      return {
+        value: before.value,
+        method: 'exact',
+        offsetSeconds: 0
+      };
+    }
+
+    if (beforeDelta <= 10000 && afterDelta <= 10000 && gap <= 15000) {
+      const fraction = (targetMs - before.timeMs) / gap;
+      return {
+        value: before.value + (after.value - before.value) * fraction,
+        method: 'interpolated',
+        beforeOffsetSeconds: roundTo_(-beforeDelta / 1000, 1),
+        afterOffsetSeconds: roundTo_(afterDelta / 1000, 1)
+      };
+    }
+  }
+
+  if (nearest && nearestDelta <= 5000) {
+    return {
+      value: nearest.value,
+      method: 'nearest',
+      offsetSeconds: roundTo_((nearest.timeMs - targetMs) / 1000, 1)
+    };
+  }
+
+  return null;
 }
 
 function calculateHeartRateRecovery_(workoutEnd, points) {
   if (!workoutEnd || !points || !points.length) return null;
+
   const endMs = workoutEnd.getTime();
-  const endHr = nearestHeartRate_(points, endMs, 45000) ||
-    nearestHeartRate_(points, endMs - 15000, 60000);
-  if (!endHr) return null;
-  const result = { endHeartRate: roundTo_(endHr, 0) };
+  const endEstimate = estimateHeartRateAt_(points, endMs);
+  if (!endEstimate) return null;
+
+  const result = {
+    endHeartRate: roundTo_(endEstimate.value, 1),
+    endEstimate: endEstimate
+  };
+
   [1, 2, 3].forEach(minute => {
-    const value = nearestHeartRate_(points, endMs + minute * 60000, 30000);
-    result[`minute${minute}HeartRate`] = value === null ? null : roundTo_(value, 0);
-    result[`minute${minute}Drop`] = value === null ? null : roundTo_(endHr - value, 0);
+    const estimate = estimateHeartRateAt_(points, endMs + minute * 60000);
+    result[`minute${minute}HeartRate`] = estimate === null ? null : roundTo_(estimate.value, 1);
+    result[`minute${minute}Drop`] = estimate === null
+      ? null
+      : roundTo_(endEstimate.value - estimate.value, 1);
+    result[`minute${minute}Estimate`] = estimate;
   });
+
   return result;
 }
