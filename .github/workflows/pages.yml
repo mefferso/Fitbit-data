@@ -9,7 +9,7 @@ on:
       - ".github/workflows/pages.yml"
   workflow_dispatch:
   schedule:
-    - cron: "17 * * * *"
+    - cron: "*/15 * * * *"
 
 permissions:
   contents: write
@@ -51,14 +51,23 @@ jobs:
               raise SystemExit(f"Export returned error: {data['error']}")
           if "recentRuns" not in data or "detailedRuns" not in data:
               raise SystemExit("Export is missing expected workout fields")
-          print(f"Validated {len(data.get('recentRuns', []))} recent runs and {len(data.get('detailedRuns', []))} detailed runs")
+          latest = json.loads(Path("docs/data/latest.json").read_text())
+          index = json.loads(Path("docs/data/run-index.json").read_text())
+          trends = json.loads(Path("docs/data/trends.json").read_text())
+          if not isinstance(index.get("runs"), list):
+              raise SystemExit("Permanent run index is missing runs")
+          if data.get("detailedRuns") and not latest.get("run"):
+              raise SystemExit("Latest-run feed is missing detailed run data")
+          if "runningTrend" not in trends:
+              raise SystemExit("Trend feed is missing runningTrend")
+          print(f"Validated {len(data.get('recentRuns', []))} recent runs, {len(data.get('detailedRuns', []))} dashboard details, and {len(index.get('runs', []))} indexed runs")
           PY
 
       - name: Commit sanitized run data
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add docs/data.json
+          git add docs/data.json docs/data
           if git diff --cached --quiet; then
             echo "No workout-data changes to commit."
           else
