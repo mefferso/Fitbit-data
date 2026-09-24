@@ -2,8 +2,12 @@ import fs from 'node:fs/promises';
 
 const API = 'https://health.googleapis.com/v4/users/me';
 const TZ = 'America/Chicago';
-const LOOKBACK_DAYS = 180;
-const DETAIL_RUNS = 30;
+// Keep the compact run index permanent. Detailed high-resolution data is archived
+// per run, while only the newest few runs are re-fetched from Google/Tempest.
+const ARCHIVE_START_DATE = '2000-01-01';
+const DETAIL_REFRESH_RUNS = 5;
+const DASHBOARD_DETAIL_RUNS = 30;
+const TREND_DAYS = 180;
 
 const required = ['GOOGLE_CLIENT_ID','GOOGLE_CLIENT_SECRET','GOOGLE_REFRESH_TOKEN','TEMPEST_API_TOKEN','TEMPEST_STATION_ID'];
 for (const key of required) {
@@ -43,6 +47,18 @@ function firstNumber(obj, keys) {
 function healthDateKey(d) {
   if (!d) return '';
   return [d.year, String(d.month).padStart(2,'0'), String(d.day).padStart(2,'0')].join('-');
+}
+async function readJsonIfExists(filePath, fallback=null) {
+  try { return JSON.parse(await fs.readFile(filePath,'utf8')); }
+  catch (error) { if (error?.code === 'ENOENT') return fallback; throw error; }
+}
+function runId(w) {
+  const stamp=w?.startTime ? new Date(w.startTime).toISOString().replace(/[:.]/g,'-') : String(w?.date||'run');
+  return stamp;
+}
+function runDetailFile(w) {
+  const year=String(w?.date||'unknown').slice(0,4);
+  return `data/runs/${year}/${runId(w)}.json`;
 }
 
 async function getAccessToken() {
@@ -555,14 +571,86 @@ function downsample(series,limit=600){
   for(let i=0;i<limit;i++)out.push(series[Math.min(series.length-1,Math.floor(i*step))]);
   return out;
 }
+function averageTimedValue(series,key,startMs,endMs){
+  const vals=(series||[]).filter(p=>{
+    const t=new Date(p.time).getTime();
+    return Number.isFinite(t)&&t>=startMs&&t<endMs&&Number.isFinite(Number(p[key]));
+  }).map(p=>Number(p[key]));
+  return vals.length?round(vals.reduce((a,b)=>a+b,0)/vals.length,1):null;
+}
+function aggregatePace(series,startMs,endMs){
+  const pts=(series||[]).filter(p=>{
+    const t=new Date(p.time).getTime();
+    return Number.isFinite(t)&&t>=startMs&&t<endMs;
+  });
+  const seconds=pts.reduce((sum,p)=>sum+(Number(p.seconds)||0),0);
+  const miles=pts.reduce((sum,p)=>sum+(Number(p.distanceMiles)||0),0);
+  return seconds>0&&miles>0?round(seconds/miles,0):null;
+}
+function nearestTimedValue(series,key,targetMs,maxDeltaMs=30000){
+  let best=null,delta=Infinity;
+  for(const p of series||[]){
+    const t=new Date(p.time).getTime(),v=Number(p[key]);
+    if(!Number.isFinite(t)||!Number.isFinite(v))continue;
+    const d=Math.abs(t-targetMs);
+    if(d<delta){delta=d;best=v;}
+  }
+  return delta<=maxDeltaMs?round(best,1):null;
+}
+function linearSlopePerMinute(series,key,startMs){
+  const pts=(series||[]).map(p=>({
+    x:(new Date(p.time).getTime()-startMs)/60000,
+    y:Number(p[key])
+  })).filter(p=>Number.isFinite(p.x)&&Number.isFinite(p.y)&&p.x>=0);
+  if(pts.length<3)return null;
+  const mx=pts.reduce((s,p)=>s+p.x,0)/pts.length;
+  const my=pts.reduce((s,p)=>s+p.y,0)/pts.length;
+  let nume=0,den=0;
+  for(const p of pts){const dx=p.x-mx;nume+=dx*(p.y-my);den+=dx*dx;}
+  return den>0?round(nume/den,2):null;
+}
+function analysisSummary(w){
+  const startMs=new Date(w.startTime).getTime();
+  const endMs=new Date(w.endTime).getTime();
+  if(!Number.isFinite(startMs)||!Number.isFinite(endMs)||endMs<=startMs)return null;
+  const durationMs=endMs-startMs;
+  const thirds=[];
+  for(let i=0;i<3;i++){
+    const a=startMs+durationMs*i/3,b=startMs+durationMs*(i+1)/3;
+    thirds.push({
+      segment:i+1,
+      averageHeartRate:averageTimedValue(w.heartRateSeries,'value',a,b),
+      averagePaceSecondsPerMile:aggregatePace(w.paceSeries,a,b)
+    });
+  }
+  const checkpoints=[];
+  const totalMinutes=Math.floor(durationMs/60000);
+  for(let minute=5;minute<=totalMinutes;minute+=5){
+    const target=startMs+minute*60000;
+    checkpoints.push({
+      minute,
+      heartRate:estimateHrAt(w.heartRateSeries,target)?.value??null,
+      paceSecondsPerMile:nearestTimedValue(w.paceSeries,'paceSecondsPerMile',target)
+    });
+  }
+  return {
+    durationMinutes:round(durationMs/60000,1),
+    thirds,
+    checkpoints,
+    heartRateSlopeBpmPerMinute:linearSlopePerMinute(w.heartRateSeries,'value',startMs),
+    paceSlopeSecondsPerMilePerMinute:linearSlopePerMinute(w.paceSeries,'paceSecondsPerMile',startMs)
+  };
+}
 
-const now=new Date(), startDate=dateKey(addDays(now,-LOOKBACK_DAYS));
+const previousOutput=await readJsonIfExists('docs/data.json',{});
+const previousIndex=await readJsonIfExists('docs/data/run-index.json',{runs:[]});
+const now=new Date(), startDate=ARCHIVE_START_DATE;
 const tempestDeviceId=await discoverTempestDevice();
 const all=await getExercises(startDate);
 const runs=all.filter(w=>w.type.toUpperCase().includes('RUN')).sort((a,b)=>String(b.startTime).localeCompare(String(a.startTime)));
 
 const detailedRuns=[];
-for(const workout of runs.slice(0,DETAIL_RUNS)){
+for(const workout of runs.slice(0,DETAIL_REFRESH_RUNS)){
   if(!workout.startTime||!workout.endTime) continue;
   const start=new Date(workout.startTime), end=new Date(workout.endTime);
   const weatherStart=new Date(start.getTime()-10*60000), weatherEnd=new Date(end.getTime()+10*60000);
@@ -649,6 +737,13 @@ for(const workout of runs.slice(0,DETAIL_RUNS)){
   });
 }
 
+// Merge freshly fetched detail with the previous dashboard export so the visible
+// dashboard remains unchanged while every detailed run gains a permanent archive file.
+const detailByStart=new Map();
+for(const w of previousOutput?.detailedRuns||[]) if(w?.startTime) detailByStart.set(w.startTime,w);
+for(const w of detailedRuns) if(w?.startTime) detailByStart.set(w.startTime,w);
+detailedRuns=runs.slice(0,DASHBOARD_DETAIL_RUNS).map(w=>detailByStart.get(w.startTime)).filter(Boolean);
+
 const MIN_EFFICIENCY_SECONDS=30*60;
 const efficiencyCandidates=detailedRuns
   .map(w=>({w,calc:weatherAdjustedEfficiency(w)}))
@@ -673,7 +768,7 @@ const weatherAdjustedTrend=efficiencyCandidates.map(({w})=>({
   solarPenaltyPct:w.weatherAdjustedEfficiency?.solarPenaltyPct??null
 }));
 
-const recentRuns=runs.slice(0,30).map(w=>({
+const recentRuns=runs.slice(0,DASHBOARD_DETAIL_RUNS).map(w=>({
   date:w.date,startTime:w.startTime,activeSeconds:w.activeSeconds,distanceMiles:w.distanceMiles,
   averagePaceSecondsPerMile:w.averagePaceSecondsPerMile,averageHeartRate:w.averageHeartRate,
   steps:w.steps,activeZoneMinutes:w.activeZoneMinutes,runVo2Max:w.runVo2Max
@@ -698,11 +793,11 @@ for(let d=addDays(now,-119);dateKey(d)<=dateKey(now);d=addDays(d,1)){
 const vo2Max=runs.filter(w=>w.runVo2Max!==null).map(w=>({date:w.date,value:w.runVo2Max,dataType:'exercise.runVo2Max'}));
 
 const output={
-  generatedAt:new Date().toISOString(),timeZone:TZ,lookbackDays:LOOKBACK_DAYS,
+  generatedAt:new Date().toISOString(),timeZone:TZ,lookbackDays:TREND_DAYS,
   publicDataNotice:'Workout/running metrics only. GPS coordinates, sleep, weight, OAuth credentials and tokens are not included.',
   recentRuns,detailedRuns,
   runningTrend:{
-    days:LOOKBACK_DAYS,runs:trend,vo2Max,
+    days:TREND_DAYS,runs:trend.filter(x=>new Date(x.startTime)>=addDays(now,-TREND_DAYS)),vo2Max:vo2Max.filter(x=>new Date(x.date+'T12:00:00Z')>=addDays(now,-TREND_DAYS)),
     weatherAdjusted:{
       runs:weatherAdjustedTrend,
       baseline:weatherEfficiencyBaseline,
@@ -719,6 +814,67 @@ const output={
   trainingLoad:{days:120,points:loadPoints,summary:{}}
 };
 
-await fs.mkdir('docs',{recursive:true});
-await fs.writeFile('docs/data.json',JSON.stringify(output));
-console.log(`Published ${recentRuns.length} recent runs, ${detailedRuns.length} detailed runs, and ${loadPoints.length} load days.`);
+// Add stable IDs, analysis-friendly summaries, and permanent per-run detail files.
+for(const w of detailedRuns){
+  w.runId=runId(w);
+  w.detailFile=runDetailFile(w);
+  w.analysisSummary=analysisSummary(w);
+}
+await fs.mkdir('docs/data/runs',{recursive:true});
+for(const w of detailedRuns){
+  const filePath='docs/'+w.detailFile;
+  await fs.mkdir(filePath.slice(0,filePath.lastIndexOf('/')),{recursive:true});
+  await fs.writeFile(filePath,JSON.stringify(w));
+}
+
+const previousIndexByStart=new Map((previousIndex?.runs||[]).map(x=>[x.startTime,x]));
+const detailedIndexByStart=new Map(detailedRuns.map(x=>[x.startTime,x]));
+const runIndexRuns=runs.map(w=>{
+  const d=detailedIndexByStart.get(w.startTime);
+  const old=previousIndexByStart.get(w.startTime)||{};
+  const recovery=d?.heartRateRecovery||{};
+  const wx=d?.weather?.average||{};
+  return {
+    runId:d?.runId||old.runId||runId(w),
+    date:w.date,
+    startTime:w.startTime,
+    endTime:w.endTime,
+    activeSeconds:w.activeSeconds,
+    distanceMiles:w.distanceMiles,
+    averagePaceSecondsPerMile:d?.averagePaceSecondsPerMile??w.averagePaceSecondsPerMile,
+    averageHeartRate:d?.averageHeartRate??w.averageHeartRate,
+    peakHeartRate:d?.peakHeartRate??old.peakHeartRate??null,
+    hrr1:d?recovery.minute1Drop??null:old.hrr1??null,
+    hrr2:d?recovery.minute2Drop??null:old.hrr2??null,
+    hrr3:d?recovery.minute3Drop??null:old.hrr3??null,
+    cardioDriftPercent:d?.aerobicDecoupling?.percent??old.cardioDriftPercent??null,
+    trainingLoad:d?.trainingLoad??old.trainingLoad??null,
+    adjustedPerformanceIndex:d?.weatherAdjustedEfficiency?.score??old.adjustedPerformanceIndex??null,
+    heatIndexF:d?wx.heatIndexF??null:old.heatIndexF??null,
+    dewpointF:d?wx.dewpointF??null:old.dewpointF??null,
+    solarRadiationWm2:d?wx.solarRadiationWm2??null:old.solarRadiationWm2??null,
+    detailFile:d?.detailFile||old.detailFile||null
+  };
+});
+
+const archiveMeta={
+  generatedAt:output.generatedAt,
+  timeZone:TZ,
+  archiveStartDate:ARCHIVE_START_DATE,
+  runCount:runIndexRuns.length
+};
+const latestDetailed=detailedRuns[0]||null;
+const trendsOutput={
+  ...archiveMeta,
+  runningTrend:output.runningTrend,
+  trainingLoad:output.trainingLoad
+};
+
+await fs.mkdir('docs/data',{recursive:true});
+await Promise.all([
+  fs.writeFile('docs/data.json',JSON.stringify(output)),
+  fs.writeFile('docs/data/latest.json',JSON.stringify({...archiveMeta,run:latestDetailed})),
+  fs.writeFile('docs/data/run-index.json',JSON.stringify({...archiveMeta,runs:runIndexRuns})),
+  fs.writeFile('docs/data/trends.json',JSON.stringify(trendsOutput))
+]);
+console.log(`Published ${recentRuns.length} recent runs, refreshed ${Math.min(DETAIL_REFRESH_RUNS,runs.length)} detailed runs, archived ${detailedRuns.length} detailed dashboard runs, and indexed ${runIndexRuns.length} total runs.`);
