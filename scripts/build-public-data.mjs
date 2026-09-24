@@ -649,7 +649,7 @@ const tempestDeviceId=await discoverTempestDevice();
 const all=await getExercises(startDate);
 const runs=all.filter(w=>w.type.toUpperCase().includes('RUN')).sort((a,b)=>String(b.startTime).localeCompare(String(a.startTime)));
 
-const detailedRuns=[];
+let detailedRuns=[];
 for(const workout of runs.slice(0,DETAIL_REFRESH_RUNS)){
   if(!workout.startTime||!workout.endTime) continue;
   const start=new Date(workout.startTime), end=new Date(workout.endTime);
