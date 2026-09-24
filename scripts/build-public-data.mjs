@@ -494,16 +494,59 @@ function decoupling(start,end,hr,pace){
   const e1=p1.speedMph/h1,e2=p2.speedMph/h2;
   return {percent:round((e1-e2)/e1*100,1),firstHalfHeartRate:round(h1),secondHalfHeartRate:round(h2),firstHalfPaceSecondsPerMile:round(p1.paceSecondsPerMile),secondHalfPaceSecondsPerMile:round(p2.paceSecondsPerMile)};
 }
-function nearestHr(points,target,tolerance=30000){
-  let best=null,delta=Infinity;
-  for(const p of points){const d=Math.abs(new Date(p.time)-target);if(d<=tolerance&&d<delta){best=p.value;delta=d}}
-  return best;
+function estimateHrAt(points,targetMs){
+  const usable=(points||[])
+    .map(p=>({timeMs:new Date(p.time).getTime(),value:Number(p.value)}))
+    .filter(p=>Number.isFinite(p.timeMs)&&Number.isFinite(p.value))
+    .sort((a,b)=>a.timeMs-b.timeMs);
+  if(!usable.length)return null;
+
+  let before=null,after=null,nearest=null,nearestDelta=Infinity;
+  for(const p of usable){
+    const delta=Math.abs(p.timeMs-targetMs);
+    if(delta<nearestDelta){nearest=p;nearestDelta=delta;}
+    if(p.timeMs<=targetMs&&(!before||p.timeMs>before.timeMs))before=p;
+    if(p.timeMs>=targetMs&&(!after||p.timeMs<after.timeMs))after=p;
+  }
+
+  if(before&&after){
+    const beforeDelta=targetMs-before.timeMs;
+    const afterDelta=after.timeMs-targetMs;
+    const gap=after.timeMs-before.timeMs;
+    if(before.timeMs===after.timeMs){
+      return {value:before.value,method:'exact',offsetSeconds:0};
+    }
+    if(beforeDelta<=10000&&afterDelta<=10000&&gap<=15000){
+      const fraction=(targetMs-before.timeMs)/gap;
+      return {
+        value:before.value+(after.value-before.value)*fraction,
+        method:'interpolated',
+        beforeOffsetSeconds:round(-beforeDelta/1000,1),
+        afterOffsetSeconds:round(afterDelta/1000,1)
+      };
+    }
+  }
+
+  if(nearest&&nearestDelta<=5000){
+    return {
+      value:nearest.value,
+      method:'nearest',
+      offsetSeconds:round((nearest.timeMs-targetMs)/1000,1)
+    };
+  }
+
+  return null;
 }
 function recovery(end,points){
-  const t=end.getTime(), endHr=nearestHr(points,t,45000)||nearestHr(points,t-15000,60000);
-  if(!endHr)return null;
-  const r={endHeartRate:round(endHr)};
-  for(const m of [1,2,3]){const v=nearestHr(points,t+m*60000);r[`minute${m}HeartRate`]=v===null?null:round(v);r[`minute${m}Drop`]=v===null?null:round(endHr-v);}
+  const t=end.getTime(), endEstimate=estimateHrAt(points,t);
+  if(!endEstimate)return null;
+  const r={endHeartRate:round(endEstimate.value,1),endEstimate};
+  for(const m of [1,2,3]){
+    const estimate=estimateHrAt(points,t+m*60000);
+    r[`minute${m}HeartRate`]=estimate===null?null:round(estimate.value,1);
+    r[`minute${m}Drop`]=estimate===null?null:round(endEstimate.value-estimate.value,1);
+    r[`minute${m}Estimate`]=estimate;
+  }
   return r;
 }
 function downsample(series,limit=600){
