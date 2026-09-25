@@ -19,7 +19,7 @@ h1{font-size:34px;margin:7px 0 5px}h2{font-size:20px;margin:0}.sub{color:#637087
 .error{padding:20px;color:#b42318;background:#fff0ee;border:1px solid #ffd1cc;border-radius:14px;margin-top:14px}
 .muted{color:#748198}.footer{font-size:12px;color:#7b8798;margin-top:18px;text-align:center}
 .pace-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px}.pace-controls label{font-size:11px;font-weight:850;color:#6a7890;text-transform:uppercase}.pace-controls select{border:1px solid #dce4ef;border-radius:8px;background:#fff;color:#183153;padding:6px 9px;font:inherit;font-size:12px;font-weight:750}.stacked-charts{display:grid;gap:8px;margin-top:14px;position:relative}.sync-cursor{position:absolute;top:0;left:0;width:1px;background:rgba(15,23,42,.72);pointer-events:none;z-index:5;display:none;transform:translateX(0);will-change:transform,height}.stacked-panel{min-width:0}.stacked-panel-title{display:flex;justify-content:space-between;gap:12px;align-items:baseline;font-size:12px;font-weight:850;color:#52627a;margin:0 2px 4px}.stacked-panel-title span:last-child{font-weight:650;color:#7a8799}.stacked-chart{height:205px}.metric-formula{font-size:10px;color:#8995a8;line-height:1.35;margin-top:8px;padding-top:7px;border-top:1px solid #edf1f6}.api-delta{font-size:27px;font-weight:900;margin-top:7px}.api-score{font-size:15px;font-weight:800;color:#637087;margin-top:2px}
-.comparison-controls{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:16px}.comparison-control label{display:block;font-size:11px;font-weight:850;color:#6a7890;text-transform:uppercase;margin-bottom:6px}.comparison-control select{width:100%;border:1px solid #dce4ef;border-radius:10px;background:#fff;color:#183153;padding:9px 10px;font:inherit;font-size:13px;font-weight:750}.comparison-stack{display:grid;gap:16px;margin-top:18px}.comparison-panel{min-width:0}.comparison-heading{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:baseline;font-size:13px;font-weight:800;color:#173153}.comparison-heading span:last-child{font-size:12px;font-weight:650;color:#637087}.comparison-chart{height:230px;margin-top:5px}.comparison-note{font-size:12px;color:#637087;line-height:1.45;margin-top:12px}@media(max-width:600px){.comparison-controls{grid-template-columns:1fr}.comparison-chart{height:205px}}
+.drift-card{overflow:hidden}.drift-head{display:flex;justify-content:space-between;gap:18px;align-items:flex-start;flex-wrap:wrap}.drift-explainer{max-width:760px}.drift-stats{display:grid;grid-template-columns:repeat(3,minmax(120px,1fr));gap:10px;margin-top:16px}.drift-stat{background:#f7f9fc;border:1px solid #e4eaf2;border-radius:12px;padding:11px 12px}.drift-stat-label{font-size:10px;font-weight:850;text-transform:uppercase;letter-spacing:.04em;color:#75839a}.drift-stat-value{font-size:21px;font-weight:850;margin-top:3px}.drift-stat-detail{font-size:11px;color:#7a8799;margin-top:2px;line-height:1.3}.drift-chart{height:255px;margin-top:10px}.drift-note{font-size:11px;color:#7b8798;line-height:1.45;margin-top:7px}.comparison-controls{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:16px}.comparison-control label{display:block;font-size:11px;font-weight:850;color:#6a7890;text-transform:uppercase;margin-bottom:6px}.comparison-control select{width:100%;border:1px solid #dce4ef;border-radius:10px;background:#fff;color:#183153;padding:9px 10px;font:inherit;font-size:13px;font-weight:750}.comparison-stack{display:grid;gap:16px;margin-top:18px}.comparison-panel{min-width:0}.comparison-heading{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:baseline;font-size:13px;font-weight:800;color:#173153}.comparison-heading span:last-child{font-size:12px;font-weight:650;color:#637087}.comparison-chart{height:230px;margin-top:5px}.comparison-note{font-size:12px;color:#637087;line-height:1.45;margin-top:12px}@media(max-width:600px){.comparison-controls{grid-template-columns:1fr}.comparison-chart{height:205px}.drift-stats{grid-template-columns:1fr}.drift-chart{height:225px}}
 @media(max-width:900px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.two{grid-template-columns:1fr}}@media(max-width:540px){.grid{grid-template-columns:1fr}.hero{padding:22px}.section{padding:17px}h1{font-size:28px}}
 </style>
 </head>
@@ -67,6 +67,34 @@ h1{font-size:34px;margin:7px 0 5px}h2{font-size:20px;margin:0}.sub{color:#637087
           <div class="pills" id="run-pills"></div>
         </div>
       </div>
+    </section>
+
+    <section class="card section drift-card" id="cardio-drift-panel">
+      <div class="drift-head">
+        <div class="drift-explainer">
+          <h2>Cardio efficiency through the run</h2>
+          <div class="sub">5-minute rolling speed-per-heartbeat efficiency, sampled every 30 seconds. The line shows change from your settled-in minutes 5–10 baseline; positive values mean efficiency has fallen.</div>
+        </div>
+      </div>
+      <div class="drift-stats">
+        <div class="drift-stat">
+          <div class="drift-stat-label">Whole-run drift</div>
+          <div class="drift-stat-value" id="drift-overall">—</div>
+          <div class="drift-stat-detail">First half vs second half</div>
+        </div>
+        <div class="drift-stat">
+          <div class="drift-stat-label">Late-run rolling drift</div>
+          <div class="drift-stat-value" id="drift-late">—</div>
+          <div class="drift-stat-detail">Final available 5-minute window</div>
+        </div>
+        <div class="drift-stat">
+          <div class="drift-stat-label">Peak rolling drift</div>
+          <div class="drift-stat-value" id="drift-peak">—</div>
+          <div class="drift-stat-detail">Largest sustained efficiency loss</div>
+        </div>
+      </div>
+      <div class="drift-chart"><canvas id="driftChart"></canvas></div>
+      <div class="drift-note" id="drift-note">Baseline is minutes 5–10 to avoid startup/warm-up noise. The dashed 5% line is a practical reference, not a pass/fail threshold.</div>
     </section>
 
     <section class="two">
@@ -212,7 +240,7 @@ function renderRun(index){
   const metrics=[
     ['Distance',w.distanceMiles!==null?n(w.distanceMiles,2)+' mi':'—',fmtPace(w.averagePaceSecondsPerMile)],
     ['Average HR',w.averageHeartRate!==null?Math.round(w.averageHeartRate)+' bpm':'—',w.peakHeartRate?'Peak '+Math.round(w.peakHeartRate)+' bpm':''],
-    ['Cardio drift',dec!==null&&dec!==undefined?(dec>0?'+':'')+n(dec,1)+'%':'—','Speed / HR efficiency'],
+    ['Cardio drift',dec!==null&&dec!==undefined?(dec>0?'+':'')+n(dec,1)+'%':'—','1st half vs 2nd half efficiency'],
     ['1-min HR recovery',hrr!==null&&hrr!==undefined?Math.round(hrr)+' bpm':'—',w.heartRateRecovery&&w.heartRateRecovery.endHeartRate?'From '+Math.round(w.heartRateRecovery.endHeartRate)+' bpm':''],
     ['Training load',n(w.trainingLoad,1),'Zone-weighted session load'],
     ['Steps',w.steps!==null?Math.round(w.steps).toLocaleString():'—',w.averageStepRate?Math.round(w.averageStepRate)+' steps/min':''],
@@ -240,6 +268,157 @@ function renderRun(index){
   const rw=w.runWalkIntervals||[];
   document.getElementById('run-pills').innerHTML=rw.slice(0,8).map(x=>'<span class="pill">'+String(x.type||'').toUpperCase()+' '+fmtDuration(x.seconds)+'</span>').join('');
   renderHrPace(w);
+  renderRollingCardioDrift(w);
+}
+
+function meanHrInWindow(series,startMs,endMs){
+  const vals=(series||[]).filter(p=>{
+    const t=new Date(p.time).getTime();
+    return Number.isFinite(t)&&t>=startMs&&t<endMs&&Number.isFinite(Number(p.value));
+  }).map(p=>Number(p.value));
+  return vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:null;
+}
+
+function paceEfficiencyInWindow(w,startMs,endMs){
+  const hr=meanHrInWindow(w?.heartRateSeries||[],startMs,endMs);
+  if(!hr||hr<=0) return null;
+  let distance=0,seconds=0;
+  for(const p of w?.paceSeries||[]){
+    const mid=new Date(p.time).getTime();
+    const sec=Math.max(.001,Number(p.seconds)||0);
+    const miles=Math.max(0,Number(p.distanceMiles)||0);
+    if(!Number.isFinite(mid)||!sec||!miles) continue;
+    const a=mid-sec*500,b=mid+sec*500;
+    const overlap=Math.max(0,Math.min(b,endMs)-Math.max(a,startMs));
+    if(overlap<=0) continue;
+    const fraction=overlap/(sec*1000);
+    distance+=miles*fraction;
+    seconds+=overlap/1000;
+  }
+  if(distance<=0||seconds<=0) return null;
+  const speedMph=distance/(seconds/3600);
+  return {efficiency:speedMph/hr,heartRate:hr,speedMph,paceSecondsPerMile:seconds/distance};
+}
+
+function rollingCardioDrift(w){
+  const startMs=new Date(w?.startTime).getTime();
+  const endMs=new Date(w?.endTime).getTime();
+  if(!Number.isFinite(startMs)||!Number.isFinite(endMs)||endMs-startMs<15*60000) return null;
+  const baselineStart=startMs+5*60000, baselineEnd=startMs+10*60000;
+  const baseline=paceEfficiencyInWindow(w,baselineStart,baselineEnd);
+  if(!baseline||!baseline.efficiency) return null;
+  const halfWindow=2.5*60000, step=30000;
+  const points=[];
+  for(let center=startMs+7.5*60000;center<=endMs-halfWindow;center+=step){
+    const m=paceEfficiencyInWindow(w,center-halfWindow,center+halfWindow);
+    if(!m||!m.efficiency) continue;
+    points.push({
+      minute:(center-startMs)/60000,
+      drift:(baseline.efficiency-m.efficiency)/baseline.efficiency*100,
+      efficiency:m.efficiency,
+      heartRate:m.heartRate,
+      paceSecondsPerMile:m.paceSecondsPerMile
+    });
+  }
+  return points.length?{baseline,points}:null;
+}
+
+function signedPct(v){
+  return v===null||v===undefined||!Number.isFinite(Number(v))?'—':(Number(v)>0?'+':'')+Number(v).toFixed(1)+'%';
+}
+
+function renderRollingCardioDrift(w){
+  destroy('drift');
+  const result=rollingCardioDrift(w);
+  const overall=w?.aerobicDecoupling?.percent;
+  document.getElementById('drift-overall').textContent=signedPct(overall);
+  const canvas=document.getElementById('driftChart');
+  const note=document.getElementById('drift-note');
+
+  if(!result||!result.points.length){
+    document.getElementById('drift-late').textContent='—';
+    document.getElementById('drift-peak').textContent='—';
+    canvas.style.display='none';
+    note.textContent='Rolling drift needs at least 15 minutes plus usable heart-rate and pace data.';
+    return;
+  }
+
+  canvas.style.display='block';
+  const pts=result.points;
+  const late=pts[pts.length-1].drift;
+  const peak=Math.max(...pts.map(p=>p.drift));
+  document.getElementById('drift-late').textContent=signedPct(late);
+  document.getElementById('drift-peak').textContent=signedPct(peak);
+  note.textContent='Baseline is minutes 5–10 to avoid startup/warm-up noise. The dashed 5% line is a practical reference, not a pass/fail threshold. Hover anywhere on the curve to see the rolling pace and heart rate behind that point.';
+
+  const values=pts.map(p=>p.drift);
+  const yMin=Math.min(-5,Math.floor((Math.min(...values)-1)/2)*2);
+  const yMax=Math.max(8,Math.ceil((Math.max(...values)+1)/2)*2);
+
+  charts.drift=new Chart(canvas,{
+    type:'line',
+    data:{
+      datasets:[
+        {
+          label:'Rolling cardio drift',
+          data:pts.map(p=>({x:p.minute,y:Number(p.drift.toFixed(2)),hr:p.heartRate,pace:p.paceSecondsPerMile})),
+          borderColor:'#2563eb',
+          backgroundColor:'rgba(37,99,235,.10)',
+          borderWidth:3,
+          pointRadius:0,
+          pointHoverRadius:4,
+          tension:.25,
+          fill:{target:{value:0},above:'rgba(37,99,235,.08)',below:'rgba(22,163,74,.06)'}
+        },
+        {
+          label:'5% reference',
+          data:[{x:pts[0].minute,y:5},{x:pts[pts.length-1].minute,y:5}],
+          borderColor:'rgba(100,116,139,.70)',
+          borderWidth:1.5,
+          borderDash:[6,5],
+          pointRadius:0,
+          tension:0
+        }
+      ]
+    },
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      parsing:false,
+      interaction:{mode:'nearest',intersect:false},
+      plugins:{
+        legend:{display:false},
+        tooltip:{
+          filter:item=>item.datasetIndex===0,
+          callbacks:{
+            title:items=>items.length?'Minute '+Number(items[0].raw.x).toFixed(1):'',
+            label:item=>{
+              const r=item.raw;
+              return [
+                'Rolling drift: '+signedPct(r.y),
+                '5-min avg HR: '+Math.round(r.hr)+' bpm',
+                '5-min pace: '+fmtPace(r.pace)
+              ];
+            }
+          }
+        }
+      },
+      scales:{
+        x:{
+          type:'linear',
+          title:{display:true,text:'Minutes into run',color:'#697386',font:{weight:'700'}},
+          grid:{color:'#eef1f6'},
+          ticks:{color:'#697386',callback:v=>Number(v).toFixed(0)}
+        },
+        y:{
+          min:yMin,max:yMax,
+          title:{display:true,text:'Efficiency loss vs minutes 5–10 (%)',color:'#697386',font:{weight:'700'}},
+          grid:{color:ctx=>ctx.tick.value===0?'#aeb9ca':'#eef1f6',lineWidth:ctx=>ctx.tick.value===0?1.5:1},
+          ticks:{color:'#697386',callback:v=>(v>0?'+':'')+v+'%'}
+        }
+      }
+    }
+  });
 }
 
 function renderHrPace(w){
