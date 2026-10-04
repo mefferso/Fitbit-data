@@ -426,8 +426,12 @@ function renderTrends(){
   charts.metricTrend('trendHrr',el('trend-hrr-chart'),runs.filter(function(r){return number(r.hrr1)!==null;}),'hrr1',{color:chartPalette().positive,title:'bpm'});
   charts.metricTrend('trendDrift',el('trend-drift-chart'),runs.filter(function(r){return number(r.cardioDriftPercent)!==null;}),'cardioDriftPercent',{color:chartPalette().warning,title:'%',tooltip:function(ctx){return 'Drift: '+Number(ctx.raw).toFixed(1)+'%';}});
   charts.metricTrend('trendPace',el('trend-pace-chart'),runs.filter(function(r){return number(r.averagePaceSecondsPerMile)!==null;}),'averagePaceSecondsPerMile',{color:chartPalette().violet,title:'min/mi',reverse:true,tick:function(v){return fmtPace(v).replace('/mi','');},tooltip:function(ctx){return 'Pace: '+fmtPace(ctx.raw);}});
-  const cutoffRuns=new Set(runs.map(function(r){return r.date;}));
-  const loads=((store.trends.trainingLoad&&store.trends.trainingLoad.points)||[]).filter(function(p){return cutoffRuns.has(p.date)||state.trendDays==='all';});
+  const loadPoints=(store.trends.trainingLoad&&store.trends.trainingLoad.points)||[];
+  let loads=loadPoints;
+  if(state.trendDays!=='all'&&runs.length){
+    const firstDate=runs[0].date;
+    loads=loadPoints.filter(function(p){return p.date>=firstDate;});
+  }
   charts.trainingLoad(el('trend-load-chart'),loads,'trendLoad');
 }
 
@@ -499,10 +503,10 @@ function renderHistory(){
       '<td>'+cleanNumber(r.distanceMiles,2)+' mi</td>'+
       '<td>'+fmtPace(r.averagePaceSecondsPerMile)+'</td>'+
       '<td>'+cleanNumber(r.averageHeartRate,0)+' bpm</td>'+
-      '<td>'+cleanNumber(r.heatIndexF,0)+'°F</td>'+
+      '<td>'+(number(r.heatIndexF)===null?'—':cleanNumber(r.heatIndexF,0)+'°F')+'</td>'+
       '<td class="api-cell">'+(number(r.adjustedPerformanceIndex)===null?'—':Number(r.adjustedPerformanceIndex).toFixed(1))+'</td>'+
-      '<td>'+cleanNumber(r.cardioDriftPercent,1)+'%</td>'+
-      '<td>'+cleanNumber(r.hrr1,0)+' bpm</td>'+
+      '<td>'+(number(r.cardioDriftPercent)===null?'—':cleanNumber(r.cardioDriftPercent,1)+'%')+'</td>'+
+      '<td>'+(number(r.hrr1)===null?'—':cleanNumber(r.hrr1,0)+' bpm')+'</td>'+
       '<td>'+sparkline(r.runId)+'</td></tr>';
   }).join('');
   all('#history-body tr').forEach(function(row){
