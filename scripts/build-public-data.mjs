@@ -260,9 +260,13 @@ function parseTcxTrackpoints(xml) {
     const block = match[1];
     const time = block.match(/<Time>([^<]+)<\/Time>/i)?.[1]?.trim() || '';
     const distanceText = block.match(/<DistanceMeters>([^<]+)<\/DistanceMeters>/i)?.[1];
+    const latText = block.match(/<LatitudeDegrees>([^<]+)<\/LatitudeDegrees>/i)?.[1];
+    const lonText = block.match(/<LongitudeDegrees>([^<]+)<\/LongitudeDegrees>/i)?.[1];
     const distanceMeters = num(distanceText);
+    const latitude = num(latText);
+    const longitude = num(lonText);
     if (time && distanceMeters !== null) {
-      points.push({ time, distanceMeters });
+      points.push({ time, distanceMeters, latitude, longitude });
     }
   }
   return points.sort((a,b)=>new Date(a.time)-new Date(b.time));
@@ -313,6 +317,58 @@ function tcxCadence(trackpoints){
     p75Seconds:round(percentile(gaps,75),2),
     minSeconds:gaps.length?round(Math.min(...gaps),2):null,
     maxSeconds:gaps.length?round(Math.max(...gaps),2):null
+  };
+}
+
+function privacySafeRoute(trackpoints, heartRateSeries, zones, seed='run'){
+  const geo=(trackpoints||[]).filter(p=>Number.isFinite(Number(p.latitude))&&Number.isFinite(Number(p.longitude)));
+  if(geo.length<2)return null;
+
+  const step=Math.max(1,Math.ceil(geo.length/280));
+  const sampled=geo.filter((_,i)=>i===0||i===geo.length-1||i%step===0);
+  const lat0=Number(geo[0].latitude), lon0=Number(geo[0].longitude);
+  const cosLat=Math.cos(lat0*Math.PI/180);
+  const meters=sampled.map(p=>({
+    time:p.time,
+    x:(Number(p.longitude)-lon0)*111320*cosLat,
+    y:(Number(p.latitude)-lat0)*110540
+  }));
+
+  let hash=0;
+  for(const ch of String(seed))hash=((hash<<5)-hash+ch.charCodeAt(0))|0;
+  const angle=((Math.abs(hash)%240)+37)*Math.PI/180;
+  const ca=Math.cos(angle),sa=Math.sin(angle);
+  const rotated=meters.map(p=>({
+    time:p.time,
+    x:p.x*ca-p.y*sa,
+    y:p.x*sa+p.y*ca
+  }));
+  const cx=rotated.reduce((s,p)=>s+p.x,0)/rotated.length;
+  const cy=rotated.reduce((s,p)=>s+p.y,0)/rotated.length;
+
+  const hr=(heartRateSeries||[]).slice().sort((a,b)=>new Date(a.time)-new Date(b.time));
+  let hrIndex=0;
+  const points=rotated.map(p=>{
+    const t=new Date(p.time).getTime();
+    while(hrIndex+1<hr.length){
+      const a=Math.abs(new Date(hr[hrIndex].time).getTime()-t);
+      const b=Math.abs(new Date(hr[hrIndex+1].time).getTime()-t);
+      if(b>a)break;
+      hrIndex++;
+    }
+    const bpm=hr[hrIndex]&&Number.isFinite(Number(hr[hrIndex].value))?Number(hr[hrIndex].value):null;
+    return {
+      x:round(p.x-cx,1),
+      y:round(p.y-cy,1),
+      zoneKey:bpm===null?'below':zoneKey(bpm,zones)
+    };
+  });
+
+  return {
+    kind:'relative',
+    privacy:'absolute GPS coordinates removed and orientation rotated before publication',
+    units:'meters',
+    points
   };
 }
 
@@ -662,6 +718,7 @@ for(const workout of runs.slice(0,DETAIL_REFRESH_RUNS)){
     tempestObservations(tempestDeviceId,weatherStart,weatherEnd)
   ]);
   let paces=[];
+  let route=null;
   let paceSeriesSource='distance-rollup';
   let paceDiagnostics={
     source:'distance-rollup',
@@ -681,6 +738,7 @@ for(const workout of runs.slice(0,DETAIL_REFRESH_RUNS)){
     try{
       const xml=await exportExerciseTcx(workout.resourceName);
       const tcxPoints=parseTcxTrackpoints(xml);
+      route=privacySafeRoute(tcxPoints,hr,zones,runId(workout));
       const tcxPaces=tcxPaceSeries(tcxPoints);
       if(tcxPaces.length){
         paces=tcxPaces;
@@ -733,7 +791,8 @@ for(const workout of runs.slice(0,DETAIL_REFRESH_RUNS)){
       seconds:x.seconds,
       distanceMiles:x.distanceMiles,
       paceSecondsPerMile:x.paceSecondsPerMile
-    }))
+    })),
+    route
   });
 }
 
