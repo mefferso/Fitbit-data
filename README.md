@@ -2,6 +2,19 @@
 
 Personal Fitbit / Google Health dashboard for running, recovery, sleep, steps, weight, and workout analysis.
 
+## Performance Lab V2
+
+A completely redesigned GitHub Pages interface is available under `/v2/`. It uses the compact summary feeds and lazy-loads individual workout detail instead of downloading the multi-megabyte legacy dashboard payload on every visit.
+
+V2 includes:
+
+- Overview command view with weekly totals, deltas, personal-best badges, and generated performance insights
+- Dedicated run analysis with synchronized HR/pace traces, weather burden, HR zones, HR recovery, and rolling cardio drift
+- Privacy-safe route shapes colored and patterned by HR zone; absolute GPS coordinates are never written to the public export
+- Trend views, two-run comparison, deep-linkable workouts, sortable/filterable history, and mobile touch inspection
+- Light/dark themes and a responsive application-style navigation shell
+- The existing legacy dashboard remains available at the repository Pages root while V2 is evaluated
+
 ## Current status
 
 The live Apps Script dashboard has been upgraded and tested successfully on September 18, 2026.
@@ -61,4 +74,4 @@ The source is split into smaller Apps Script and HTML partials so future changes
 
 Do not commit OAuth client secrets, access tokens, private health exports, or spreadsheet IDs that you do not intend to publish.
 
-The public GitHub Pages preview uses demo/synthetic data only.
+The public GitHub Pages build uses sanitized workout data. Absolute GPS coordinates, sleep, weight, OAuth credentials, tokens, and private spreadsheet identifiers are not published.
