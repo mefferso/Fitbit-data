@@ -157,7 +157,7 @@ html[data-theme="dark"] .badge.pb{background:#3a3011;color:#f2d471;border-color:
 .metric-card{padding:14px 15px;border:1px solid var(--line);border-radius:14px;background:var(--surface);box-shadow:0 5px 17px rgba(16,24,40,.035)}
 .metric-value{font-size:23px;font-weight:850;margin-top:5px;letter-spacing:-.035em}.metric-delta{font-size:10px;color:var(--muted);margin-top:3px}.metric-delta.good{color:var(--positive)}.metric-delta.bad{color:var(--negative)}
 .analysis-primary-grid{display:grid;grid-template-columns:1.35fr .65fr;gap:14px;margin-top:14px}.route-panel,.conditions-panel{padding:20px;min-height:340px}
-.route-map{height:275px;border-radius:13px;overflow:hidden;margin-top:13px;border:1px solid var(--line)}
+.route-map{height:275px;border-radius:13px;overflow:hidden;margin-top:13px;border:1px solid var(--line)}\n.route-map.relative-map{background-color:var(--surface-2);background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);background-size:28px 28px}
 .route-placeholder{height:275px;margin-top:13px;border:1px dashed var(--line-strong);border-radius:13px;background:var(--surface-2);display:grid;place-items:center;text-align:center;padding:22px}
 .route-placeholder p{max-width:480px;margin:7px auto 0;font-size:12px;line-height:1.5;color:var(--muted)}
 .route-art{width:118px;height:60px;position:relative;margin:auto}
