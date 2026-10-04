@@ -245,16 +245,39 @@
           </article>
         </div>
 
-        <article class="panel chart-panel">
-          <div class="panel-heading">
+        <article class="panel chart-panel drift-card">
+          <div class="panel-heading drift-heading">
             <div>
               <div class="panel-kicker">Efficiency</div>
               <h2>Cardio drift through the run</h2>
             </div>
             <span class="reference-note">5% reference line</span>
           </div>
+
+          <div class="drift-compare-bar">
+            <label class="switch-label" for="drift-compare-toggle">
+              <input type="checkbox" id="drift-compare-toggle">
+              <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
+              <span>
+                <strong>Compare drift</strong>
+                <small>Overlay previous / older runs</small>
+              </span>
+            </label>
+            <div class="drift-overlay-selects" id="drift-overlay-selects" hidden>
+              <div>
+                <label for="drift-overlay-1">Compare with</label>
+                <select id="drift-overlay-1"></select>
+              </div>
+              <div>
+                <label for="drift-overlay-2">Optional second run</label>
+                <select id="drift-overlay-2"></select>
+              </div>
+            </div>
+          </div>
+
           <div class="drift-summary" id="drift-summary"></div>
-          <div class="chart-wrap medium"><canvas id="drift-chart"></canvas></div>
+          <div class="chart-wrap medium drift-chart-wrap"><canvas id="drift-chart"></canvas></div>
+          <div class="drift-note" id="drift-note">Each run is normalized to its own minutes 5–10 baseline. Comparison is off by default.</div>
         </article>
 
         <section class="section-block">

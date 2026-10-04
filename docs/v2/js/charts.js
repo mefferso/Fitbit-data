@@ -228,26 +228,92 @@ export class Charts {
     wrapper.ontouchmove = function(event){ move(event); };
   }
 
-  drift(canvas, result){
-    const points = result && result.points ? result.points : [];
-    const ref = points.map(function(p){return {x:p.x,y:5};});
+  drift(canvas, series){
+    const input = Array.isArray(series) ? series : [{label:'Current run',result:series,current:true}];
+    const valid = input.filter(function(item){return item && item.result && item.result.points && item.result.points.length;});
+    const colors = [primary(),violet(),teal()];
+    const dashes = [[],[8,5],[3,4]];
+    const datasets = valid.map(function(item,index){
+      return {
+        label:item.label || ('Run '+(index+1)),
+        data:item.result.points.map(function(p){
+          return {x:p.x,y:p.y,heartRate:p.heartRate,pace:p.pace};
+        }),
+        parsing:false,
+        borderColor:colors[index%colors.length],
+        backgroundColor:index===0?'rgba(75,112,245,.10)':'transparent',
+        fill:index===0?{target:{value:0}}:false,
+        borderWidth:index===0?2.8:2.35,
+        borderDash:dashes[index]||[4,4],
+        pointRadius:0,
+        pointHoverRadius:4,
+        tension:.25
+      };
+    });
+
+    const allPoints=valid.flatMap(function(item){return item.result.points;});
+    const xMax=allPoints.length?Math.max.apply(null,allPoints.map(function(p){return p.x;})):15;
+    const values=allPoints.map(function(p){return p.y;}).filter(Number.isFinite);
+    const minValue=values.length?Math.min.apply(null,values):0;
+    const maxValue=values.length?Math.max.apply(null,values):8;
+    const yMin=Math.min(-5,Math.floor((minValue-1)/2)*2);
+    const yMax=Math.max(8,Math.ceil((maxValue+1)/2)*2);
+
+    datasets.push({
+      label:'5% reference',
+      data:[{x:0,y:5},{x:xMax,y:5}],
+      parsing:false,
+      borderColor:warning(),
+      borderDash:[6,5],
+      borderWidth:1.4,
+      pointRadius:0,
+      tension:0,
+      isReference:true
+    });
+
     this.destroy('drift');
     this.items.drift = new Chart(canvas,{
       type:'line',
-      data:{datasets:[
-        {data:points,parsing:false,borderColor:primary(),backgroundColor:'rgba(75,112,245,.10)',fill:{target:{value:0}},borderWidth:2.5,pointRadius:0,tension:.25},
-        {data:ref,parsing:false,borderColor:warning(),borderDash:[6,5],borderWidth:1.4,pointRadius:0}
-      ]},
+      data:{datasets:datasets},
       options:{
         responsive:true,maintainAspectRatio:false,animation:false,
         interaction:{mode:'nearest',intersect:false},
-        plugins:{legend:{display:false},tooltip:{backgroundColor:css('--nav'),titleColor:'#fff',bodyColor:'#e5edf8',displayColors:false,callbacks:{
-          title:function(items){return items.length ? items[0].parsed.x.toFixed(1)+' min' : '';},
-          label:function(ctx){return ctx.datasetIndex===0 ? 'Drift: '+(ctx.parsed.y>0?'+':'')+ctx.parsed.y.toFixed(1)+'%' : '5% reference';}
-        }}},
+        plugins:{
+          legend:{
+            display:valid.length>1,
+            position:'bottom',
+            labels:{
+              color:muted(),
+              usePointStyle:true,
+              boxWidth:8,
+              font:{size:10},
+              filter:function(item){return item.text!=='5% reference';}
+            }
+          },
+          tooltip:{
+            backgroundColor:css('--nav'),titleColor:'#fff',bodyColor:'#e5edf8',displayColors:false,padding:10,cornerRadius:9,
+            filter:function(item){return !item.dataset.isReference;},
+            callbacks:{
+              title:function(items){return items.length ? 'Minute '+items[0].parsed.x.toFixed(1) : '';},
+              label:function(ctx){
+                const raw=ctx.raw||{};
+                const drift=(Number(ctx.parsed.y)>0?'+':'')+Number(ctx.parsed.y).toFixed(1)+'%';
+                const lines=[ctx.dataset.label+' · '+drift];
+                if(Number.isFinite(Number(raw.heartRate))) lines.push('5-min avg HR: '+Math.round(Number(raw.heartRate))+' bpm');
+                if(Number.isFinite(Number(raw.pace))) lines.push('5-min pace: '+fmtPace(Number(raw.pace)));
+                return lines;
+              }
+            }
+          }
+        },
         scales:{
           x:{type:'linear',grid:{display:false},ticks:{color:muted()},title:{display:true,text:'Minutes into run',color:muted()}},
-          y:{grid:{color:grid()},ticks:{color:muted(),callback:function(v){return v+'%';}},title:{display:true,text:'Efficiency loss',color:muted()}}
+          y:{
+            min:yMin,max:yMax,
+            grid:{color:function(ctx){return Number(ctx.tick.value)===0?css('--line-strong'):grid();},lineWidth:function(ctx){return Number(ctx.tick.value)===0?1.5:1;}},
+            ticks:{color:muted(),callback:function(v){return (Number(v)>0?'+':'')+v+'%';}},
+            title:{display:true,text:'Efficiency loss vs minutes 5–10 (%)',color:muted()}
+          }
         }
       }
     });
@@ -344,7 +410,12 @@ export function rollingDrift(run){
   for(let center=start+7.5*60000;center<=end-half;center+=30000){
     const metric=paceEfficiency(run,center-half,center+half);
     if(!metric||!metric.efficiency)continue;
-    points.push({x:(center-start)/60000,y:(baseline.efficiency-metric.efficiency)/baseline.efficiency*100});
+    points.push({
+      x:(center-start)/60000,
+      y:(baseline.efficiency-metric.efficiency)/baseline.efficiency*100,
+      heartRate:metric.heartRate,
+      pace:metric.pace
+    });
   }
   if(!points.length)return null;
   return {
