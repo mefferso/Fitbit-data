@@ -16,7 +16,11 @@ const state = {
   sortKey:'date',
   sortDir:-1,
   paceMode:'30',
-  routeMap:null
+  routeMap:null,
+  driftCompare:false,
+  driftOverlay1:null,
+  driftOverlay2:null,
+  driftBaseRunId:null
 };
 
 const titles = {
@@ -283,7 +287,8 @@ async function renderAnalysis(runId,scrollTop){
     renderZones(run);
     renderRecovery(run);
     renderRunCharts(run);
-    renderDrift(run);
+    configureDriftControls(runId);
+    await renderDrift(run);
     el('analysis-insights').innerHTML=makeInsights(Object.assign({},summary,run),true).map(insightCard).join('');
     if(scrollTop) window.scrollTo({top:0,behavior:'smooth'});
   }catch(error){
@@ -345,9 +350,84 @@ function renderRunCharts(run){
   el('hr-summary').textContent='Avg '+cleanNumber(run.averageHeartRate,0)+' · peak '+cleanNumber(run.peakHeartRate,0)+' bpm';
   el('pace-summary').textContent='Avg '+fmtPace(run.averagePaceSecondsPerMile)+' · '+(run.paceSeriesSource==='tcx'?'TCX':'distance rollup');
 }
-function renderDrift(run){
+function previousDetailedRun(runId){
+  const runs=store.detailedRuns;
+  const index=runs.findIndex(function(r){return r.runId===runId;});
+  if(index>=0 && index+1<runs.length) return runs[index+1];
+  return index>0 ? runs[index-1] : null;
+}
+function driftRunLabel(run,isPrevious){
+  return (isPrevious?'Previous · ':'')+fmtDate(run.date)+' · '+cleanNumber(run.distanceMiles,2)+' mi · '+fmtPace(run.averagePaceSecondsPerMile);
+}
+function configureDriftControls(runId){
+  const changed=state.driftBaseRunId!==runId;
+  const current=store.findRun(runId);
+  const choices=store.detailedRuns.filter(function(r){return r.runId!==runId;});
+  const previous=previousDetailedRun(runId);
+
+  if(changed){
+    state.driftBaseRunId=runId;
+    state.driftOverlay1=previous ? previous.runId : (choices[0]&&choices[0].runId)||null;
+    state.driftOverlay2=null;
+  }
+
+  if(state.driftOverlay1===runId || !choices.some(function(r){return r.runId===state.driftOverlay1;})){
+    state.driftOverlay1=previous ? previous.runId : (choices[0]&&choices[0].runId)||null;
+  }
+  if(state.driftOverlay2===runId || state.driftOverlay2===state.driftOverlay1 || !choices.some(function(r){return r.runId===state.driftOverlay2;})){
+    state.driftOverlay2=null;
+  }
+
+  const firstOptions=choices.map(function(r){
+    return '<option value="'+escapeHtml(r.runId)+'">'+escapeHtml(driftRunLabel(r,Boolean(previous&&previous.runId===r.runId)))+'</option>';
+  }).join('');
+  const secondChoices=choices.filter(function(r){return r.runId!==state.driftOverlay1;});
+  const secondOptions='<option value="">None</option>'+secondChoices.map(function(r){
+    return '<option value="'+escapeHtml(r.runId)+'">'+escapeHtml(fmtDate(r.date)+' · '+cleanNumber(r.distanceMiles,2)+' mi · '+fmtPace(r.averagePaceSecondsPerMile))+'</option>';
+  }).join('');
+
+  el('drift-overlay-1').innerHTML=firstOptions;
+  el('drift-overlay-2').innerHTML=secondOptions;
+  if(state.driftOverlay1) el('drift-overlay-1').value=state.driftOverlay1;
+  el('drift-overlay-2').value=state.driftOverlay2||'';
+  el('drift-compare-toggle').checked=state.driftCompare;
+  el('drift-overlay-selects').hidden=!state.driftCompare;
+
+  if(!choices.length){
+    state.driftCompare=false;
+    el('drift-compare-toggle').checked=false;
+    el('drift-compare-toggle').disabled=true;
+    el('drift-overlay-selects').hidden=true;
+  }else{
+    el('drift-compare-toggle').disabled=false;
+  }
+}
+async function renderDrift(run){
   const result=rollingDrift(run);
-  charts.drift(el('drift-chart'),result);
+  const series=[{label:fmtDate(run.date)+' · current',result:result,current:true}];
+
+  if(state.driftCompare){
+    const ids=[state.driftOverlay1,state.driftOverlay2].filter(function(id,index,array){
+      return Boolean(id)&&id!==state.runId&&array.indexOf(id)===index;
+    });
+    const overlays=await Promise.all(ids.map(async function(id){
+      try{
+        const overlayRun=await store.loadRun(id);
+        return {run:overlayRun,result:rollingDrift(overlayRun)};
+      }catch{
+        return null;
+      }
+    }));
+    overlays.filter(Boolean).forEach(function(item){
+      series.push({
+        label:fmtDate(item.run.date),
+        result:item.result,
+        current:false
+      });
+    });
+  }
+
+  charts.drift(el('drift-chart'),series);
   const overall=number(run.aerobicDecoupling&&run.aerobicDecoupling.percent);
   const pills=[
     'Whole run '+(overall===null?'—':signed(overall,1,'%')),
@@ -355,6 +435,23 @@ function renderDrift(run){
     'Peak rolling '+(result? signed(result.peak,1,'%'):'—')
   ];
   el('drift-summary').innerHTML=pills.map(function(x){return '<span class="drift-pill">'+x+'</span>';}).join('');
+
+  if(!result || !result.points.length){
+    el('drift-note').textContent='Rolling drift needs at least 15 minutes plus usable heart-rate and pace data.';
+  }else if(state.driftCompare && series.length>1){
+    el('drift-note').textContent='Each run is normalized to its own minutes 5–10 baseline, so the overlay compares drift shape and magnitude rather than raw pace or heart rate. Hover a line for its 5-minute average HR and pace.';
+  }else{
+    el('drift-note').textContent='Baseline is minutes 5–10 to avoid startup noise. Turn on Compare drift to overlay previous or older runs.';
+  }
+}
+async function rerenderCurrentDrift(){
+  if(!state.runId)return;
+  try{
+    const run=await store.loadRun(state.runId);
+    await renderDrift(run);
+  }catch(error){
+    toast(error.message||String(error));
+  }
 }
 function renderRoute(run){
   const route=run.route&&Array.isArray(run.route.points)?run.route.points:[];
@@ -394,9 +491,14 @@ function renderRoute(run){
     const last=pts[pts.length-1];
     L.circleMarker([last[0],last[1]],{radius:6,color:chartPalette().negative,fillColor:chartPalette().negative,fillOpacity:1,weight:2})
       .bindTooltip('Finish').addTo(map);
-    map.fitBounds(pts.map(function(p){return [p[0],p[1]];}),{padding:[24,24]});
+    const bounds=pts.map(function(p){return [p[0],p[1]];});
     state.routeMap=map;
-    setTimeout(function(){map.invalidateSize();},60);
+    const fitRoute=function(){
+      map.invalidateSize({pan:false});
+      map.fitBounds(bounds,{padding:[10,10]});
+    };
+    requestAnimationFrame(function(){requestAnimationFrame(fitRoute);});
+    setTimeout(fitRoute,140);
     return;
   }
 
@@ -413,9 +515,14 @@ function renderRoute(run){
       color:colors[zone]||chartPalette().primary,weight:5,opacity:.9,dashArray:patterns[zone]||null
     }).addTo(map);
   }
-  map.fitBounds(pts.map(function(p){return [p[0],p[1]];}),{padding:[22,22]});
+  const bounds=pts.map(function(p){return [p[0],p[1]];});
   state.routeMap=map;
-  setTimeout(function(){map.invalidateSize();},60);
+  const fitRoute=function(){
+    map.invalidateSize({pan:false});
+    map.fitBounds(bounds,{padding:[10,10]});
+  };
+  requestAnimationFrame(function(){requestAnimationFrame(fitRoute);});
+  setTimeout(fitRoute,140);
 }
 
 function renderTrends(){
@@ -532,6 +639,21 @@ function setupInteractions(){
   el('open-latest-run').addEventListener('click',function(){if(store.detailedRuns[0])openAnalysis(store.detailedRuns[0].runId);});
   el('analysis-run-select').addEventListener('change',function(){openAnalysis(this.value);});
   el('pace-mode').addEventListener('change',async function(){state.paceMode=this.value;if(state.runId){const run=await store.loadRun(state.runId);renderRunCharts(run);}});
+  el('drift-compare-toggle').addEventListener('change',async function(){
+    state.driftCompare=this.checked;
+    el('drift-overlay-selects').hidden=!state.driftCompare;
+    await rerenderCurrentDrift();
+  });
+  el('drift-overlay-1').addEventListener('change',async function(){
+    state.driftOverlay1=this.value||null;
+    if(state.driftOverlay2===state.driftOverlay1) state.driftOverlay2=null;
+    configureDriftControls(state.runId);
+    await rerenderCurrentDrift();
+  });
+  el('drift-overlay-2').addEventListener('change',async function(){
+    state.driftOverlay2=this.value||null;
+    await rerenderCurrentDrift();
+  });
   el('copy-run-link').addEventListener('click',async function(){
     try{await navigator.clipboard.writeText(location.href);toast('Run link copied.');}
     catch{toast('Copy failed — use the address bar URL.');}
