@@ -73,7 +73,24 @@ jobs:
             echo "No workout-data changes to commit."
           else
             git commit -m "Update sanitized workout data [skip ci]"
-            git push origin HEAD:main
+            # A concurrent source update may advance main while the export builds.
+            # Rebase the generated-data commit onto the latest main before pushing.
+            # Bounded retries handle another push between fetch and push.
+            pushed=false
+            for attempt in 1 2 3 4 5; do
+              git fetch origin main
+              git rebase -X theirs origin/main
+              if git push origin HEAD:main; then
+                pushed=true
+                break
+              fi
+              echo "Push raced with another main update (attempt $attempt); retrying."
+              sleep 2
+            done
+            if [ "$pushed" != true ]; then
+              echo "Unable to publish sanitized data after five safe retries." >&2
+              exit 1
+            fi
           fi
 
       - name: Configure Pages
