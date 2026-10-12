@@ -132,7 +132,7 @@ h1{font-size:34px;margin:7px 0 5px}h2{font-size:20px;margin:0}.sub{color:#637087
         <div class="comparison-control"><label for="compare-a">First run</label><select id="compare-a"></select></div>
         <div class="comparison-control"><label for="compare-b">Second run</label><select id="compare-b"></select></div>
       </div>
-      <div class="comparison-stack">
+      <label style="display:block;margin:12px 0;font-size:13px"><input type="checkbox" id="compare-weather-adjust" checked> Weather correction ON (uncheck for raw efficiency)</label><div class="comparison-stack">
         <div class="comparison-panel">
           <div class="comparison-heading"><span id="compare-a-title"></span><span id="compare-a-summary"></span></div>
           <div class="comparison-chart"><canvas id="compareAChart"></canvas></div>
@@ -815,6 +815,7 @@ function renderRunComparison(){
   second.value=String((runs[1]||runs[0]).index);
   first.addEventListener('change',renderComparisonCharts);
   second.addEventListener('change',renderComparisonCharts);
+  document.getElementById('compare-weather-adjust').addEventListener('change',renderComparisonCharts);
   renderComparisonCharts();
 }
 function renderComparisonCharts(){
@@ -826,6 +827,9 @@ function renderComparisonCharts(){
   document.getElementById('comparison-note').textContent=a===b
     ?'Choose two different runs to compare their heart-rate patterns.'
     :'Each trace starts at minute 0. Longer runs continue past the shorter run; the scale stays aligned.';
+  const corrected=document.getElementById('compare-weather-adjust').checked;
+  const scoreRun=run=>{const w=run.weatherAdjustedEfficiency;return w&&Number.isFinite(Number(w.score))&&Number(w.weatherFactor)>0?Number(w.score)/(corrected?1:Number(w.weatherFactor)):null;};
+  document.getElementById('comparison-note').textContent+=' Efficiency ('+(corrected?'adjusted':'raw')+'): '+[a,b].map(r=>{const v=scoreRun(r);return fmtDate(r.date)+' '+(v===null?'—':v.toFixed(1));}).join(' vs ')+'. Raw and adjusted use the same baseline.';
   [a,b].forEach((run,index)=>{
     const key=index?'compareB':'compareA',suffix=index?'b':'a';
     const weather=run.weather?.average;
