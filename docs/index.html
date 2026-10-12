@@ -109,7 +109,7 @@ h1{font-size:34px;margin:7px 0 5px}h2{font-size:20px;margin:0}.sub{color:#637087
       <div class="card section">
         <h2>Adjusted Performance Index</h2>
         <div class="sub" id="efficiency-sub">100 = your early-run baseline. Higher is better.</div>
-        <div class="chart small"><canvas id="efficiencyChart"></canvas></div>
+        <div class="efficiency-controls" style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:9px 0;font-size:12px"><label><input type="checkbox" id="eff-raw" checked> <span style="color:#3b82f6">●</span> Raw</label><label><input type="checkbox" id="eff-adjusted" checked> <span style="color:#10b981">●</span> Weather-adjusted</label><label>Inspect <select id="eff-run-select" style="max-width:130px"></select></label></div><div class="sub" id="eff-run-detail" aria-live="polite"></div><div class="chart small"><canvas id="efficiencyChart"></canvas></div>
       </div>
       <div class="card section">
         <h2>Training load</h2>
@@ -670,28 +670,32 @@ function renderHrPace(w){
 }
 
 function renderEfficiency(){
-  const model=DATA.runningTrend?.weatherAdjusted||{}, runs=model.runs||[]; destroy('eff');
-  const sub=document.getElementById('efficiency-sub');
-  if(sub){
-    sub.textContent=runs.length
-      ? '100 = baseline. Scores show percent above or below baseline after adjustment.'
-      : 'Needs pace, average HR, and Tempest weather for qualifying runs.';
+  const runs=DATA.runningTrend?.weatherAdjusted?.runs||[];
+  const select=document.getElementById('eff-run-select');
+  const valid=runs.filter(r=>Number.isFinite(Number(r.score))&&Number(r.weatherFactor)>0);
+  select.innerHTML=valid.map((r,i)=>'<option value="'+i+'">'+r.date+'</option>').join('');
+  select.value=valid.length?String(valid.length-1):'';
+  const detail=document.getElementById('eff-run-detail');
+  function showDetail(i){
+    const r=valid[i]; if(!r){detail.textContent='No qualifying runs';return;}
+    const raw=r.score/r.weatherFactor;
+    detail.textContent=r.date+' · Raw '+raw.toFixed(1)+' · Adjusted '+Number(r.score).toFixed(1)+' · Weather lift +'+(r.score-raw).toFixed(1)+' points · Factor '+Number(r.weatherFactor).toFixed(3)+' (heat +'+Number(r.heatPenaltyPct||0).toFixed(1)+'%, solar +'+Number(r.solarPenaltyPct||0).toFixed(1)+'%)';
   }
+  select.onchange=()=>showDetail(Number(select.value));showDetail(Number(select.value));
+  document.getElementById('efficiency-sub').textContent='Same original weather-adjusted baseline = 100 for both lines; difference isolates modeled weather correction.';
+  destroy('eff');
+  const datasets=[
+    {label:'Raw efficiency',data:runs.map(r=>r.weatherFactor>0&&r.score!=null?r.score/r.weatherFactor:null),borderColor:'#3b82f6',backgroundColor:'#3b82f6',borderWidth:2.4,pointRadius:3,hidden:!document.getElementById('eff-raw').checked},
+    {label:'Weather-adjusted',data:runs.map(r=>r.score),borderColor:'#10b981',backgroundColor:'#10b981',borderWidth:2.4,pointRadius:3,hidden:!document.getElementById('eff-adjusted').checked}
+  ];
   charts.eff=new Chart(document.getElementById('efficiencyChart'),{
-    type:'line',
-    data:{labels:runs.map(x=>x.date),datasets:[{label:'Adjusted Performance Index',data:runs.map(x=>x.score),borderWidth:2,pointRadius:3}]},
-    options:{
-      maintainAspectRatio:false,
-      plugins:{
-        legend:{display:false},
-        tooltip:{callbacks:{afterLabel:ctx=>{
-          const r=runs[ctx.dataIndex];
-          return r ? ['Weather factor '+n(r.weatherFactor,3),'Heat +'+n(r.heatPenaltyPct,1)+'% · Sun +'+n(r.solarPenaltyPct,1)+'%'] : [];
-        }}}
-      },
-      scales:{x:{ticks:{maxTicksLimit:7}},y:{title:{display:true,text:'Performance index'},suggestedMin:85,suggestedMax:115}}
-    }
+    type:'line',data:{labels:runs.map(r=>r.date),datasets},
+    options:{maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+      onClick:(event,hits)=>{if(hits.length){const r=runs[hits[0].index],i=valid.indexOf(r);if(i>=0){select.value=String(i);showDetail(i);}}},
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>ctx.dataset.label+': '+Number(ctx.raw).toFixed(1),afterBody:items=>{const r=runs[items[0]?.dataIndex];return r?['Weather factor '+Number(r.weatherFactor).toFixed(3),'Heat +'+Number(r.heatPenaltyPct||0).toFixed(1)+'% · Solar +'+Number(r.solarPenaltyPct||0).toFixed(1)+'%']:[];}}},
+      scales:{x:{ticks:{maxTicksLimit:7}},y:{title:{display:true,text:'Performance index'},suggestedMin:85,suggestedMax:125}}}
   });
+  [['eff-raw',0],['eff-adjusted',1]].forEach(([id,i])=>{document.getElementById(id).onchange=()=>{charts.eff.setDatasetVisibility(i,document.getElementById(id).checked);charts.eff.update();};});
 }
 
 function renderLoad(){
