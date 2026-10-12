@@ -659,40 +659,50 @@ let hrSparkQueue = [];
 let hrSparkActive = 0;
 const HR_SPARK_LIMIT = 3;
 function heartRateSparkline(run){
-  const start = Date.parse(run.startTime), duration = Number(run.activeSeconds) * 1000;
-  if(!Number.isFinite(start) || !Number.isFinite(duration) || duration <= 0) return null;
-  const bins = Array.from({length:16},()=>[]);
-  (run.heartRateSeries||[]).forEach(function(p){
-    const value=number(p.value),time=Date.parse(p.time);
-    if(value===null || !Number.isFinite(time) || value<35 || value>225)return;
-    const fraction=(time-start)/duration;
-    if(fraction<0 || fraction>1.02)return;
-    bins[Math.min(15,Math.floor(Math.min(0.999999,fraction)*16))].push(value);
+  const start=Date.parse(run.startTime),duration=Number(run.activeSeconds)*1000;
+  if(!Number.isFinite(start)||!Number.isFinite(duration)||duration<=0)return null;
+  const buckets=Array.from({length:16},()=>({hr:[],distance:0,seconds:0}));
+  function index(time){
+    const fraction=(Date.parse(time)-start)/duration;
+    return Number.isFinite(fraction)&&fraction>=0&&fraction<=1.02?Math.min(15,Math.floor(Math.min(.999999,fraction)*16)):-1;
+  }
+  (run.heartRateSeries||[]).forEach(p=>{
+    const i=index(p.time),hr=number(p.value);
+    if(i>=0&&hr!==null&&hr>=35&&hr<=225)buckets[i].hr.push(hr);
   });
-  const present=bins.filter(b=>b.length);
-  if(present.length<5)return null;
-  // A fixed HR scale across runs (90–190 bpm) keeps visual comparisons honest.
-  // Values outside the scale are clipped, rather than rescaling every run.
-  const pts=bins.map(function(bin,i){
-    if(!bin.length)return null;
-    const hr=bin.reduce((a,b)=>a+b,0)/bin.length;
-    const x=2+i*116/15;
-    const y=29-25*(Math.max(90,Math.min(190,hr))-90)/100;
-    return [x,y];
+  // Per-second GPS pace fluctuates wildly. Aggregate distance and elapsed seconds
+  // in each 1/16th-of-run bucket rather than averaging raw instantaneous pace.
+  (run.paceSeries||[]).forEach(p=>{
+    const i=index(p.time),seconds=number(p.seconds),distance=number(p.distanceMiles);
+    if(i<0||seconds===null||distance===null||seconds<=0||seconds>30||distance<=0)return;
+    const pace=seconds/distance;
+    if(pace<240||pace>2400)return; // reject implausible GPS spikes
+    buckets[i].distance+=distance;
+    buckets[i].seconds+=seconds;
   });
-  const segments=[];let segment=[];
-  pts.forEach(function(p){
-    if(!p){if(segment.length>1)segments.push(segment);segment=[];}
-    else segment.push(p);
-  });
-  if(segment.length>1)segments.push(segment);
-  const paths=segments.map(function(points){
-    return '<polyline points="'+points.map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ')+'"></polyline>';
-  }).join('');
-  const values=present.flat();
-  const avg=Math.round(values.reduce((a,b)=>a+b,0)/values.length);
-  return '<svg class="spark hr-spark" viewBox="0 0 120 34" role="img" aria-label="Heart rate progression across this run, 0 to 100 percent elapsed; fixed scale 90 to 190 bpm"><title>HR progression · avg '+avg+' bpm · range '+Math.min(...values)+'–'+Math.max(...values)+' bpm · fixed 90–190 bpm scale</title>'+paths+'</svg>';
+  const hrCount=buckets.filter(b=>b.hr.length).length;
+  const paceCount=buckets.filter(b=>b.distance>0).length;
+  if(hrCount<5||paceCount<5)return null;
+  // Fixed, separately labeled scales across runs. Both lines rise for more
+  // cardiovascular effort / faster pace; never imply the units are identical.
+  function polyline(kind){
+    const segments=[];let segment=[];
+    buckets.forEach((b,i)=>{
+      const raw=kind==='hr'?(b.hr.length?b.hr.reduce((a,c)=>a+c,0)/b.hr.length:null):(b.distance>0?b.seconds/b.distance:null);
+      if(raw===null){
+        if(segment.length>=2)segments.push(segment);
+        segment=[];return;
+      }
+      const ratio=kind==='hr'?(raw-90)/100:(1200-raw)/(1200-540);
+      const x=2+i*116/15,y=29-25*Math.max(0,Math.min(1,ratio));
+      segment.push(x.toFixed(1)+','+y.toFixed(1));
+    });
+    if(segment.length>=2)segments.push(segment);
+    return segments.map(points=>'<polyline class="spark-'+kind+'" points="'+points.join(' ')+'"></polyline>').join('');
+  }
+  return '<svg class="spark hr-spark" viewBox="0 0 120 34" role="img" aria-label="Heart rate and pace through this run, blue is heart rate and orange is pace; higher orange means faster pace"><title>Blue: heart rate (90–190 bpm). Orange: pace (20:00–9:00 per mile, faster is higher). Left=start, right=finish. Each point averages about 1/16th of the workout.</title>'+polyline('hr')+polyline('pace')+'</svg>';
 }
+
 function observeHistoryHeartRates(){
   if(hrSparkObserver)hrSparkObserver.disconnect();
   hrSparkQueue=[];
