@@ -200,9 +200,28 @@ function renderOverviewRecent(){
     });
   });
 }
+function renderEfficiencyPanel(id,canvasId,runs,chartName){
+  const select=el(id+'-select'),raw=el(id+'-raw'),adj=el(id+'-adj'),details=el(id+'-details');
+  const valid=runs.filter(r=>Number.isFinite(Number(r.score))&&Number(r.weatherFactor)>0);
+  const previous=select.value;
+  select.innerHTML=valid.map((r,i)=>'<option value="'+i+'">'+r.date+'</option>').join('');
+  select.value=valid[Number(previous)]?previous:String(Math.max(0,valid.length-1));
+  function inspect(i){
+    const r=valid[i];if(!r){details.textContent='No qualifying runs';return;}
+    const score=Number(r.score),rawScore=score/Number(r.weatherFactor);
+    details.textContent=r.date+' · Raw '+rawScore.toFixed(1)+' · Adjusted '+score.toFixed(1)+' · Weather lift +'+(score-rawScore).toFixed(1)+' points · Factor '+Number(r.weatherFactor).toFixed(3)+' (heat +'+Number(r.heatPenaltyPct||0).toFixed(1)+'%, solar +'+Number(r.solarPenaltyPct||0).toFixed(1)+'%)';
+  }
+  select.onchange=()=>inspect(Number(select.value));inspect(Number(select.value));
+  function draw(){
+    charts.performance(el(canvasId),runs,chartName,{raw:raw.checked,adj:adj.checked},i=>{
+      const pos=valid.indexOf(runs[i]);if(pos>=0){select.value=String(pos);inspect(pos);}
+    });
+  }
+  raw.onchange=draw;adj.onchange=draw;draw();
+}
 function renderOverviewCharts(){
   const weather=(store.trends.runningTrend&&store.trends.runningTrend.weatherAdjusted&&store.trends.runningTrend.weatherAdjusted.runs)||[];
-  charts.performance(el('overview-performance-chart'),weather.slice(-14),'overviewPerformance');
+  renderEfficiencyPanel('overview-eff','overview-performance-chart',weather.slice(-14),'overviewPerformance');
   charts.trainingLoad(el('overview-load-chart'),(store.trends.trainingLoad&&store.trends.trainingLoad.points)||[],'overviewLoad');
 }
 
@@ -529,7 +548,7 @@ function renderTrends(){
   if(!store.index)return;
   const runs=store.filterRuns(state.trendDays).slice().reverse();
   const api=runs.filter(function(r){return number(r.adjustedPerformanceIndex)!==null;});
-  charts.metricTrend('trendApi',el('trend-api-chart'),api,'adjustedPerformanceIndex',{color:chartPalette().primary,title:'Index',min:90,max:125});
+  renderEfficiencyPanel('trend-eff','trend-api-chart',(store.trends.runningTrend?.weatherAdjusted?.runs||[]).filter(r=>state.trendDays==='all'||api.some(a=>a.date===r.date)),'trendApi');
   charts.metricTrend('trendHrr',el('trend-hrr-chart'),runs.filter(function(r){return number(r.hrr1)!==null;}),'hrr1',{color:chartPalette().positive,title:'bpm'});
   charts.metricTrend('trendDrift',el('trend-drift-chart'),runs.filter(function(r){return number(r.cardioDriftPercent)!==null;}),'cardioDriftPercent',{color:chartPalette().warning,title:'%',tooltip:function(ctx){return 'Drift: '+Number(ctx.raw).toFixed(1)+'%';}});
   charts.metricTrend('trendPace',el('trend-pace-chart'),runs.filter(function(r){return number(r.averagePaceSecondsPerMile)!==null;}),'averagePaceSecondsPerMile',{color:chartPalette().violet,title:'min/mi',reverse:true,tick:function(v){return fmtPace(v).replace('/mi','');},tooltip:function(ctx){return 'Pace: '+fmtPace(ctx.raw);}});
