@@ -692,7 +692,7 @@ function renderEfficiency(){
     type:'line',data:{labels:runs.map(r=>r.date),datasets},
     options:{maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
       onClick:(event,hits)=>{if(hits.length){const r=runs[hits[0].index],i=valid.indexOf(r);if(i>=0){select.value=String(i);showDetail(i);}}},
-      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>ctx.dataset.label+': '+Number(ctx.raw).toFixed(1),afterBody:items=>{const r=runs[items[0]?.dataIndex];return r?['Weather factor '+Number(r.weatherFactor).toFixed(3),'Heat +'+Number(r.heatPenaltyPct||0).toFixed(1)+'% · Solar +'+Number(r.solarPenaltyPct||0).toFixed(1)+'%']:[];}}},
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>ctx.dataset.label+': '+Number(ctx.raw).toFixed(1),afterBody:items=>{const r=runs[items[0]?.dataIndex];return r?['Weather factor '+Number(r.weatherFactor).toFixed(3),'Heat +'+Number(r.heatPenaltyPct||0).toFixed(1)+'% · Solar +'+Number(r.solarPenaltyPct||0).toFixed(1)+'%']:[];}}}},
       scales:{x:{ticks:{maxTicksLimit:7}},y:{title:{display:true,text:'Performance index'},suggestedMin:85,suggestedMax:125}}}
   });
   [['eff-raw',0],['eff-adjusted',1]].forEach(([id,i])=>{document.getElementById(id).onchange=()=>{charts.eff.setDatasetVisibility(i,document.getElementById(id).checked);charts.eff.update();};});
