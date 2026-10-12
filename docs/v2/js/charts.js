@@ -74,14 +74,16 @@ export class Charts {
     return this.items[name];
   }
 
-  performance(canvas, runs, name){
-    const labels = runs.map(function(r){ return r.date; });
-    return this.line(name || 'performance', canvas, labels, [{
-      data:runs.map(function(r){ return number(r.score !== undefined ? r.score : r.adjustedPerformanceIndex); }),
-      borderColor:primary(),backgroundColor:primary(),borderWidth:2.5,pointRadius:2.5,pointHoverRadius:5,tension:.28,spanGaps:true
-    }],{
+  performance(canvas, runs, name, visibility, onSelect){
+    const labels=runs.map(r=>r.date);
+    return this.line(name||'performance',canvas,labels,[
+      {label:'Raw efficiency',data:runs.map(r=>r.weatherFactor>0&&r.score!=null?Number(r.score)/Number(r.weatherFactor):null),borderColor:'#3b82f6',backgroundColor:'#3b82f6',borderWidth:2.5,pointRadius:2.5,tension:.28,spanGaps:true,hidden:visibility?.raw===false},
+      {label:'Weather-adjusted',data:runs.map(r=>number(r.score)),borderColor:'#10b981',backgroundColor:'#10b981',borderWidth:2.5,pointRadius:2.5,tension:.28,spanGaps:true,hidden:visibility?.adj===false}
+    ],{
+      onClick:(event,hits)=>{if(hits.length&&onSelect)onSelect(hits[0].index);},
+      interaction:{mode:'index',intersect:false},
       scales:{y:{grid:{color:grid()},ticks:{color:muted()},suggestedMin:90,suggestedMax:125,title:{display:true,text:'Index',color:muted(),font:{size:10}}}},
-      plugins:{tooltip:{callbacks:{label:function(ctx){ return 'Adjusted performance: ' + Number(ctx.raw).toFixed(1); }}}}
+      plugins:{tooltip:{callbacks:{label:ctx=>ctx.dataset.label+': '+Number(ctx.raw).toFixed(1),afterBody:items=>{const r=runs[items[0]?.dataIndex];return r?['Weather factor '+Number(r.weatherFactor||1).toFixed(3),'Heat +'+Number(r.heatPenaltyPct||0).toFixed(1)+'% · Solar +'+Number(r.solarPenaltyPct||0).toFixed(1)+'%']:[];}}}
     });
   }
 
