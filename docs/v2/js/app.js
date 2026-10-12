@@ -561,6 +561,13 @@ function renderTrends(){
   charts.trainingLoad(el('trend-load-chart'),loads,'trendLoad');
 }
 
+function comparisonEfficiency(summary,adjusted){
+  const score=number(summary.adjustedPerformanceIndex);
+  if(score===null)return null;
+  if(adjusted)return score;
+  const r=(store.trends.runningTrend?.weatherAdjusted?.runs||[]).find(x=>x.startTime===summary.startTime);
+  return r&&number(r.weatherFactor)>0?score/Number(r.weatherFactor):null;
+}
 async function renderCompare(){
   if(!store.index)return;
   const idA=el('compare-a').value,idB=el('compare-b').value;
@@ -572,7 +579,7 @@ async function renderCompare(){
       ['Distance',a.distanceMiles,b.distanceMiles,function(v){return cleanNumber(v,2)+' mi';},false],
       ['Pace',a.averagePaceSecondsPerMile,b.averagePaceSecondsPerMile,fmtPace,true],
       ['Avg HR',a.averageHeartRate,b.averageHeartRate,function(v){return cleanNumber(v,0)+' bpm';},true],
-      ['Adj. perf.',sa.adjustedPerformanceIndex,sb.adjustedPerformanceIndex,function(v){return number(v)===null?'—':Number(v).toFixed(1);},false],
+      ['Efficiency ('+(el('compare-weather-adjust').checked?'adjusted':'raw')+')',comparisonEfficiency(sa,el('compare-weather-adjust').checked),comparisonEfficiency(sb,el('compare-weather-adjust').checked),function(v){return number(v)===null?'—':Number(v).toFixed(1);},false],
       ['Drift',a.aerobicDecoupling&&a.aerobicDecoupling.percent,b.aerobicDecoupling&&b.aerobicDecoupling.percent,function(v){return number(v)===null?'—':Number(v).toFixed(1)+'%';},true],
       ['HRR1',a.heartRateRecovery&&a.heartRateRecovery.minute1Drop,b.heartRateRecovery&&b.heartRateRecovery.minute1Drop,function(v){return number(v)===null?'—':Number(v).toFixed(0)+' bpm';},false]
     ];
@@ -685,6 +692,7 @@ function setupInteractions(){
   });
   el('compare-a').addEventListener('change',renderCompare);
   el('compare-b').addEventListener('change',renderCompare);
+  el('compare-weather-adjust').addEventListener('change',renderCompare);
   el('history-search').addEventListener('input',renderHistory);
   el('history-window').addEventListener('change',renderHistory);
   all('.history-table th button[data-sort]').forEach(function(btn){
