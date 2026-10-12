@@ -116,7 +116,7 @@
               </div>
               <span class="mini-legend"><i class="dot primary"></i> API</span>
             </div>
-            <div class="chart-wrap medium"><canvas id="overview-performance-chart"></canvas></div>
+            <div class="efficiency-controls" style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;padding:8px 0;font-size:12px"><label><input type="checkbox" id="overview-eff-raw" checked> <span style="color:#3b82f6">●</span> Raw</label><label><input type="checkbox" id="overview-eff-adj" checked> <span style="color:#10b981">●</span> Adjusted</label><label>Run <select id="overview-eff-select" style="max-width:135px"></select></label></div><div class="reference-note" id="overview-eff-details" aria-live="polite"></div><div class="chart-wrap medium"><canvas id="overview-performance-chart"></canvas></div>
           </article>
           <article class="panel chart-panel">
             <div class="panel-heading">
@@ -304,7 +304,7 @@
         <div class="trend-grid">
           <article class="panel chart-panel wide">
             <div class="panel-heading"><div><div class="panel-kicker">Performance</div><h2>Adjusted Performance Index</h2></div></div>
-            <div class="chart-wrap large"><canvas id="trend-api-chart"></canvas></div>
+            <div class="efficiency-controls" style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;padding:8px 0;font-size:12px"><label><input type="checkbox" id="trend-eff-raw" checked> <span style="color:#3b82f6">●</span> Raw</label><label><input type="checkbox" id="trend-eff-adj" checked> <span style="color:#10b981">●</span> Adjusted</label><label>Run <select id="trend-eff-select" style="max-width:135px"></select></label></div><div class="reference-note" id="trend-eff-details" aria-live="polite"></div><div class="chart-wrap large"><canvas id="trend-api-chart"></canvas></div>
           </article>
           <article class="panel chart-panel">
             <div class="panel-heading"><div><div class="panel-kicker">Recovery</div><h2>HRR1 trend</h2></div></div>
