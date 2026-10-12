@@ -93,7 +93,7 @@ function switchView(view,updateUrl){
 }
 
 function setupNavigation(){
-  all('.nav-item').forEach(function(btn){btn.addEventListener('click',function(){switchView(btn.dataset.view,true);});});
+  all('button.nav-item[data-view]').forEach(function(btn){btn.addEventListener('click',function(){switchView(btn.dataset.view,true);});});
   all('[data-jump]').forEach(function(btn){btn.addEventListener('click',function(){switchView(btn.dataset.jump,true);});});
   el('mobile-menu').addEventListener('click',function(){el('sidebar').classList.toggle('open');});
   el('theme-toggle').addEventListener('click',toggleTheme);
