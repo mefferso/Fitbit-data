@@ -83,7 +83,7 @@ export class Charts {
       onClick:(event,hits)=>{if(hits.length&&onSelect)onSelect(hits[0].index);},
       interaction:{mode:'index',intersect:false},
       scales:{y:{grid:{color:grid()},ticks:{color:muted()},suggestedMin:90,suggestedMax:125,title:{display:true,text:'Index',color:muted(),font:{size:10}}}},
-      plugins:{tooltip:{callbacks:{label:ctx=>ctx.dataset.label+': '+Number(ctx.raw).toFixed(1),afterBody:items=>{const r=runs[items[0]?.dataIndex];return r?['Weather factor '+Number(r.weatherFactor||1).toFixed(3),'Heat +'+Number(r.heatPenaltyPct||0).toFixed(1)+'% · Solar +'+Number(r.solarPenaltyPct||0).toFixed(1)+'%']:[];}}}
+      plugins:{tooltip:{callbacks:{label:ctx=>ctx.dataset.label+': '+Number(ctx.raw).toFixed(1),afterBody:items=>{const r=runs[items[0]?.dataIndex];return r?['Weather factor '+Number(r.weatherFactor||1).toFixed(3),'Heat +'+Number(r.heatPenaltyPct||0).toFixed(1)+'% · Solar +'+Number(r.solarPenaltyPct||0).toFixed(1)+'%']:[];}}}}
     });
   }
 
