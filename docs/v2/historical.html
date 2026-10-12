@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#0b1220">
+<title>Historical Performance · Performance Lab</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<style>
+:root{font-family:Inter,ui-sans-serif,system-ui,sans-serif;color:#e4edf9;background:#0b1220}*{box-sizing:border-box}body{margin:0}main{max-width:1200px;margin:auto;padding:32px 18px 76px}a{color:#83bbff}header{display:flex;justify-content:space-between;gap:16px;align-items:center;flex-wrap:wrap;margin-bottom:28px}.back{padding:10px 14px;border:1px solid #34445d;border-radius:10px;text-decoration:none;font-weight:700}.eyebrow{font-weight:800;letter-spacing:.15em;text-transform:uppercase;font-size:11px;color:#81afe0}h1{font-size:clamp(30px,5vw,46px);margin:10px 0}h2{font-size:20px;margin:0 0 13px}p{line-height:1.65;color:#bdcbdd}.muted{color:#93a5be;font-size:13px}.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}.card{background:#142138;border:1px solid #2d405e;border-radius:17px;padding:22px;margin:15px 0}.stat{font-size:31px;font-weight:850;margin:9px 0}.label{text-transform:uppercase;color:#a6b8cb;letter-spacing:.07em;font-size:12px;font-weight:800}.row{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,.75fr);gap:16px}.chart{height:330px}.controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap}select{border-radius:10px;padding:9px;background:#203450;color:#e4edf9;border:1px solid #4a6382;font:inherit}table{border-collapse:collapse;width:100%;font-size:13px}th,td{text-align:left;padding:12px;border-bottom:1px solid #30425b}th{color:#adbfda}td:last-child{color:#9db1cb}.scroll{overflow-x:auto}.pill{display:inline-block;background:#283e58;padding:5px 10px;border-radius:50px;font-size:12px;color:#cfe1f8}aside{border-left:3px solid #60a5fa;padding:5px 16px;color:#c4d1e2;margin:16px 0}.note{font-size:13px;color:#a7bbd2}button{cursor:pointer}@media(max-width:860px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.row{grid-template-columns:1fr}}@media(max-width:530px){.grid{grid-template-columns:1fr}.chart{height:260px}main{padding:20px 12px 65px}} 
+</style></head><body><main>
+<header><div><div class="eyebrow">Performance Lab · Historical archive</div><h1>Then vs. Now</h1><div class="muted">MapMyRun 2011–2020 · 2026 comeback</div></div><a class="back" href="./">← Back to Performance Lab V2</a></header>
+<div class="grid">
+<div class="card"><div class="label">Historical max-effort mile attempt</div><div class="stat">5:48</div><div class="muted">Nov 7, 2011 · recorded 0.995 mi</div></div>
+<div class="card"><div class="label">Fast 3.2-mile performance</div><div class="stat">21:06</div><div class="muted">Oct 22, 2011 · 3.201 mi</div></div>
+<div class="card"><div class="label">Current 5K target</div><div class="stat">26:25</div><div class="muted">8:30/mi · future performance goal</div></div>
+<div class="card"><div class="label">Recorded historical workouts</div><div class="stat">287</div><div class="muted">MapMyRun source rows · not full training history</div></div>
+</div>
+<div class="row">
+<section class="card"><h2>Annual MapMyRun activity</h2><p class="note">Recorded mileage only. The shift toward Runkeeper and cycling around 2016 means low later MapMyRun totals do NOT indicate inactivity.</p><div class="chart"><canvas id="mileage"></canvas></div></section>
+<section class="card"><h2>Historical speed highlights</h2><p>Several years of quick runs—not a one-off flash of speed in 2011.</p><div class="chart"><canvas id="speed"></canvas></div><p class="note">Fastest recorded workout of at least 3 miles in each year with qualifying data. Pace is not adjusted for terrain, effort or weather.</p></section>
+</div>
+<section class="card"><h2>Documented standout efforts</h2><div class="controls"><label for="year" class="muted">Year</label><select id="year"><option value="all">All years</option><option>2011</option><option>2012</option><option>2013</option><option>2014</option><option>2015</option></select><span class="pill">Uncertified GPS/app distances</span></div><div class="scroll"><table><thead><tr><th>Date</th><th>Distance</th><th>Time</th><th>Avg pace</th><th>Context</th></tr></thead><tbody id="highlights"></tbody></table></div></section>
+<section class="card"><h2>Comparing the comeback fairly</h2><aside>Easy, heart-rate-controlled 2026 efforts are <strong>not</strong> directly comparable to an all-out mile or race-like 2011 performance. Age-graded race percentages require an explicit standard and comparable event distance; they are not guessed here.</aside><p><strong>Recent evidence:</strong> Oct 11, 2026: 3.16 miles at 12:41/mi, average HR 141, deliberately regulated effort. The goal remains a sustainable 26:25 5K—not trying to run yesterday's personal best tomorrow.</p><p class="note">Import design: keep source, source-row ID, recorded date, distance, time, and QC flags. Future Runkeeper data can be added separately, with potential cross-app duplicates flagged before any totals are combined. Original and modern physiological metrics remain in separate datasets.</p></section>
+<footer class="muted">MapMyRun source: user-provided workbook · Figures are approximate, not independently GPS-verified · No private routes or coordinates published</footer>
+</main><script>
+const years=['2011','2012','2013','2014','2015','2016','2017','2018','2019','2020'];
+const totals=[97.8,178.2,183.3,155.3,261.9,18.0,17.6,1.4,2.8,21.3];
+const highlights=[
+['2011-10-22',3.20121,1266,'Fast 3.2-mile effort'],
+['2011-11-07',0.995,348,'Max-effort mile attempt; short by 0.005 mi'],
+['2012-09-18',3.50387,1429,'Fast 3.5-mile effort'],
+['2012-10-16',3.817,1631,'Fast 3.8-mile effort'],
+['2013-05-15',3.51699,1488,'Fast 3.5-mile effort'],
+['2014-01-27',5.00048,2187,'Fast five miles'],
+['2015-06-22',6.00389,2967,'Six-mile endurance effort']
+];
+const fmt=t=>Math.floor(t/60)+':'+String(Math.round(t%60)).padStart(2,'0');
+const tbody=document.getElementById('highlights');
+function draw(){const chosen=document.getElementById('year').value;tbody.replaceChildren();for(const [d,m,s,n] of highlights.filter(x=>chosen==='all'||x[0].startsWith(chosen))){const tr=document.createElement('tr');for(const c of [d,m.toFixed(3)+' mi',fmt(s),fmt(s/m)+'/mi',n]){const td=document.createElement('td');td.textContent=c;tr.appendChild(td)}tbody.appendChild(tr)}if(!tbody.children.length){const tr=document.createElement('tr');const td=document.createElement('td');td.colSpan=5;td.textContent='No highlighted performances selected';tr.appendChild(td);tbody.appendChild(tr)}}
+document.getElementById('year').addEventListener('change',draw);draw();
+if(window.Chart){Chart.defaults.color='#c2d4ec';Chart.defaults.borderColor='#344761';
+new Chart(document.getElementById('mileage'),{type:'bar',data:{labels:years,datasets:[{label:'Recorded miles',data:totals,backgroundColor:'#4f9de7',borderRadius:5}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:x=>x.parsed.y+' miles recorded'}}},scales:{x:{grid:{display:false}},y:{beginAtZero:true,title:{display:true,text:'Miles recorded'}}}}});
+new Chart(document.getElementById('speed'),{type:'line',data:{labels:['2011','2012','2013','2014','2015','2016'],datasets:[{label:'Best 3+ mile pace (min/mi)',data:[6.591,6.797,7.051,7.289,7.763,8.274],tension:.22,borderColor:'#f7bd74',backgroundColor:'#f7bd74',pointRadius:5}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:x=>fmt(x.raw*60)+'/mi'}}},scales:{y:{reverse:true,title:{display:true,text:'Minutes per mile'},ticks:{callback:v=>fmt(v*60)}},x:{grid:{display:false}}}}});}
+</script></body></html>
