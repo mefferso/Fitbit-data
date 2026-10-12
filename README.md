@@ -75,3 +75,11 @@ The source is split into smaller Apps Script and HTML partials so future changes
 Do not commit OAuth client secrets, access tokens, private health exports, or spreadsheet IDs that you do not intend to publish.
 
 The public GitHub Pages build uses sanitized workout data. Absolute GPS coordinates, sleep, weight, OAuth credentials, tokens, and private spreadsheet identifiers are not published.
+
+## Historical MapMyRun archive (October 2026)
+
+The V2 sidebar includes [Then vs. Now](https://mefferso.github.io/Fitbit-data/v2/historical.html), a standalone view of curated historical MapMyRun benchmarks and year-level activity. It does not modify the current run analysis, HRR, cardio drift, or weather-adjusted API pipelines.
+
+The source workbook contains **287 activity rows (2011–2020)**, including **34 September dates encoded as strings** rather than Excel dates. The clean audit is preserved externally as `mapmyrun_cleaned.csv` for full-record integration; the website currently displays curated highlights and annual aggregates, **not all 287 individual records**. The audit flags suspicious instantaneous maximum pace separately from overall pace, which should not be discarded automatically. There are two potential duplicate pairs and one unusual average-pace record for manual review. The fast November 7, 2011 effort was **0.995 miles in 5:48**, not an independently certified full mile.
+
+For future Runkeeper imports, preserve `source`, `source_row`, `date`, `distance_mi`, `duration_seconds`, `quality`, and `flags`. Keep external archives separate from Fitbit's current physiological metrics; cross-source deduplication should initially be review-only.
