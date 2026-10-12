@@ -640,8 +640,9 @@ function renderHistory(){
       '<td class="api-cell">'+(number(r.adjustedPerformanceIndex)===null?'—':Number(r.adjustedPerformanceIndex).toFixed(1))+'</td>'+
       '<td>'+(number(r.cardioDriftPercent)===null?'—':cleanNumber(r.cardioDriftPercent,1)+'%')+'</td>'+
       '<td>'+(number(r.hrr1)===null?'—':cleanNumber(r.hrr1,0)+' bpm')+'</td>'+
-      '<td>'+sparkline(r.runId)+'</td></tr>';
+      '<td class="hr-spark-cell" data-hr-run="'+escapeHtml(r.runId)+'"><span class="recent-secondary">'+(r.detailFile?'…':'—')+'</span></td></tr>';
   }).join('');
+  observeHistoryHeartRates();
   all('#history-body tr').forEach(function(row){
     row.addEventListener('click',function(){
       const run=store.findRun(row.dataset.run);
@@ -650,15 +651,92 @@ function renderHistory(){
     });
   });
 }
-function sparkline(runId){
-  const chrono=store.runs.slice().reverse();
-  const idx=chrono.findIndex(function(r){return r.runId===runId;});
-  if(idx<0)return '';
-  const values=chrono.slice(Math.max(0,idx-4),idx+1).map(function(r){return number(r.adjustedPerformanceIndex);}).filter(function(v){return v!==null;});
-  if(values.length<2)return '<span class="recent-secondary">—</span>';
-  const min=Math.min.apply(null,values),max=Math.max.apply(null,values),range=max-min||1;
-  const pts=values.map(function(v,i){return (i*(60/(values.length-1))).toFixed(1)+','+(20-(v-min)/range*16).toFixed(1);}).join(' ');
-  return '<svg class="spark" viewBox="0 0 64 24" aria-label="recent adjusted performance sparkline"><polyline points="'+pts+'"></polyline></svg>';
+// Each sparkline represents THIS run, not the previous five runs.
+// Load detail traces only for rows near the viewport; cache the compact SVG.
+const hrSparkCache = new Map();
+let hrSparkObserver = null;
+let hrSparkQueue = [];
+let hrSparkActive = 0;
+const HR_SPARK_LIMIT = 3;
+function heartRateSparkline(run){
+  const start = Date.parse(run.startTime), duration = Number(run.activeSeconds) * 1000;
+  if(!Number.isFinite(start) || !Number.isFinite(duration) || duration <= 0) return null;
+  const bins = Array.from({length:16},()=>[]);
+  (run.heartRateSeries||[]).forEach(function(p){
+    const value=number(p.value),time=Date.parse(p.time);
+    if(value===null || !Number.isFinite(time) || value<35 || value>225)return;
+    const fraction=(time-start)/duration;
+    if(fraction<0 || fraction>1.02)return;
+    bins[Math.min(15,Math.floor(Math.min(0.999999,fraction)*16))].push(value);
+  });
+  const present=bins.filter(b=>b.length);
+  if(present.length<5)return null;
+  // A fixed HR scale across runs (90–190 bpm) keeps visual comparisons honest.
+  // Values outside the scale are clipped, rather than rescaling every run.
+  const pts=bins.map(function(bin,i){
+    if(!bin.length)return null;
+    const hr=bin.reduce((a,b)=>a+b,0)/bin.length;
+    const x=2+i*116/15;
+    const y=29-25*(Math.max(90,Math.min(190,hr))-90)/100;
+    return [x,y];
+  });
+  const segments=[];let segment=[];
+  pts.forEach(function(p){
+    if(!p){if(segment.length>1)segments.push(segment);segment=[];}
+    else segment.push(p);
+  });
+  if(segment.length>1)segments.push(segment);
+  const paths=segments.map(function(points){
+    return '<polyline points="'+points.map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ')+'"></polyline>';
+  }).join('');
+  const values=present.flat();
+  const avg=Math.round(values.reduce((a,b)=>a+b,0)/values.length);
+  return '<svg class="spark hr-spark" viewBox="0 0 120 34" role="img" aria-label="Heart rate progression across this run, 0 to 100 percent elapsed; fixed scale 90 to 190 bpm"><title>HR progression · avg '+avg+' bpm · range '+Math.min(...values)+'–'+Math.max(...values)+' bpm · fixed 90–190 bpm scale</title>'+paths+'</svg>';
+}
+function observeHistoryHeartRates(){
+  if(hrSparkObserver)hrSparkObserver.disconnect();
+  hrSparkQueue=[];
+  const cells=all('#history-body [data-hr-run]');
+  if(!('IntersectionObserver' in window)){
+    cells.forEach(enqueueHistoryHr);
+    return;
+  }
+  hrSparkObserver=new IntersectionObserver(entries=>{
+    entries.forEach(entry=>{
+      if(entry.isIntersecting){
+        hrSparkObserver.unobserve(entry.target);
+        enqueueHistoryHr(entry.target);
+      }
+    });
+  },{rootMargin:'250px 0px'});
+  cells.forEach(cell=>{
+    const id=cell.dataset.hrRun;
+    if(hrSparkCache.has(id))cell.innerHTML=hrSparkCache.get(id);
+    else if(store.findRun(id)?.detailFile)hrSparkObserver.observe(cell);
+  });
+}
+function enqueueHistoryHr(cell){
+  const id=cell.dataset.hrRun;
+  if(hrSparkCache.has(id)){cell.innerHTML=hrSparkCache.get(id);return;}
+  const summary=store.findRun(id);
+  if(!summary?.detailFile){cell.textContent='—';return;}
+  if(hrSparkQueue.some(item=>item.id===id))return;
+  hrSparkQueue.push({id,cell});
+  pumpHistoryHr();
+}
+function pumpHistoryHr(){
+  while(hrSparkActive<HR_SPARK_LIMIT && hrSparkQueue.length){
+    const {id,cell}=hrSparkQueue.shift();
+    hrSparkActive++;
+    store.loadRun(id).then(run=>{
+      const svg=heartRateSparkline(run)||'<span class="recent-secondary">—</span>';
+      hrSparkCache.set(id,svg);
+      // A filter/sort may have replaced the original table row while loading.
+      if(cell.isConnected && cell.dataset.hrRun===id)cell.innerHTML=svg;
+    }).catch(()=>{
+      if(cell.isConnected)cell.textContent='—';
+    }).finally(()=>{hrSparkActive--;pumpHistoryHr();});
+  }
 }
 
 function setupInteractions(){
