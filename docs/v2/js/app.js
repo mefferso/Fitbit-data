@@ -87,6 +87,11 @@ function switchView(view,updateUrl){
     if(view!=='analysis') url.searchParams.delete('run');
     history.replaceState({},'',url);
   }
+  // Navigation should initialize the latest detailed run, not just show an empty panel.
+  if(view==='analysis' && !state.runId && store.detailedRuns[0]) {
+    openAnalysis(store.detailedRuns[0].runId);
+    return;
+  }
   if(view==='trends') renderTrends();
   if(view==='history') renderHistory();
   if(view==='compare') renderCompare();
