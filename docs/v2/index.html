@@ -303,6 +303,7 @@
             <button data-days="180">6M</button>
             <button data-days="all">ALL</button>
           </div>
+          <label class="trend-average-toggle"><input type="checkbox" id="trend-average-toggle" checked> Show 4-run rolling averages</label>
         </div>
 
         <div class="trend-grid">
@@ -322,9 +323,11 @@
             <div class="panel-heading"><div><div class="panel-kicker">Speed</div><h2>Average pace</h2></div></div>
             <div class="chart-wrap medium"><canvas id="trend-pace-chart"></canvas></div>
           </article>
-          <article class="panel chart-panel">
-            <div class="panel-heading"><div><div class="panel-kicker">Workload</div><h2>Training load</h2></div></div>
-            <div class="chart-wrap medium"><canvas id="trend-load-chart"></canvas></div>
+          <article class="panel chart-panel wide">
+            <div class="panel-heading"><div><div class="panel-kicker">Aerobic development</div><h2>Steady-running pace + heart rate</h2></div></div>
+            <div class="reference-note">Warmup (first 10 minutes) and final 3 minutes excluded; marked walk / speed segments excluded where possible. Requires detailed pace and HR traces. This is an observational comparison, not a validated efficiency score. Home Tempest weather is a proxy for route conditions.</div>
+            <div class="chart-wrap large"><canvas id="trend-aerobic-chart"></canvas></div>
+            <div class="reference-note" id="trend-aerobic-status" aria-live="polite"></div>
           </article>
         </div>
       </section>
