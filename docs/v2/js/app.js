@@ -563,32 +563,72 @@ function steadyOverride(runId){
   return n!==null&&n>=20?n:null;
 }
 function autoSteadyCutoff(run){
-  const duration=(Date.parse(run.endTime)-Date.parse(run.startTime))/60000;
-  const pace=(run.paceSeries||[]).map(p=>({m:(Date.parse(p.time)-Date.parse(run.startTime))/60000,s:number(p.paceSecondsPerMile)}))
-    .filter(p=>Number.isFinite(p.m)&&Number.isFinite(p.s)&&p.s>=240&&p.s<=1800);
-  if(duration<30||pace.length<150)return {minute:Math.max(20,duration-3),method:'fallback',confidence:'low'};
-  // Aggregate one-second GPS pace into 30-second bins by median, suppressing GPS spikes.
-  const bins=[];
-  for(let m=0;m<duration-.5;m+=.5){
-    const v=pace.filter(p=>p.m>=m&&p.m<m+.5).map(p=>p.s).sort((a,b)=>a-b);
-    bins.push(v.length>=8?v[Math.floor(v.length/2)]:null);
-  }
-  // Seek the first persistent change in pace variability, not merely a fast mile.
-  // Comparing against the previous 10 minutes accommodates changing aerobic pace.
-  for(let i=50;i<bins.length-5;i++){
-    const baseline=bins.slice(i-20,i).filter(v=>v!==null).sort((a,b)=>a-b);
-    if(baseline.length<14)continue;
-    const mid=baseline[Math.floor(baseline.length/2)];
-    const recent=bins.slice(i,i+6).filter(v=>v!==null);
-    if(recent.length<5)continue;
-    const fast=recent.filter(v=>v<mid*.77).length;
-    const slow=recent.filter(v=>v>mid*1.32).length;
-    const range=Math.max(...recent)-Math.min(...recent);
-    if((fast>=2&&slow>=1)||(range>mid*.65&&fast>=2)){
-      return {minute:Math.round((i*.5)*4)/4,method:'pace transitions',confidence:'moderate'};
+  const start=Date.parse(run.startTime),end=Date.parse(run.endTime);
+  const duration=(end-start)/60000;
+  if(!Number.isFinite(duration)||duration<=22)return {minute:Math.max(0,duration-3),method:'insufficient duration',confidence:'low'};
+  const fallback={minute:Math.max(20,Math.round((duration-3)*4)/4),method:'no confirmed walk/run transition',confidence:'low'};
+  // TCX pace is near 1-second resolution; median of 15-second bins rejects
+  // 1-second GPS pace spikes while retaining genuine walking transitions.
+  const bins=Array.from({length:Math.ceil(duration*4)},()=>[]);
+  (run.paceSeries||[]).forEach(p=>{
+    const time=Date.parse(p.time),pace=number(p.paceSecondsPerMile);
+    if(!Number.isFinite(time)||pace===null||pace<240||pace>3600)return;
+    const n=Math.floor((time-start)/15000);
+    if(n>=0&&n<bins.length)bins[n].push(pace);
+  });
+  const medians=bins.map(values=>{
+    if(values.length<7)return null;
+    values.sort((a,b)=>a-b);
+    return values[Math.floor(values.length/2)];
+  });
+  if(medians.filter(v=>v!==null).length<80)return {...fallback,method:'insufficient GPS coverage'};
+  const median=arr=>{
+    const sorted=arr.filter(v=>v!==null).sort((a,b)=>a-b);
+    return sorted.length?sorted[Math.floor(sorted.length/2)]:null;
+  };
+  const walks=medians.map((v,i)=>{
+    if(v===null)return false;
+    // Use an absolute walking-scale cutoff together with prior running pace.
+    // Don't classify a normally slow run as walking based on speed alone.
+    const prior=medians.slice(Math.max(0,i-40),i).filter(v=>v!==null&&v<1000);
+    const typical=prior.length>=12?median(prior):null;
+    return typical!==null && v>=Math.max(1000,typical*1.3);
+  });
+  const bouts=[];let from=-1;
+  for(let i=0;i<=walks.length;i++){
+    if(i<walks.length&&walks[i]){if(from<0)from=i;}
+    else if(from>=0){
+      if(i-from>=2)bouts.push({start:from,end:i}); // >=30 s of true walking
+      from=-1;
     }
   }
-  return {minute:Math.max(20,duration-3),method:'fallback (no clear strides)',confidence:'low'};
+  // For strides, require repeated walk bouts with a real fast-running
+  // rebound between them. Reject isolated stops and GPS outliers.
+  for(let i=0;i<bouts.length;i++){
+    const first=bouts[i];
+    if(first.start<48||first.start>(duration-1)*4)continue;
+    const baseline=median(medians.slice(Math.max(0,first.start-40),first.start).filter(v=>v!==null&&v<1000));
+    if(baseline===null)continue;
+    for(let j=i+1;j<bouts.length;j++){
+      const next=bouts[j];
+      if(next.start-first.start>32)break;
+      if(next.start-first.end<1)continue;
+      const middle=medians.slice(first.end,next.start).filter(v=>v!==null);
+      if(middle.some(v=>v<Math.min(670,baseline*.85))){
+        return {minute:Math.max(10,(first.start-1)/4),method:'repeated fast-run/walk transitions',confidence:'high',walkBouts:bouts.length};
+      }
+    }
+  }
+  // Non-stride run/walk sessions can also distort the steady-aerobic
+  // estimate. Repeated sustained walking is enough to end its first block,
+  // but require three bouts to avoid mistaking a one-off crossing for it.
+  for(let i=0;i<bouts.length-2;i++){
+    if(bouts[i].start<48)continue;
+    if(bouts[i+2].start-bouts[i].start<=80){
+      return {minute:Math.max(10,(bouts[i].start-1)/4),method:'repeated walking breaks',confidence:'moderate',walkBouts:bouts.length};
+    }
+  }
+  return fallback;
 }
 function steadyCutoff(run){
   const auto=autoSteadyCutoff(run),manual=steadyOverride(run.runId);
@@ -598,7 +638,8 @@ function updateSteadyControls(run){
   const auto=autoSteadyCutoff(run),actual=steadyCutoff(run);
   el('steady-cutoff-input').value=steadyOverride(run.runId)??'';
   el('steady-cutoff-input').max=Math.floor(((Date.parse(run.endTime)-Date.parse(run.startTime))/60000-1)*4)/4;
-  el('steady-cutoff-info').textContent='Using minutes 10:00–'+actual.minute.toFixed(2)+' · '+(actual.method==='manual'?'Manually selected':'Automatic: '+actual.method+' ('+actual.confidence+' confidence)')+'. Auto suggestion: '+auto.minute.toFixed(2)+' min.';
+  const mmss=value=>{const seconds=Math.round(value*60);return Math.floor(seconds/60)+':'+String(seconds%60).padStart(2,'0');};
+  el('steady-cutoff-info').textContent='Using minutes 10:00–'+mmss(actual.minute)+' · '+(actual.method==='manual'?'Manually selected':'Automatic: '+actual.method+' ('+actual.confidence+' confidence)')+'. Auto suggestion: '+mmss(auto.minute)+'.';
 }
 function trendAerobicSample(run){
   const start=Date.parse(run.startTime);
@@ -635,7 +676,7 @@ function trendAerobicSample(run){
   if(samples.length<48)return null;
   const speed=samples.reduce((s,p)=>s+3600/p.p,0)/samples.length;
   const weather=run.weather?.average||{};
-  return {date:run.date,pace:speed>0?3600/speed:null,hr:samples.reduce((s,p)=>s+p.h,0)/samples.length,minutes:Math.round(samples.length/4),temp:number(weather.tempF),heat:number(weather.heatIndexF),solar:number(weather.solarRadiationWm2)};
+  return {date:run.date,pace:speed>0?3600/speed:null,hr:samples.reduce((s,p)=>s+p.h,0)/samples.length,minutes:Math.round(samples.length/4),cutoffMinute:cutoff.minute,cutoffMethod:cutoff.method,cutoffConfidence:cutoff.confidence,temp:number(weather.tempF),heat:number(weather.heatIndexF),solar:number(weather.solarRadiationWm2)};
 }
 
 async function loadAerobicTrends(){

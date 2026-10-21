@@ -164,7 +164,15 @@ export class Charts {
     return this.line('trendAerobic',canvas,points.map(p=>p.date),sets,{
       plugins:{legend:{display:true,labels:{color:muted(),boxWidth:12}},tooltip:{displayColors:true,callbacks:{
         label:ctx=>ctx.dataset.label+': '+(ctx.parsed.y===null?'—':ctx.dataset.yAxisID==='pace'?fmtPace(ctx.parsed.y):ctx.parsed.y.toFixed(1)+' bpm'),
-        afterBody:items=>{const p=points[items[0]?.dataIndex];return p&&p.pace!==null?['Temp '+(p.temp??'—')+'°F · HI '+(p.heat??'—')+'°F · Solar '+(p.solar??'—')+' W/m²','Steady sample '+p.minutes+' min']:[];}
+        afterBody:items=>{
+          const p=points[items[0]?.dataIndex];
+          if(!p||p.pace===null)return [];
+          const sec=Math.round((p.cutoffMinute||0)*60);
+          const cutoff=Math.floor(sec/60)+':'+String(sec%60).padStart(2,'0');
+          return ['Steady window 10:00–'+cutoff+' · '+p.cutoffMethod+' ('+p.cutoffConfidence+')',
+            'Temp '+(p.temp??'—')+'°F · HI '+(p.heat??'—')+'°F · Solar '+(p.solar??'—')+' W/m²',
+            'Steady sample '+p.minutes+' min'];
+        }
       }}},
       scales:{
         pace:{type:'linear',position:'left',reverse:true,grid:{color:grid()},ticks:{color:muted(),callback:v=>fmtPace(v).replace('/mi','')},title:{display:true,text:'Pace (min/mi)',color:muted()}},
