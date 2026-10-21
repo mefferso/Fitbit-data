@@ -14,6 +14,7 @@ const state = {
   trendAverage:true,
   aerobicPoints:[],
   aerobicLoading:false,
+  aerobicLoaded:false,
   historyWindow:'90',
   historyQuery:'',
   sortKey:'date',
@@ -601,6 +602,7 @@ async function loadAerobicTrends(){
       samples.push(...batch.filter(Boolean));
     }
     state.aerobicPoints=samples.sort((a,b)=>a.date.localeCompare(b.date));
+    state.aerobicLoaded=true;
     if(state.view==='trends')renderTrends();
   }finally{state.aerobicLoading=false;}
 }
@@ -616,7 +618,7 @@ function renderTrends(){
   const points=state.aerobicPoints.filter(p=>state.trendDays==='all'||runs.some(r=>r.date===p.date));
   charts.aerobicTrend(el('trend-aerobic-chart'),points,state.trendAverage);
   el('trend-aerobic-status').textContent=state.aerobicLoading?'Reading detailed pace and heart-rate traces…':points.length+' runs with matched steady-running traces. Runs without sufficient clean samples are omitted.';
-  if(!state.aerobicPoints.length&&!state.aerobicLoading)loadAerobicTrends();
+  if(!state.aerobicLoaded&&!state.aerobicLoading)loadAerobicTrends();
 }
 
 function comparisonEfficiency(summary,adjusted){
