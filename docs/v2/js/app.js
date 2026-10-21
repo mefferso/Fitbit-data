@@ -310,6 +310,7 @@ async function renderAnalysis(runId,scrollTop){
     el('analysis-meta').textContent=fmtTime(run.startTime)+' · '+fmtDuration(run.activeSeconds)+' · '+fmtPace(run.averagePaceSecondsPerMile)+(wx?' · HI '+cleanNumber(wx.heatIndexF,0)+'°F':'');
     renderBadges(summary);
     renderAnalysisMetrics(run,summary,prev);
+    updateSteadyControls(run);
     renderConditions(run);
     renderRoute(run);
     renderZones(run);
@@ -553,12 +554,59 @@ function renderRoute(run){
   setTimeout(fitRoute,140);
 }
 
+const STEADY_KEY='fitbit-steady-cutoffs-v1';
+function steadyOverrides(){
+  try{return JSON.parse(localStorage.getItem(STEADY_KEY)||'{}')||{};}catch{return {};}
+}
+function steadyOverride(runId){
+  const n=number(steadyOverrides()[runId]);
+  return n!==null&&n>=20?n:null;
+}
+function autoSteadyCutoff(run){
+  const duration=(Date.parse(run.endTime)-Date.parse(run.startTime))/60000;
+  const pace=(run.paceSeries||[]).map(p=>({m:(Date.parse(p.time)-Date.parse(run.startTime))/60000,s:number(p.paceSecondsPerMile)}))
+    .filter(p=>Number.isFinite(p.m)&&Number.isFinite(p.s)&&p.s>=240&&p.s<=1800);
+  if(duration<30||pace.length<150)return {minute:Math.max(20,duration-3),method:'fallback',confidence:'low'};
+  // Aggregate one-second GPS pace into 30-second bins by median, suppressing GPS spikes.
+  const bins=[];
+  for(let m=0;m<duration-.5;m+=.5){
+    const v=pace.filter(p=>p.m>=m&&p.m<m+.5).map(p=>p.s).sort((a,b)=>a-b);
+    bins.push(v.length>=8?v[Math.floor(v.length/2)]:null);
+  }
+  // Seek the first persistent change in pace variability, not merely a fast mile.
+  // Comparing against the previous 10 minutes accommodates changing aerobic pace.
+  for(let i=50;i<bins.length-5;i++){
+    const baseline=bins.slice(i-20,i).filter(v=>v!==null).sort((a,b)=>a-b);
+    if(baseline.length<14)continue;
+    const mid=baseline[Math.floor(baseline.length/2)];
+    const recent=bins.slice(i,i+6).filter(v=>v!==null);
+    if(recent.length<5)continue;
+    const fast=recent.filter(v=>v<mid*.77).length;
+    const slow=recent.filter(v=>v>mid*1.32).length;
+    const range=Math.max(...recent)-Math.min(...recent);
+    if((fast>=2&&slow>=1)||(range>mid*.65&&fast>=2)){
+      return {minute:Math.round((i*.5)*4)/4,method:'pace transitions',confidence:'moderate'};
+    }
+  }
+  return {minute:Math.max(20,duration-3),method:'fallback (no clear strides)',confidence:'low'};
+}
+function steadyCutoff(run){
+  const auto=autoSteadyCutoff(run),manual=steadyOverride(run.runId);
+  return manual!==null?{minute:manual,method:'manual',confidence:'verified'}:auto;
+}
+function updateSteadyControls(run){
+  const auto=autoSteadyCutoff(run),actual=steadyCutoff(run);
+  el('steady-cutoff-input').value=steadyOverride(run.runId)??'';
+  el('steady-cutoff-input').max=Math.floor(((Date.parse(run.endTime)-Date.parse(run.startTime))/60000-1)*4)/4;
+  el('steady-cutoff-info').textContent='Using minutes 10:00–'+actual.minute.toFixed(2)+' · '+(actual.method==='manual'?'Manually selected':'Automatic: '+actual.method+' ('+actual.confidence+' confidence)')+'. Auto suggestion: '+auto.minute.toFixed(2)+' min.';
+}
 function trendAerobicSample(run){
   const start=Date.parse(run.startTime);
   const end=Date.parse(run.endTime);
   if(!Number.isFinite(start)||!Number.isFinite(end))return null;
-  const lower=start+10*60000, upper=Math.min(end,start+(number(run.activeSeconds)||0)*1000)-3*60000;
-  if(upper<=lower)return null;
+  const cutoff=steadyCutoff(run);
+  const lower=start+10*60000, upper=Math.min(end,start+cutoff.minute*60000);
+  if(upper<=lower+12*60000)return null;
   const intervals=run.runWalkIntervals||[];
   const excluded=t=>intervals.some(i=>{
     const kind=String(i.type||i.label||i.kind||'').toLowerCase();
@@ -570,7 +618,6 @@ function trendAerobicSample(run){
   const hr=(run.heartRateSeries||[]).map(p=>({t:Date.parse(p.time),v:number(p.value)})).filter(p=>Number.isFinite(p.t)&&p.v!==null).sort((a,b)=>a.t-b.t);
   const pace=(run.paceSeries||[]).map(p=>({t:Date.parse(p.time),v:number(p.paceSecondsPerMile)})).filter(p=>Number.isFinite(p.t)&&p.v!==null&&p.v>=240&&p.v<=1800).sort((a,b)=>a.t-b.t);
   if(hr.length<10||pace.length<10)return null;
-  // Sample both series on a shared 15-second grid; don't bridge recording gaps >60s.
   function near(arr,t){
     let lo=0,hi=arr.length;
     while(lo<hi){const mid=(lo+hi)>>1;if(arr[mid].t<t)lo=mid+1;else hi=mid;}
@@ -585,7 +632,7 @@ function trendAerobicSample(run){
     const h=near(hr,t),p=near(pace,t);
     if(h!==null&&p!==null&&h>=80&&h<=210)samples.push({h,p});
   }
-  if(samples.length<48)return null; // At least 12 minutes of matched points.
+  if(samples.length<48)return null;
   const speed=samples.reduce((s,p)=>s+3600/p.p,0)/samples.length;
   const weather=run.weather?.average||{};
   return {date:run.date,pace:speed>0?3600/speed:null,hr:samples.reduce((s,p)=>s+p.h,0)/samples.length,minutes:Math.round(samples.length/4),temp:number(weather.tempF),heat:number(weather.heatIndexF),solar:number(weather.solarRadiationWm2)};
@@ -810,6 +857,24 @@ function pumpHistoryHr(){
 }
 
 function setupInteractions(){
+  el('steady-cutoff-save').addEventListener('click',async function(){
+    if(!state.runId)return;
+    const run=await store.loadRun(state.runId);
+    const v=number(el('steady-cutoff-input').value);
+    const max=(Date.parse(run.endTime)-Date.parse(run.startTime))/60000-1;
+    if(v===null||v<22||v>max){toast('Enter a cutoff between 22 min and '+Math.floor(max)+' min.');return;}
+    const overrides=steadyOverrides();overrides[state.runId]=v;
+    localStorage.setItem(STEADY_KEY,JSON.stringify(overrides));
+    state.aerobicLoaded=false;state.aerobicPoints=[];
+    updateSteadyControls(run);toast('Steady cutoff saved in this browser.');
+  });
+  el('steady-cutoff-clear').addEventListener('click',async function(){
+    if(!state.runId)return;
+    const overrides=steadyOverrides();delete overrides[state.runId];
+    localStorage.setItem(STEADY_KEY,JSON.stringify(overrides));
+    state.aerobicLoaded=false;state.aerobicPoints=[];
+    updateSteadyControls(await store.loadRun(state.runId));toast('Automatic cutoff restored.');
+  });
   el('open-latest-run').addEventListener('click',function(){if(store.detailedRuns[0])openAnalysis(store.detailedRuns[0].runId);});
   el('analysis-run-select').addEventListener('change',function(){openAnalysis(this.value);});
   el('pace-mode').addEventListener('change',async function(){state.paceMode=this.value;if(state.runId){const run=await store.loadRun(state.runId);renderRunCharts(run);}});
