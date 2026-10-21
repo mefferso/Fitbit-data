@@ -11,6 +11,9 @@ const state = {
   view:'overview',
   runId:null,
   trendDays:'90',
+  trendAverage:true,
+  aerobicPoints:[],
+  aerobicLoading:false,
   historyWindow:'90',
   historyQuery:'',
   sortKey:'date',
@@ -549,21 +552,71 @@ function renderRoute(run){
   setTimeout(fitRoute,140);
 }
 
+function trendAerobicSample(run){
+  const start=Date.parse(run.startTime);
+  const end=Date.parse(run.endTime);
+  if(!Number.isFinite(start)||!Number.isFinite(end))return null;
+  const lower=start+10*60000, upper=Math.min(end,start+(number(run.activeSeconds)||0)*1000)-3*60000;
+  if(upper<=lower)return null;
+  const intervals=run.runWalkIntervals||[];
+  const excluded=t=>intervals.some(i=>{
+    const kind=String(i.type||i.label||i.kind||'').toLowerCase();
+    if(!/walk|rest|stride|interval|sprint|fast|recovery/.test(kind))return false;
+    const a=Date.parse(i.startTime||i.start||'');
+    const b=Date.parse(i.endTime||i.end||'');
+    return Number.isFinite(a)&&Number.isFinite(b)&&t>=a&&t<=b;
+  });
+  const hr=(run.heartRateSeries||[]).map(p=>({t:Date.parse(p.time),v:number(p.value)})).filter(p=>Number.isFinite(p.t)&&p.v!==null).sort((a,b)=>a.t-b.t);
+  const pace=(run.paceSeries||[]).map(p=>({t:Date.parse(p.time),v:number(p.paceSecondsPerMile)})).filter(p=>Number.isFinite(p.t)&&p.v!==null&&p.v>=240&&p.v<=1800).sort((a,b)=>a.t-b.t);
+  if(hr.length<10||pace.length<10)return null;
+  // Sample both series on a shared 15-second grid; don't bridge recording gaps >60s.
+  function near(arr,t){
+    let lo=0,hi=arr.length;
+    while(lo<hi){const mid=(lo+hi)>>1;if(arr[mid].t<t)lo=mid+1;else hi=mid;}
+    const a=arr[lo-1],b=arr[lo];
+    if(a&&b&&b.t-a.t<=60000)return a.v+(b.v-a.v)*(t-a.t)/(b.t-a.t);
+    const nearest=!a?b:!b?a:Math.abs(a.t-t)<=Math.abs(b.t-t)?a:b;
+    return nearest&&Math.abs(nearest.t-t)<=15000?nearest.v:null;
+  }
+  const samples=[];
+  for(let t=lower;t<=upper;t+=15000){
+    if(excluded(t))continue;
+    const h=near(hr,t),p=near(pace,t);
+    if(h!==null&&p!==null&&h>=80&&h<=210)samples.push({h,p});
+  }
+  if(samples.length<48)return null; // At least 12 minutes of matched points.
+  const speed=samples.reduce((s,p)=>s+3600/p.p,0)/samples.length;
+  const weather=run.weather?.average||{};
+  return {date:run.date,pace:speed>0?3600/speed:null,hr:samples.reduce((s,p)=>s+p.h,0)/samples.length,minutes:Math.round(samples.length/4),temp:number(weather.tempF),heat:number(weather.heatIndexF),solar:number(weather.solarRadiationWm2)};
+}
+
+async function loadAerobicTrends(){
+  if(state.aerobicLoading)return;
+  state.aerobicLoading=true;
+  const candidates=store.detailedRuns.slice();
+  try{
+    const samples=[];
+    for(let i=0;i<candidates.length;i+=5){
+      const batch=await Promise.all(candidates.slice(i,i+5).map(r=>store.loadRun(r).then(trendAerobicSample).catch(()=>null)));
+      samples.push(...batch.filter(Boolean));
+    }
+    state.aerobicPoints=samples.sort((a,b)=>a.date.localeCompare(b.date));
+    if(state.view==='trends')renderTrends();
+  }finally{state.aerobicLoading=false;}
+}
+
 function renderTrends(){
   if(!store.index)return;
   const runs=store.filterRuns(state.trendDays).slice().reverse();
   const api=runs.filter(function(r){return number(r.adjustedPerformanceIndex)!==null;});
   renderEfficiencyPanel('trend-eff','trend-api-chart',(store.trends.runningTrend?.weatherAdjusted?.runs||[]).filter(r=>state.trendDays==='all'||api.some(a=>a.date===r.date)),'trendApi');
-  charts.metricTrend('trendHrr',el('trend-hrr-chart'),runs.filter(function(r){return number(r.hrr1)!==null;}),'hrr1',{color:chartPalette().positive,title:'bpm'});
-  charts.metricTrend('trendDrift',el('trend-drift-chart'),runs.filter(function(r){return number(r.cardioDriftPercent)!==null;}),'cardioDriftPercent',{color:chartPalette().warning,title:'%',tooltip:function(ctx){return 'Drift: '+Number(ctx.raw).toFixed(1)+'%';}});
-  charts.metricTrend('trendPace',el('trend-pace-chart'),runs.filter(function(r){return number(r.averagePaceSecondsPerMile)!==null;}),'averagePaceSecondsPerMile',{color:chartPalette().violet,title:'min/mi',reverse:true,tick:function(v){return fmtPace(v).replace('/mi','');},tooltip:function(ctx){return 'Pace: '+fmtPace(ctx.raw);}});
-  const loadPoints=(store.trends.trainingLoad&&store.trends.trainingLoad.points)||[];
-  let loads=loadPoints;
-  if(state.trendDays!=='all'&&runs.length){
-    const firstDate=runs[0].date;
-    loads=loadPoints.filter(function(p){return p.date>=firstDate;});
-  }
-  charts.trainingLoad(el('trend-load-chart'),loads,'trendLoad');
+  charts.metricTrend('trendHrr',el('trend-hrr-chart'),runs.filter(r=>number(r.hrr1)!==null),'hrr1',{color:chartPalette().positive,title:'bpm',showAverage:state.trendAverage});
+  charts.metricTrend('trendDrift',el('trend-drift-chart'),runs.filter(r=>number(r.cardioDriftPercent)!==null),'cardioDriftPercent',{color:chartPalette().warning,title:'%',showAverage:state.trendAverage,tooltip:ctx=>'Drift: '+Number(ctx.raw).toFixed(1)+'%'});
+  charts.metricTrend('trendPace',el('trend-pace-chart'),runs.filter(r=>number(r.averagePaceSecondsPerMile)!==null),'averagePaceSecondsPerMile',{color:chartPalette().violet,title:'min/mi',reverse:true,showAverage:state.trendAverage,tick:v=>fmtPace(v).replace('/mi',''),tooltip:ctx=>'Pace: '+fmtPace(ctx.raw)});
+  const points=state.aerobicPoints.filter(p=>state.trendDays==='all'||runs.some(r=>r.date===p.date));
+  charts.aerobicTrend(el('trend-aerobic-chart'),points,state.trendAverage);
+  el('trend-aerobic-status').textContent=state.aerobicLoading?'Reading detailed pace and heart-rate traces…':points.length+' runs with matched steady-running traces. Runs without sufficient clean samples are omitted.';
+  if(!state.aerobicPoints.length&&!state.aerobicLoading)loadAerobicTrends();
 }
 
 function comparisonEfficiency(summary,adjusted){
@@ -777,6 +830,7 @@ function setupInteractions(){
     try{await navigator.clipboard.writeText(location.href);toast('Run link copied.');}
     catch{toast('Copy failed — use the address bar URL.');}
   });
+  el('trend-average-toggle').addEventListener('change',function(){state.trendAverage=this.checked;renderTrends();});
   all('#trend-range button').forEach(function(btn){
     btn.addEventListener('click',function(){
       all('#trend-range button').forEach(function(b){b.classList.remove('active');});
