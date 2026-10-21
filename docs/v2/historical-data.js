@@ -9,7 +9,7 @@ function bar(id,labels,sets,options={}){const canvas=$(id);if(!canvas||!window.C
 const COMEBACK_START='2026-08-21';
 let dailyMileageChart=null;
 function renderDailyMileage(){
-  const fitbit=workouts.filter(r=>r.source==='Fitbit'&&r.date>=COMEBACK_START&&/^\\d{4}-\\d{2}-\\d{2}$/.test(r.date)&&Number.isFinite(r.distance)&&r.distance>0);
+  const fitbit=workouts.filter(r=>r.source==='Fitbit'&&r.date>=COMEBACK_START&&/^\d{4}-\d{2}-\d{2}$/.test(r.date)&&Number.isFinite(r.distance)&&r.distance>0);
   const perDay=new Map();
   for(const r of fitbit)perDay.set(r.date,(perDay.get(r.date)||0)+r.distance);
   // Use the latest available local run date, not the browser's timezone or an archive date.
