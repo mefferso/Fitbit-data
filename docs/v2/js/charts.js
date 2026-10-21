@@ -109,6 +109,16 @@ export class Charts {
       tension:.28,
       spanGaps:true
     };
+    const datasets=[dataset];
+    if(options.showAverage){
+      const values=runs.map(r=>number(r[key]));
+      const avg=values.map((_,i)=>{
+        if(i<3)return null;
+        const group=values.slice(i-3,i+1);
+        return group.every(v=>v!==null)?group.reduce((a,b)=>a+b,0)/4:null;
+      });
+      datasets.push({label:'4-run average',data:avg,borderColor:teal(),backgroundColor:teal(),borderWidth:3.5,pointRadius:0,pointHoverRadius:4,tension:.32,spanGaps:false});
+    }
     const overrides = {
       scales:{
         y:{
@@ -123,9 +133,41 @@ export class Charts {
           title:options.title ? {display:true,text:options.title,color:muted(),font:{size:10}} : undefined
         }
       },
-      plugins:{tooltip:{callbacks:{label:options.tooltip || undefined}}}
+      plugins:{tooltip:{callbacks:{label:function(ctx){
+        if(ctx.raw===null)return '';
+        if(ctx.dataset.label==='4-run average')return '4-run avg: '+(options.tick?options.tick(ctx.raw):Number(ctx.raw).toFixed(1))+(options.title==='%'?'%':'');
+        return options.tooltip?options.tooltip(ctx):Number(ctx.raw).toFixed(1);
+      }}}}
     };
-    return this.line(name,canvas,runs.map(function(r){return r.date;}),[dataset],overrides);
+    return this.line(name,canvas,runs.map(function(r){return r.date;}),datasets,overrides);
+  }
+
+  aerobicTrend(canvas, points, showAverage){
+    const values=(key)=>points.map(p=>number(p[key]));
+    const average=arr=>arr.map((_,i)=>{
+      if(i<3)return null;
+      const block=arr.slice(i-3,i+1);
+      return block.every(v=>v!==null)?block.reduce((a,b)=>a+b,0)/4:null;
+    });
+    const pace=values('pace'),hr=values('hr');
+    const sets=[
+      {label:'Steady pace',data:pace,yAxisID:'pace',borderColor:violet(),backgroundColor:violet(),borderWidth:2,pointRadius:3,tension:.22,spanGaps:false},
+      {label:'Steady HR',data:hr,yAxisID:'hr',borderColor:positive(),backgroundColor:positive(),borderWidth:2,pointRadius:3,tension:.22,spanGaps:false}
+    ];
+    if(showAverage){
+      sets.push({label:'Pace · 4-run avg',data:average(pace),yAxisID:'pace',borderColor:violet(),borderDash:[7,4],borderWidth:3.5,pointRadius:0,tension:.28,spanGaps:false});
+      sets.push({label:'HR · 4-run avg',data:average(hr),yAxisID:'hr',borderColor:positive(),borderDash:[7,4],borderWidth:3.5,pointRadius:0,tension:.28,spanGaps:false});
+    }
+    return this.line('trendAerobic',canvas,points.map(p=>p.date),sets,{
+      plugins:{legend:{display:true,labels:{color:muted(),boxWidth:12}},tooltip:{displayColors:true,callbacks:{
+        label:ctx=>ctx.dataset.label+': '+(ctx.parsed.y===null?'—':ctx.dataset.yAxisID==='pace'?fmtPace(ctx.parsed.y):ctx.parsed.y.toFixed(1)+' bpm'),
+        afterBody:items=>{const p=points[items[0]?.dataIndex];return p&&p.pace!==null?['Temp '+(p.temp??'—')+'°F · HI '+(p.heat??'—')+'°F · Solar '+(p.solar??'—')+' W/m²','Steady sample '+p.minutes+' min']:[];}
+      }}},
+      scales:{
+        pace:{type:'linear',position:'left',reverse:true,grid:{color:grid()},ticks:{color:muted(),callback:v=>fmtPace(v).replace('/mi','')},title:{display:true,text:'Pace (min/mi)',color:muted()}},
+        hr:{type:'linear',position:'right',grid:{drawOnChartArea:false},ticks:{color:muted()},title:{display:true,text:'Heart rate (bpm)',color:muted()}}
+      }
+    });
   }
 
   runStack(hrCanvas, paceCanvas, run, paceMode){

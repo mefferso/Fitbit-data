@@ -226,3 +226,5 @@ html[data-theme="dark"] .badge.pb{background:#3a3011;color:#f2d471;border-color:
 }
 @media(max-width:420px){.route-map,.route-placeholder{height:285px;min-height:285px}.metric-strip,.comparison-deltas{grid-template-columns:1fr}.hero-metrics{grid-template-columns:1fr 1fr}.week-grid{grid-template-columns:1fr 1fr}.recovery-grid{grid-template-columns:1fr}.history-tools{grid-template-columns:1fr}.history-count{grid-column:auto}}
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;animation:none!important;transition:none!important}}
+.trend-average-toggle{display:inline-flex;align-items:center;gap:8px;color:var(--ink-2);font-size:12px;font-weight:700;cursor:pointer}
+.trend-average-toggle input{accent-color:var(--teal);width:15px;height:15px}
