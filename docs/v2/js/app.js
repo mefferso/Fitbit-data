@@ -615,7 +615,7 @@ function autoSteadyCutoff(run){
       if(next.start-first.end<1)continue;
       const middle=medians.slice(first.end,next.start).filter(v=>v!==null);
       if(middle.some(v=>v<Math.min(670,baseline*.85))){
-        return {minute:Math.max(10,(first.start-1)/4),method:'confirmed stride/walk pattern',confidence:'high',walkBouts:bouts.length};
+        return {minute:Math.max(10,(first.start-1)/4),method:'repeated fast-run/walk transitions',confidence:'high',walkBouts:bouts.length};
       }
     }
   }
