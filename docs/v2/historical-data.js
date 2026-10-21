@@ -18,22 +18,24 @@ function renderDailyMileage(){
   for(let time=Date.parse(COMEBACK_START+'T00:00:00Z'),last=Date.parse(end+'T00:00:00Z');time<=last;time+=86400000){
     const day=new Date(time).toISOString().slice(0,10);
     dates.push(day);miles.push(perDay.get(day)||0);
-    average.push(miles.length>=7?miles.slice(-7).reduce((s,x)=>s+x,0)/7:null);
+    average.push(miles.length>=7?miles.slice(-7).reduce((s,x)=>s+x,0):null);
   }
   if(dailyMileageChart)dailyMileageChart.destroy();
   dailyMileageChart=new Chart($('#daily-mileage-chart'),{
     type:'bar',
     data:{labels:dates,datasets:[
-      {type:'bar',label:'Daily miles',data:miles,backgroundColor:'rgba(96,165,250,.48)',borderColor:'#60a5fa',borderWidth:1,borderRadius:3,order:2},
-      {type:'line',label:'7-day average (miles/day)',data:average,borderColor:'#34d399',backgroundColor:'#34d399',borderWidth:3,pointRadius:0,pointHoverRadius:5,tension:.2,spanGaps:false,order:1}
+      {type:'bar',label:'Daily miles',yAxisID:'y',data:miles,backgroundColor:'rgba(96,165,250,.48)',borderColor:'#60a5fa',borderWidth:1,borderRadius:3,order:2},
+      {type:'line',label:'Rolling 7-day miles (mi/week)',yAxisID:'yWeek',data:average,borderColor:'#34d399',backgroundColor:'#34d399',borderWidth:3,pointRadius:0,pointHoverRadius:5,tension:.2,spanGaps:false,order:1},
+      {type:'line',label:'Historical volume (~20 mi/week)',yAxisID:'yWeek',data:dates.map(()=>20),borderColor:'rgba(245,183,108,.8)',borderDash:[6,5],borderWidth:1.5,pointRadius:0,pointHoverRadius:0,order:0}
     ]},
     options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{position:'bottom',labels:{color:'#cfe1f8'}},tooltip:{callbacks:{title:items=>items.length?items[0].label:'',label:item=>item.raw===null?'7-day average: needs 7 days':item.dataset.label+': '+Number(item.raw).toFixed(2)+' mi'}}},scales:{
       x:{ticks:{color:'#adbfda',maxTicksLimit:9,maxRotation:0,callback:function(value){const d=this.getLabelForValue(value);return d.slice(5)}},grid:{display:false}},
-      y:{beginAtZero:true,title:{display:true,text:'Miles per day',color:'#adbfda'},ticks:{color:'#adbfda'},grid:{color:'rgba(173,191,218,.12)'}}
+      y:{type:'linear',position:'left',beginAtZero:true,title:{display:true,text:'Daily miles',color:'#adbfda'},ticks:{color:'#adbfda'},grid:{color:'rgba(173,191,218,.12)'}},
+      yWeek:{type:'linear',position:'right',beginAtZero:true,suggestedMax:22,title:{display:true,text:'Rolling weekly miles (mi/week)',color:'#34d399'},ticks:{color:'#34d399'},grid:{drawOnChartArea:false}}
     }}
   });
   const total=miles.reduce((a,b)=>a+b,0),last7=miles.slice(-7).reduce((a,b)=>a+b,0);
-  $('#daily-mileage-summary').textContent=dates[0]+' through '+dates[dates.length-1]+' · '+fitbit.length+' runs · '+total.toFixed(2)+' mi total · '+(dates.length>=7?'Last 7 days: '+last7.toFixed(2)+' mi ('+(last7/7).toFixed(2)+' mi/day)':'Seven-day average begins Aug 27');
+  $('#daily-mileage-summary').textContent=dates[0]+' through '+dates[dates.length-1]+' · '+fitbit.length+' runs · '+total.toFixed(2)+' mi total · '+(dates.length>=7?'Last 7 days: '+last7.toFixed(2)+' mi/week (rolling 7 days)':'Seven-day average begins Aug 27');
 }
 function paint(){let source=$('#source-filter').value,year=$('#year-filter').value,query=$('#search-workouts').value.trim().toLowerCase(),review=$('#include-review').checked;
 filtered=workouts.filter(r=>(source==='all'||r.source===source)&&(year==='all'||r.date.startsWith(year))&&(review||r.quality==='Usable')&&(!query||[r.date,r.source,r.quality,r.flags,mi(r.distance)].join(' ').toLowerCase().includes(query)));
