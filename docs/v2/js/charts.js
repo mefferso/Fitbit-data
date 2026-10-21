@@ -63,6 +63,9 @@ export class Charts {
   line(name, canvas, labels, datasets, overrides){
     this.destroy(name);
     const opts = merge(baseOptions(), overrides || {});
+    // Aerobic dual-axis chart defines its own pace and HR axes; don't retain
+    // the generic 'y' scale from baseOptions (it renders a spurious 0–1 axis).
+    if(name === 'trendAerobic') delete opts.scales.y;
     this.items[name] = new Chart(canvas,{type:'line',data:{labels:labels,datasets:datasets},options:opts});
     return this.items[name];
   }
