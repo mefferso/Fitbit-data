@@ -700,7 +700,7 @@ function renderTrends(){
   const runs=store.filterRuns(state.trendDays).slice().reverse();
   const api=runs.filter(function(r){return number(r.adjustedPerformanceIndex)!==null;});
   renderEfficiencyPanel('trend-eff','trend-api-chart',(store.trends.runningTrend?.weatherAdjusted?.runs||[]).filter(r=>state.trendDays==='all'||api.some(a=>a.date===r.date)),'trendApi');
-  charts.metricTrend('trendHrr',el('trend-hrr-chart'),runs.filter(r=>number(r.hrr1)!==null),'hrr1',{color:chartPalette().positive,title:'bpm',showAverage:state.trendAverage});
+  charts.hrrTrend(el('trend-hrr-chart'),runs.filter(r=>[r.hrr1,r.hrr2,r.hrr3].some(v=>number(v)!==null)),state.trendAverage);
   charts.metricTrend('trendDrift',el('trend-drift-chart'),runs.filter(r=>number(r.cardioDriftPercent)!==null),'cardioDriftPercent',{color:chartPalette().warning,title:'%',showAverage:state.trendAverage,tooltip:ctx=>'Drift: '+Number(ctx.raw).toFixed(1)+'%'});
   charts.metricTrend('trendPace',el('trend-pace-chart'),runs.filter(r=>number(r.averagePaceSecondsPerMile)!==null),'averagePaceSecondsPerMile',{color:chartPalette().violet,title:'min/mi',reverse:true,showAverage:state.trendAverage,tick:v=>fmtPace(v).replace('/mi',''),tooltip:ctx=>'Pace: '+fmtPace(ctx.raw)});
   const points=state.aerobicPoints.filter(p=>state.trendDays==='all'||runs.some(r=>r.date===p.date));
