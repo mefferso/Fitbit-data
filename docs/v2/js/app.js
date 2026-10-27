@@ -177,8 +177,9 @@ function heroMetric(label,value,delta){
 function renderWeek(){
   const newest=store.runs[0];
   if(!newest)return;
-  const end=new Date(newest.date+'T23:59:59Z'),start=new Date(end.getTime()-6*86400000);
-  const week=store.runs.filter(function(r){const d=new Date(r.date+'T12:00:00Z');return d>=start&&d<=end;});
+  const endDate=newest.date;
+  const startDate=new Date(Date.parse(endDate+'T00:00:00Z')-6*86400000).toISOString().slice(0,10);
+  const week=store.runs.filter(function(r){return r.date>=startDate&&r.date<=endDate;});
   const miles=week.reduce(function(sum,r){return sum+(number(r.distanceMiles)||0);},0);
   const seconds=week.reduce(function(sum,r){return sum+(number(r.activeSeconds)||0);},0);
   const api=mean(week.map(function(r){return r.adjustedPerformanceIndex;}));
