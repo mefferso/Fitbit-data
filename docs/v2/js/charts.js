@@ -99,6 +99,34 @@ export class Charts {
     );
   }
 
+  hrrTrend(canvas, runs, showAverage){
+    const colors=[positive(),violet(),teal()];
+    const keys=['hrr1','hrr2','hrr3'];
+    const datasets=keys.map(function(key,i){
+      return {label:'HRR'+(i+1),data:runs.map(r=>number(r[key])),
+        borderColor:colors[i],backgroundColor:colors[i],
+        borderWidth:i===0?3.4:1.9,pointRadius:i===0?3:2,
+        pointHoverRadius:5,tension:.25,spanGaps:false,
+        borderDash:i===0?[]:[i===1?6:3,4]};
+    });
+    if(showAverage){
+      const values=runs.map(r=>number(r.hrr1));
+      const average=values.map((_,i)=>{
+        if(i<3)return null;
+        const group=values.slice(i-3,i+1);
+        return group.every(v=>v!==null)?group.reduce((a,b)=>a+b,0)/4:null;
+      });
+      datasets.push({label:'HRR1 · 4-run avg',data:average,borderColor:warning(),
+        backgroundColor:warning(),borderDash:[8,4],borderWidth:2,
+        pointRadius:0,tension:.25,spanGaps:false});
+    }
+    return this.line('trendHrr',canvas,runs.map(r=>r.date),datasets,{
+      plugins:{legend:{display:true,position:'bottom',labels:{color:muted(),usePointStyle:true,boxWidth:9}},
+        tooltip:{displayColors:true,callbacks:{label:ctx=>ctx.dataset.label+': '+Number(ctx.parsed.y).toFixed(1)+' bpm'}}},
+      scales:{y:{title:{display:true,text:'HR drop (bpm)',color:muted()}}}
+    });
+  }
+
   metricTrend(name, canvas, runs, key, options){
     options = options || {};
     const data = runs.map(function(r){ return number(r[key]); });
