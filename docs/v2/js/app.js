@@ -698,6 +698,13 @@ async function loadAerobicTrends(){
 
 function renderTrends(){
   if(!store.index)return;
+  const annual=charts.cumulativeMileage(el('trend-mileage-chart'),store.runs,2026);
+  el('mileage-ytd-total').textContent=annual.total.toFixed(1);
+  el('mileage-milestone-note').textContent=annual.runs===0
+    ? 'No indexed 2026 runs yet.'
+    : annual.nextMilestone
+      ? annual.runs+' logged runs · '+(annual.nextMilestone-annual.total).toFixed(1)+' miles to '+annual.nextMilestone
+      : annual.runs+' logged runs · 200-mile milestone passed!';
   const runs=store.filterRuns(state.trendDays).slice().reverse();
   const api=runs.filter(function(r){return number(r.adjustedPerformanceIndex)!==null;});
   renderEfficiencyPanel('trend-eff','trend-api-chart',(store.trends.runningTrend?.weatherAdjusted?.runs||[]).filter(r=>state.trendDays==='all'||api.some(a=>a.date===r.date)),'trendApi');
