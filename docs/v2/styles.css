@@ -228,3 +228,12 @@ html[data-theme="dark"] .badge.pb{background:#3a3011;color:#f2d471;border-color:
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;animation:none!important;transition:none!important}}
 .trend-average-toggle{display:inline-flex;align-items:center;gap:8px;color:var(--ink-2);font-size:12px;font-weight:700;cursor:pointer}
 .trend-average-toggle input{accent-color:var(--teal);width:15px;height:15px}
+
+
+/* Annual mileage milestone chart */
+.mileage-card .panel-heading{align-items:center}
+.mileage-total{text-align:right;display:flex;flex-direction:column;align-items:flex-end;white-space:nowrap}
+.mileage-total strong{font-size:25px;font-weight:800;letter-spacing:-.03em;color:var(--primary);line-height:1.1}
+.mileage-total span{font-size:11px;color:var(--muted);margin-top:3px}
+.mileage-next{color:var(--ink-2);font-size:13px;font-weight:650;margin-top:9px}
+@media(max-width:420px){.mileage-total strong{font-size:22px}.mileage-card .panel-heading{gap:8px}}
