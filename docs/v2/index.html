@@ -322,6 +322,18 @@
         </div>
 
         <div class="trend-grid">
+          <article class="panel chart-panel wide mileage-card">
+            <div class="panel-heading">
+              <div>
+                <div class="panel-kicker">Mileage milestones · 2026</div>
+                <h2>Cumulative running distance</h2>
+              </div>
+              <div class="mileage-total" aria-live="polite"><strong id="mileage-ytd-total">—</strong><span>miles logged</span></div>
+            </div>
+            <div class="mileage-next" id="mileage-milestone-note" aria-live="polite">Calculating annual mileage…</div>
+            <div class="chart-wrap large"><canvas id="trend-mileage-chart" role="img" aria-label="2026 cumulative running mileage, with 100, 150, and 200 mile milestone lines"></canvas></div>
+            <div class="reference-note">2026 logged runs, January 1 onward. Dashed lines mark 100, 150, and 200 miles. This annual chart is independent of the 30D / 90D controls.</div>
+          </article>
           <article class="panel chart-panel wide">
             <div class="panel-heading"><div><div class="panel-kicker">Performance</div><h2>Adjusted Performance Index</h2></div></div>
             <div class="efficiency-controls" style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;padding:8px 0;font-size:12px"><label><input type="checkbox" id="trend-eff-raw" checked> <span style="color:#3b82f6">●</span> Raw</label><label><input type="checkbox" id="trend-eff-adj" checked> <span style="color:#10b981">●</span> Adjusted</label><label>Run <select id="trend-eff-select" style="max-width:135px"></select></label></div><div class="reference-note" id="trend-eff-details" aria-live="polite"></div><div class="chart-wrap large"><canvas id="trend-api-chart"></canvas></div>
