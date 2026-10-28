@@ -99,6 +99,87 @@ export class Charts {
     );
   }
 
+  cumulativeMileage(canvas, runs, year){
+    // Use all indexed runs for the calendar year, regardless of other trend filters.
+    // Multiple runs on the same local date are combined before the running total.
+    const prefix=String(year)+'-';
+    const yearRuns=runs.filter(function(r){
+      return typeof r.date==='string' && r.date.startsWith(prefix) &&
+        number(r.distanceMiles)!==null && Number(r.distanceMiles)>0;
+    }).slice().sort(function(a,b){return a.date.localeCompare(b.date);});
+    const byDate=new Map();
+    yearRuns.forEach(function(r){
+      byDate.set(r.date,(byDate.get(r.date)||0)+Number(r.distanceMiles));
+    });
+
+    const lastDate=yearRuns.length?yearRuns[yearRuns.length-1].date:prefix+'01-01';
+    const labels=[], miles=[], additions=[];
+    let accumulated=0;
+    for(let day=Date.parse(prefix+'01-01T00:00:00Z'),end=Date.parse(lastDate+'T00:00:00Z');day<=end;day+=86400000){
+      const date=new Date(day).toISOString().slice(0,10);
+      const added=byDate.get(date)||0;
+      accumulated+=added;
+      labels.push(date);
+      additions.push(added);
+      miles.push(Math.round(accumulated*1000)/1000);
+    }
+    const milestones=[100,150,200];
+    const datasets=[{
+      label:'2026 miles',
+      data:miles,
+      borderColor:primary(),
+      backgroundColor:'rgba(53,103,240,.10)',
+      borderWidth:3,
+      fill:true,
+      stepped:'after',
+      pointRadius:function(ctx){return additions[ctx.dataIndex]>0?2.5:0;},
+      pointHoverRadius:5
+    }];
+    milestones.forEach(function(target,i){
+      datasets.push({
+        label:target+' mi milestone',
+        data:labels.map(function(){return target;}),
+        borderColor:i===0?positive():muted(),
+        borderDash:i===0?[7,4]:[3,6],
+        borderWidth:i===0?1.9:1.1,
+        pointRadius:0,
+        fill:false
+      });
+    });
+    const months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    this.line('trendMileage',canvas,labels,datasets,{
+      animation:false,
+      interaction:{mode:'index',intersect:false},
+      scales:{
+        x:{ticks:{color:muted(),maxTicksLimit:7,callback:function(value){
+          const label=this.getLabelForValue(value);
+          const month=Number(label.slice(5,7));
+          return months[month-1]+' '+Number(label.slice(8,10));
+        }}},
+        y:{min:0,max:Math.max(210,Math.ceil((accumulated+10)/25)*25),
+          ticks:{color:muted(),stepSize:50,callback:function(v){return v+' mi';}},
+          title:{display:true,text:'Cumulative miles',color:muted()}}
+      },
+      plugins:{
+        legend:{display:true,position:'bottom',labels:{color:muted(),boxWidth:16,font:{size:10}}},
+        tooltip:{
+          filter:function(item){return item.datasetIndex===0;},
+          callbacks:{
+            title:function(items){return items.length?items[0].label:'';},
+            label:function(ctx){return 'Total: '+Number(ctx.raw).toFixed(2)+' miles';},
+            afterBody:function(items){
+              if(!items.length)return [];
+              const added=additions[items[0].dataIndex];
+              return added>0?['Run distance that day: '+added.toFixed(2)+' mi']:[];
+            }
+          }
+        }
+      }
+    });
+    return {total:accumulated,runs:yearRuns.length,lastDate:lastDate,
+      nextMilestone:milestones.find(function(m){return accumulated<m;})||null};
+  }
+
   hrrTrend(canvas, runs, showAverage){
     const colors=[positive(),violet(),teal()];
     const keys=['hrr1','hrr2','hrr3'];
