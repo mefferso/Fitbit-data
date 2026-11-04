@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Aerobic Fitness Lab · Performance Lab</title><link rel="stylesheet" href="styles.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<style>
+.af-wrap{max-width:1230px;margin:auto}.af-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:13px}.af-card{padding:19px}.af-number{font-size:31px;font-weight:850;margin-top:9px}.af-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.af-copy{line-height:1.6;color:var(--ink-2);font-size:13px}.af-muted{color:var(--muted);font-size:12px}.af-panel{margin-top:16px;padding:20px}.af-two{display:grid;grid-template-columns:1fr 1fr;gap:16px}.af-table{width:100%;border-collapse:collapse;font-size:12px}.af-table th,.af-table td{text-align:left;padding:10px 8px;border-bottom:1px solid var(--line)}.af-table th{color:var(--muted);font-size:10px;text-transform:uppercase}.af-scroll{overflow:auto;max-height:470px}.af-ok{color:var(--positive)}.af-warn{color:var(--warning)}.af-input{background:var(--surface-2);color:var(--ink);border:1px solid var(--line-strong);border-radius:9px;padding:9px;max-width:160px}.af-explanation{padding:11px 14px;background:var(--surface-2);border-radius:12px;font-size:12px;line-height:1.6;margin-top:12px}.af-chart{height:290px;position:relative}.af-small{font-size:11px}.af-status{padding:12px;border-radius:10px;background:var(--surface-2);font-size:12px}.af-button{border:1px solid var(--line-strong);background:var(--surface);color:var(--ink);padding:9px 12px;border-radius:9px;cursor:pointer;font-weight:750}.af-button:hover{border-color:var(--primary)}.af-button:disabled{opacity:.5}.af-flag{background:var(--warning-soft);padding:10px 13px;border-radius:10px;font-size:12px;color:var(--ink-2)}.af-badge{font-size:11px;border:1px solid var(--line);padding:4px 7px;border-radius:99px}.af-progress{height:7px;background:var(--surface-3);border-radius:7px;overflow:hidden;margin-top:9px}.af-progress>div{background:var(--primary);height:100%;width:0}.af-link{color:var(--primary)}.af-bars{display:flex;gap:8px;flex-wrap:wrap}.af-bars span{font-size:11px;background:var(--surface-2);padding:6px 9px;border-radius:8px}.af-meta{display:flex;align-items:baseline;justify-content:space-between;gap:15px}.af-note{font-size:11px;color:var(--muted);margin-top:8px;line-height:1.6}.af-table td:first-child{white-space:nowrap}details{margin-top:14px}details summary{cursor:pointer;font-weight:700}
+@media(max-width:1100px){.af-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.af-two{grid-template-columns:1fr}}@media(max-width:650px){.af-grid{grid-template-columns:1fr 1fr}.af-number{font-size:24px}.af-panel{padding:14px}.af-card{padding:13px}.main{padding:18px 13px 34px}.af-input{max-width:115px}.af-chart{height:240px}}
+</style></head><body><div class="app-shell">
+<aside class="sidebar" id="sidebar"><div class="brand"><div class="brand-mark"><span></span><span></span><span></span></div><div><div class="brand-name">Performance Lab</div><div class="brand-sub">Running analytics</div></div></div>
+<nav class="nav" aria-label="Dashboard"><a class="nav-item" href="index.html#overview"><span class="nav-icon">⌂</span>Overview</a><a class="nav-item" href="index.html#analysis"><span class="nav-icon">↗</span>Run analysis</a><a class="nav-item" href="index.html#trends"><span class="nav-icon">⌁</span>Trends</a><a class="nav-item" href="index.html#compare"><span class="nav-icon">⇄</span>Compare</a><a class="nav-item" href="index.html#history"><span class="nav-icon">≡</span>History</a><a class="nav-item" href="historical.html"><span class="nav-icon">◷</span>Then vs. Now</a><a class="nav-item active" href="aerobic.html"><span class="nav-icon">♥</span>Aerobic Fitness Lab</a></nav>
+<div class="sidebar-footer"><div class="privacy-note">Public sanitized running data. This page makes no clinical measurements.</div><a class="legacy-link" href="../">Open legacy dashboard ↗</a></div></aside>
+<header class="mobile-header"><button id="mobile-menu" aria-label="Toggle navigation">☰</button><div class="mobile-brand">Aerobic Fitness Lab</div><button id="mobile-theme" aria-label="Toggle theme">◐</button></header>
+<main class="main"><div class="af-wrap"><div class="topline"><div><div class="eyebrow">Experimental · Transparent estimates</div><h1>Aerobic Fitness Lab</h1></div><a class="af-link af-small" href="index.html">← Dashboard</a></div>
+<div class="af-flag">VO₂ max is not directly measured here. Submaximal scenarios depend on assumed HR maximum; performance VDOT requires a hard verified effort. Aerobic efficiency is an independent trend, not VO₂ max.</div>
+<article class="panel af-panel"><div class="af-meta"><strong>Archive processing</strong><span class="af-muted" id="loading-label">Reading running index…</span></div><div class="af-progress"><div id="progress-bar"></div></div><p class="af-note" id="processing-detail">Archived run details are loaded directly from the published repository data.</p><div class="af-row"><button class="af-button" id="refresh" type="button">Reprocess archive</button><button class="af-button" id="download" type="button" disabled>Export segment audit CSV</button><span class="af-muted" id="timestamp"></span></div></article>
+<div class="af-grid" style="margin-top:16px"><article class="panel af-card"><div class="metric-label">Fitbit reported VO₂ max</div><div class="af-number">43.7</div><div class="af-muted">Nov 1–7 screenshot · manual reference</div></article><article class="panel af-card"><div class="metric-label">Submaximal VO₂ scenario</div><div id="vo2-value" class="af-number">—</div><div class="af-muted" id="vo2-sub">Waiting for quality checks</div></article><article class="panel af-card"><div class="metric-label">Performance VDOT</div><div id="vdot-value" class="af-number">—</div><div class="af-muted" id="vdot-sub">Enter a hard effort below</div></article><article class="panel af-card"><div class="metric-label">Aerobic efficiency</div><div id="eff-value" class="af-number">—</div><div class="af-muted" id="eff-sub">Matched 145–155 bpm windows</div></article></div>
+<div class="af-two" style="margin-top:16px"><article class="panel af-panel"><div class="af-meta"><h2>Aerobic efficiency trend</h2><span class="af-badge">Steady segments only</span></div><p class="af-copy">Speed at a comparable heart rate (145–155 bpm). Weekly medians. This is a field-performance signal; higher is better. Both speed and heart-rate reliability matter.</p><div class="af-chart"><canvas id="eff-chart"></canvas></div><p class="af-note" id="eff-chart-note">No interpolated weeks or invented scores.</p></article>
+<article class="panel af-panel"><h2>Submaximal scenario</h2><p class="af-copy">Fit a within-archive heart-rate versus estimated oxygen-cost relation using eligible steady windows. Extrapolating it to an assumed maximum heart rate is highly uncertain.</p>
+<div class="af-row"><label class="af-small">Illustrative HRmax <input id="hrmax" class="af-input" type="number" min="175" max="220" step="1" value="195"></label><button class="af-button" id="recalc">Recalculate</button></div><div class="af-explanation" id="model-summary">Processing…</div><div class="af-chart" style="height:225px"><canvas id="scatter-chart"></canvas></div><p class="af-note">ACSM level-running oxygen demand ≈ 0.2 × meters/minute + 3.5. It assumes level, steady running, and is NOT measured oxygen uptake. Values at hypothetical HRmax are scenario calculations, not validated personal VO₂ max.</p></article></div>
+<div class="af-two" style="margin-top:16px"><article class="panel af-panel"><h2>VDOT · completed hard effort</h2><p class="af-copy">Enter a genuinely hard race or time trial. This uses the Daniels–Gilbert performance equation; it is <strong>not</strong> a lab VO₂ max measurement. Entries are stored only in this browser.</p><form id="vdot-form" class="af-row"><label class="af-small">Date <input id="trial-date" class="af-input" type="date" required></label><label class="af-small">Distance <select id="trial-distance" class="af-input"><option value="5">5K</option><option value="3">3K</option><option value="1.609344">1 mile</option></select></label><label class="af-small">Time (mm:ss) <input id="trial-time" class="af-input" placeholder="26:25" pattern="[0-9]{1,3}:[0-5][0-9]" required></label><label class="af-small"><input type="checkbox" id="trial-max" required> Hard/maximal effort</label><button class="af-button" type="submit">Calculate VDOT</button></form><div class="af-explanation" id="vdot-explanation">No confirmed current race or maximal time trial is in the archive. No VDOT will be fabricated from a training run.</div><button class="af-button" id="clear-vdot" type="button">Clear saved time trial</button></article>
+<article class="panel af-panel"><h2>Eligibility and weather</h2><div class="af-bars" id="audit-counts"></div><div class="af-explanation">Local Tempest data are accepted as representative of nearby runs. Weather is displayed and used to make like-for-like comparisons; no unvalidated precise dewpoint or solar correction is applied to the oxygen equation. Slope, HR sensor noise, pacing changes, and intentional finishes may still matter.</div><p class="af-note">Segment rule: 5-minute overlapping windows after minute 10, ending before the last 2 minutes; at least 80% GPS coverage; minute pace variation ≤10%; HR range ≤12 bpm; pace 8:00–16:00/mi. At least four separate eligible runs and a meaningful HR spread are required for a provisional model.</p></article></div>
+<article class="panel af-panel"><div class="af-meta"><h2>Historical run/segment audit</h2><span class="af-muted">Latest first · details available on demand</span></div><p class="af-copy">Every archived run is considered. Rejected runs have an explicit reason. For qualifying runs, the table shows the number of steady windows and their median speed/HR.</p><div class="af-scroll"><table class="af-table"><thead><tr><th>Date</th><th>Run pace</th><th>Avg HR</th><th>Eligible windows</th><th>Median segment</th><th>Tempest dewpoint</th><th>Decision</th></tr></thead><tbody id="audit-body"><tr><td colspan="7">Loading…</td></tr></tbody></table></div><details><summary>Calculation rules, sensitivity and limitations</summary><div class="af-copy"><p>Intervals and fast finishes can contaminate simple regressions. We extract only smooth, quality-controlled windows and fit a robust line at the <em>run</em> level, so long runs do not overwhelm shorter runs. Windows overlap; they are not independent statistical observations.</p><p>For estimation, each run contributes its median eligible segment (and run-to-run stability is checked). The display additionally shows HRmax sensitivity at ±10 bpm. If HR variation or fit quality is poor, no absolute estimate is reported.</p><p>Matching the same heart-rate band controls one major variable but not terrain, surface, training fatigue, medication, weather, or individual changes in running economy. Weekly chart points should be treated as descriptive, not clinical precision.</p><p>Not a validated clinical or coaching-grade VO₂max test. Validation requires a lab gas-exchange test and preferably standardized submaximal comparisons. VDOT from a real race is a useful performance cross-check but not independent proof of maximal oxygen consumption.</p></div></details></article>
+<p class="af-note">Sources: published Fitbit/Google Health TCX heart-rate and distance records in this repository; Tempest station readings; ACSM running oxygen-cost equation; Daniels–Gilbert VDOT formula. No secrets or location coordinates are needed.</p></div></main></div>
+<script>
+'use strict';
+const $=id=>document.getElementById(id);
+const state={runs:[],segments:[],model:null,charts:{},loaded:false};
+const finite=x=>Number.isFinite(Number(x));
+const med=a=>{const b=a.filter(finite).map(Number).sort((x,y)=>x-y);return b.length?b[Math.floor((b.length-1)/2)]*.5+b[Math.ceil((b.length-1)/2)]*.5:null};
+const fmtPace=s=>finite(s)?Math.floor(s/60)+':'+String(Math.round(s%60)).padStart(2,'0'):'—';
+const fix=(n,d=1)=>finite(n)?Number(n).toFixed(d):'—';
+function fmtDate(s){return s||'—'}
+function csvText(x){return '"'+String(x??'').replaceAll('"','""')+'"'}
+function chart(id,config){if(!window.Chart)return;state.charts[id]?.destroy();state.charts[id]=new Chart($(id),config)}
+function simpleChartConfig(data,scatter=false){return {type:scatter?'scatter':'line',data,options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:scatter?{type:'linear',title:{display:true,text:'Heart rate (bpm)'}}:{ticks:{maxTicksLimit:7}},y:{title:{display:true,text:scatter?'Estimated O₂ demand (mL/kg/min)':'Running speed (mph)'},ticks:{maxTicksLimit:6}}}}}}
+function averageHr(hr,start,end){const items=hr.filter(p=>{const t=Date.parse(p.time);return t>=start&&t<end&&finite(p.value)});return items.length?items.reduce((s,p)=>s+Number(p.value),0)/items.length:null}
+function analyzeRun(meta,d){
+ const entry={...meta,eligible:[],reason:'',detail:d,median:null};
+ const pace=(d.paceSeries||[]).map(p=>({...p,t:Date.parse(p.time),start:Date.parse(p.startTime),end:Date.parse(p.endTime)})).filter(p=>finite(p.t)&&finite(p.distanceMiles)&&finite(p.seconds)&&p.seconds>0).sort((a,b)=>a.t-b.t);
+ const hr=(d.heartRateSeries||[]).filter(p=>finite(Date.parse(p.time))&&finite(p.value));
+ if(pace.length<30||hr.length<30){entry.reason='Insufficient pace/HR detail';return entry}
+ const start=Date.parse(d.startTime),end=Date.parse(d.endTime);
+ if(!finite(start)||!finite(end)||end-start<19*60000){entry.reason='Run too short';return entry}
+ for(let t=start+10*60000;t+5*60000<=end-2*60000;t+=2*60000){
+  const e=t+300000,pts=pace.filter(p=>p.start>=t&&p.end<=e),seconds=pts.reduce((s,p)=>s+p.seconds,0),miles=pts.reduce((s,p)=>s+p.distanceMiles,0);
+  if(seconds<240||seconds>330||miles<=0)continue;
+  const paceSec=seconds/miles;
+  if(paceSec<480||paceSec>960)continue;
+  const mins=[];
+  for(let m=0;m<5;m++){const pp=pts.filter(p=>p.start>=t+m*60000&&p.end<=t+(m+1)*60000);const sec=pp.reduce((s,p)=>s+p.seconds,0),mi=pp.reduce((s,p)=>s+p.distanceMiles,0);if(sec>=42&&mi>0)mins.push(sec/mi)}
+  if(mins.length<4)continue;
+  const mean=mins.reduce((a,b)=>a+b,0)/mins.length;
+  if(Math.max(...mins.map(x=>Math.abs(x-mean)/mean))>.10)continue;
+  const h=averageHr(hr,t,e);if(!finite(h)||h<110||h>190)continue;
+  const hv=hr.filter(p=>Date.parse(p.time)>=t&&Date.parse(p.time)<e).map(p=>Number(p.value));
+  if(hv.length<20||Math.max(...hv)-Math.min(...hv)>12)continue;
+  const mph=3600/paceSec,oxygen=0.2*(mph*1609.344/60)+3.5;
+  entry.eligible.push({date:meta.date,runId:meta.runId,start:new Date(t).toISOString(),hr:h,mph,oxygen,paceSec,dewpoint:meta.dewpointF,heatIndex:meta.heatIndexF,solar:meta.solarRadiationWm2});
+ }
+ if(!entry.eligible.length){entry.reason='No stable qualifying windows';return entry}
+ entry.median={hr:med(entry.eligible.map(x=>x.hr)),mph:med(entry.eligible.map(x=>x.mph)),oxygen:med(entry.eligible.map(x=>x.oxygen))};
+ entry.reason='Eligible · observational';return entry;
+}
+function regression(rows){
+ const n=rows.length;if(n<4)return null;const mx=rows.reduce((s,r)=>s+r.hr,0)/n,my=rows.reduce((s,r)=>s+r.oxygen,0)/n;
+ const xx=rows.reduce((s,r)=>s+(r.hr-mx)**2,0),xy=rows.reduce((s,r)=>s+(r.hr-mx)*(r.oxygen-my),0);
+ if(xx<1)return null;
+ const b=xy/xx,a=my-b*mx,yy=rows.reduce((s,r)=>s+(r.oxygen-my)**2,0);
+ const r2=yy?1-rows.reduce((s,r)=>s+(r.oxygen-(a+b*r.hr))**2,0)/yy:0;
+ return {a,b,r2,n,spread:Math.max(...rows.map(r=>r.hr))-Math.min(...rows.map(r=>r.hr))};
+}
+function model(){
+ const rows=state.runs.filter(r=>r.median).map(r=>({...r.median,date:r.date})),m=regression(rows),max=Number($('hrmax').value);
+ const usable=m&&m.n>=4&&m.spread>=12&&m.b>0&&m.r2>=.25;
+ const label=$('model-summary');
+ if(!usable){state.model=null;$('vo2-value').textContent='—';$('vo2-sub').textContent='Insufficient reliable extrapolation';label.textContent='No defensible submaximal VO₂max estimate yet. '+(m?'Runs: '+m.n+', HR spread: '+fix(m.spread,0)+' bpm, fit R²: '+fix(m.r2,2)+'.':'Too few qualified runs.')+' We will not force a number.';return}
+ state.model=m;let estimate=m.a+m.b*max;
+ // No individual absolute validation: scenario only
+ $('vo2-value').textContent=fix(estimate,1)+'*';$('vo2-sub').textContent='Scenario at HRmax '+max+' bpm, not measured';
+ const lower=m.a+m.b*(max-10),upper=m.a+m.b*(max+10);
+ const leave=rows.map((_,i)=>regression(rows.filter((r,j)=>j!==i))).filter(x=>x&&x.b>0).map(x=>x.a+x.b*max);
+ const l=med(leave),range=leave.length?(fix(Math.min(...leave),1)+'–'+fix(Math.max(...leave),1)):'unavailable';
+ label.innerHTML='<strong>Illustrative result: '+fix(estimate,1)+'</strong> mL/kg/min at assumed HRmax '+max+'. ±10 bpm sensitivity: '+fix(lower,1)+'–'+fix(upper,1)+'. Leave-one-run-out range: '+range+'. Regression R²: '+fix(m.r2,2)+'; HR range: '+fix(m.spread,0)+' bpm from '+m.n+' qualifying runs. <strong>Not a confidence interval or validated VO₂ max.</strong>';
+ if(window.Chart)chart('scatter-chart',simpleChartConfig({datasets:[{data:rows.map(r=>({x:r.hr,y:r.oxygen})),pointRadius:4,backgroundColor:'#4d91e7'}]},true),true);
+}
+function efficiency(){
+ const eligible=state.segments.filter(s=>s.hr>=145&&s.hr<=155);
+ const byWeek=new Map();
+ function week(d){const dt=new Date(d+'T12:00:00Z');dt.setUTCDate(dt.getUTCDate()-((dt.getUTCDay()+6)%7));return dt.toISOString().slice(0,10)}
+ for(const s of eligible){const key=week(s.date);if(!byWeek.has(key))byWeek.set(key,[]);byWeek.get(key).push(s)}
+ const weeks=[...byWeek.entries()].sort((a,b)=>a[0].localeCompare(b[0])).map(([date,segments])=>({date,mph:med(segments.map(s=>s.mph)),runs:new Set(segments.map(s=>s.runId)).size,n:segments.length})).filter(x=>x.n>=2);
+ const recent=weeks.slice(-4).map(x=>x.mph),prior=weeks.slice(-8,-4).map(x=>x.mph);
+ $('eff-value').textContent=recent.length?fix(med(recent),2)+' mph':'—';
+ $('eff-sub').textContent=prior.length&&recent.length?'Previous: '+fix(med(prior),2)+' mph · '+fix((med(recent)/med(prior)-1)*100,1)+'%':'Recent comparable HR band; historical baseline pending';
+ $('eff-chart-note').textContent=eligible.length+' qualifying windows in 145–155 bpm band. Weekly points use ≥2 segments. Weeks with no data are not filled in; conditions may still vary.';
+ if(window.Chart)chart('eff-chart',simpleChartConfig({labels:weeks.map(x=>x.date.slice(5)),datasets:[{data:weeks.map(x=>x.mph),borderColor:'#36a887',backgroundColor:'#36a887',pointRadius:4,tension:.15,spanGaps:false}]}));
+}
+function renderAudit(){
+ $('audit-counts').innerHTML='<span>'+state.runs.length+' fetched runs</span><span>'+state.runs.filter(r=>r.median).length+' eligible runs</span><span>'+state.segments.length+' qualifying windows</span><span>'+state.runs.filter(r=>!r.detail).length+' unavailable details</span>';
+ $('audit-body').innerHTML=state.runs.map(r=>'<tr><td>'+fmtDate(r.date)+'</td><td>'+fmtPace(r.averagePaceSecondsPerMile)+'</td><td>'+fix(r.averageHeartRate,0)+'</td><td>'+r.eligible.length+'</td><td>'+(r.median?fix(r.median.mph,2)+' mph / '+fix(r.median.hr,0)+' bpm':'—')+'</td><td>'+fix(r.dewpointF,1)+' °F</td><td class="'+(r.median?'af-ok':'af-muted')+'">'+r.reason+'</td></tr>').join('');
+}
+function download(){
+ const cols=['date','runId','start','hr','mph','oxygen','paceSec','dewpoint','heatIndex','solar'];
+ const lines=[cols.join(','),...state.segments.map(s=>cols.map(k=>csvText(s[k])).join(','))];
+ const blob=new Blob([lines.join('\n')],{type:'text/csv'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='aerobic-segment-audit.csv';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+}
+function vdot(distanceKm,seconds){
+ const minutes=seconds/60,v=distanceKm*1000/minutes;
+ const demand=-4.60+0.182258*v+0.000104*v*v;
+ const fraction=0.8+0.1894393*Math.exp(-0.012778*minutes)+0.2989558*Math.exp(-0.1932605*minutes);
+ return demand/fraction;
+}
+function readTrial(){
+ let saved=null;try{saved=JSON.parse(localStorage.getItem('aerobic-vdot-trial')||'null')}catch{}
+ if(!saved)return;
+ $('vdot-value').textContent=fix(saved.vdot,1);$('vdot-sub').textContent=saved.date+' · '+saved.distanceKm+' km / '+fmtPace(saved.seconds);
+ $('vdot-explanation').textContent='Saved maximal performance result: '+fix(saved.vdot,1)+' VDOT, based on '+saved.date+'. This is a race-performance estimate, not measured VO₂ max. Saved only in this browser.';
+}
+$('vdot-form').addEventListener('submit',e=>{e.preventDefault();const parts=$('trial-time').value.split(':').map(Number),seconds=parts[0]*60+parts[1],distanceKm=Number($('trial-distance').value);if(seconds<180||seconds>7200)return alert('Enter a valid completed race time.');if(!$('trial-max').checked)return;const saved={date:$('trial-date').value,seconds,distanceKm,vdot:vdot(distanceKm,seconds)};localStorage.setItem('aerobic-vdot-trial',JSON.stringify(saved));readTrial()});
+$('clear-vdot').onclick=()=>{localStorage.removeItem('aerobic-vdot-trial');$('vdot-value').textContent='—';$('vdot-sub').textContent='Enter a hard effort below';$('vdot-explanation').textContent='No time trial saved.'};
+$('download').onclick=download;$('recalc').onclick=model;
+async function process(){
+ $('refresh').disabled=true;$('download').disabled=true;state.runs=[];state.segments=[];
+ try{
+  const response=await fetch('../data/run-index.json?nocache='+Date.now(),{cache:'no-store'});if(!response.ok)throw Error('Index HTTP '+response.status);const index=await response.json();
+  $('timestamp').textContent='Published '+index.generatedAt+' · '+index.runCount+' indexed runs';
+  const runs=index.runs||[];let next=0,done=0;
+  const workers=Array.from({length:5},async()=>{while(next<runs.length){
+   const i=next++,meta=runs[i];let entry={...meta,eligible:[],reason:'Detail unavailable',detail:null,median:null};
+   try{
+    if(meta.detailFile){const path=meta.detailFile.startsWith('data/')?'../'+meta.detailFile:'../data/'+meta.detailFile;
+     const res=await fetch(path);if(!res.ok)throw Error('HTTP '+res.status);
+     const detail=await res.json();entry=analyzeRun(meta,detail);
+    }
+   }catch(err){entry.reason='Detail unavailable: '+String(err.message||err).slice(0,70)}
+   state.runs.push(entry);state.segments.push(...entry.eligible);done++;
+   $('progress-bar').style.width=(done/runs.length*100)+'%';$('loading-label').textContent=done+'/'+runs.length+' runs';
+  }});
+  await Promise.all(workers);state.runs.sort((a,b)=>b.date.localeCompare(a.date)||b.runId.localeCompare(a.runId));state.loaded=true;
+  renderAudit();model();efficiency();$('loading-label').textContent='Completed';$('processing-detail').textContent='All '+runs.length+' archive entries evaluated. Every discarded run and qualifying 5-minute window is auditable.';$('download').disabled=!state.segments.length;
+ }catch(err){$('loading-label').textContent='Could not load archive';$('processing-detail').textContent=String(err.message||err);$('audit-body').innerHTML='<tr><td colspan="7">Could not load published data. Refresh the page or check the repository Pages deployment.</td></tr>'}
+ finally{$('refresh').disabled=false}
+}
+$('refresh').onclick=process;
+$('mobile-menu').onclick=()=>$('sidebar').classList.toggle('open');
+$('mobile-theme').onclick=()=>{document.documentElement.dataset.theme=document.documentElement.dataset.theme==='dark'?'light':'dark';localStorage.setItem('performance-lab-theme',document.documentElement.dataset.theme)};
+document.documentElement.dataset.theme=localStorage.getItem('performance-lab-theme')||'dark';
+$('trial-date').value=new Date().toISOString().slice(0,10);readTrial();process();
+</script></body></html>
