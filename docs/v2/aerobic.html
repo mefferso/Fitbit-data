@@ -36,7 +36,7 @@ function simpleChartConfig(data,scatter=false){return {type:scatter?'scatter':'l
 function averageHr(hr,start,end){const items=hr.filter(p=>{const t=Date.parse(p.time);return t>=start&&t<end&&finite(p.value)});return items.length?items.reduce((s,p)=>s+Number(p.value),0)/items.length:null}
 function analyzeRun(meta,d){
  const entry={...meta,eligible:[],reason:'',detail:d,median:null};
- const pace=(d.paceSeries||[]).map(p=>({...p,t:Date.parse(p.time),start:Date.parse(p.startTime),end:Date.parse(p.endTime)})).filter(p=>finite(p.t)&&finite(p.distanceMiles)&&finite(p.seconds)&&p.seconds>0).sort((a,b)=>a.t-b.t);
+ const pace=(d.paceSeries||[]).map(p=>{const t=Date.parse(p.time),seconds=Number(p.seconds)||((Date.parse(p.endTime)-Date.parse(p.startTime))/1000);const start=p.startTime?Date.parse(p.startTime):t-seconds*500,end=p.endTime?Date.parse(p.endTime):t+seconds*500;return {...p,t,start,end,seconds}}).filter(p=>finite(p.t)&&finite(p.distanceMiles)&&finite(p.seconds)&&p.seconds>0&&finite(p.start)&&finite(p.end)).sort((a,b)=>a.t-b.t);
  const hr=(d.heartRateSeries||[]).filter(p=>finite(Date.parse(p.time))&&finite(p.value));
  if(pace.length<30||hr.length<30){entry.reason='Insufficient pace/HR detail';return entry}
  const start=Date.parse(d.startTime),end=Date.parse(d.endTime);
