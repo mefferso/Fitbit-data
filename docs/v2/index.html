@@ -313,11 +313,13 @@
 
       <section class="view" id="view-trends" data-view-panel="trends">
         <div class="trend-toolbar">
-          <div class="segmented" id="trend-range">
-            <button data-days="30">30D</button>
-            <button data-days="90" class="active">90D</button>
-            <button data-days="180">6M</button>
-            <button data-days="all">ALL</button>
+          <div class="segmented" id="trend-range" role="group" aria-label="Trend date range">
+            <button type="button" data-days="7" aria-pressed="false">7D</button>
+            <button type="button" data-days="14" aria-pressed="false">14D</button>
+            <button type="button" data-days="30" aria-pressed="false">30D</button>
+            <button type="button" data-days="90" class="active" aria-pressed="true">90D</button>
+            <button type="button" data-days="180" aria-pressed="false">6M</button>
+            <button type="button" data-days="all" aria-pressed="false">ALL</button>
           </div>
           <label class="trend-average-toggle"><input type="checkbox" id="trend-average-toggle" checked> Show 4-run rolling averages</label>
         </div>
@@ -333,7 +335,7 @@
             </div>
             <div class="mileage-next" id="mileage-milestone-note" aria-live="polite">Calculating annual mileage…</div>
             <div class="chart-wrap large"><canvas id="trend-mileage-chart" role="img" aria-label="2026 cumulative running mileage, with 100, 150, and 200 mile milestone lines"></canvas></div>
-            <div class="reference-note">2026 mileage shown from July 1 onward. Annual totals include all logged 2026 runs. Dashed lines mark 100, 150, and 200 miles. This chart is independent of the 30D / 90D controls.</div>
+            <div class="reference-note">Select 7D, 14D, 30D, 90D, 6M or ALL to zoom the running history (ALL starts July 1, 2026). The total and milestone progress always include every logged 2026 run. Dashed lines mark 100, 150, and 200 miles.</div>
           </article>
           <article class="panel chart-panel wide">
             <div class="panel-heading"><div><div class="panel-kicker">Performance</div><h2>Adjusted Performance Index</h2></div></div>
