@@ -99,8 +99,8 @@ export class Charts {
     );
   }
 
-  cumulativeMileage(canvas, runs, year){
-    // Use all indexed runs for the calendar year, regardless of other trend filters.
+  cumulativeMileage(canvas, runs, year, days){
+    // Range controls change the visible dates, NOT the year-to-date mileage total.
     // Multiple runs on the same local date are combined before the running total.
     const prefix=String(year)+'-';
     const yearRuns=runs.filter(function(r){
@@ -112,14 +112,20 @@ export class Charts {
       byDate.set(r.date,(byDate.get(r.date)||0)+Number(r.distanceMiles));
     });
 
-    // Start the visible annual timeline in July, while retaining all year-to-date miles.
-    const chartStart=prefix+'07-01';
-    const lastDate=yearRuns.length?yearRuns[yearRuns.length-1].date:chartStart;
+    // The full-year total never resets when a shorter range is selected.
+    const julyStart=prefix+'07-01';
+    const lastDate=yearRuns.length?yearRuns[yearRuns.length-1].date:julyStart;
+    const lastMs=Date.parse(lastDate+'T00:00:00Z');
+    const rangeStart=days==='all'||!Number.isFinite(Number(days))
+      ?julyStart
+      :new Date(lastMs-(Math.max(1,Number(days))-1)*86400000).toISOString().slice(0,10);
+    const chartStart=rangeStart>julyStart?rangeStart:julyStart;
     const labels=[], miles=[], additions=[];
-    let accumulated=yearRuns.reduce(function(total,r){
+    const startingTotal=yearRuns.reduce(function(total,r){
       return total+(r.date<chartStart?Number(r.distanceMiles):0);
     },0);
-    for(let day=Date.parse(chartStart+'T00:00:00Z'),end=Date.parse(lastDate+'T00:00:00Z');day<=end;day+=86400000){
+    let accumulated=startingTotal;
+    for(let day=Date.parse(chartStart+'T00:00:00Z'),end=lastMs;day<=end;day+=86400000){
       const date=new Date(day).toISOString().slice(0,10);
       const added=byDate.get(date)||0;
       accumulated+=added;
@@ -150,6 +156,10 @@ export class Charts {
         fill:false
       });
     });
+    // Zoom the Y-axis for recent windows; a 0–210 mile axis hides weekly progress.
+    const shortRange=days!=='all'&&Number(days)<=30;
+    const yMin=shortRange?Math.max(0,Math.floor((startingTotal-5)/10)*10):0;
+    const yMax=shortRange?Math.max(yMin+20,Math.ceil((accumulated+10)/10)*10):Math.max(210,Math.ceil((accumulated+10)/25)*25);
     const months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
     this.line('trendMileage',canvas,labels,datasets,{
       animation:false,
@@ -160,8 +170,8 @@ export class Charts {
           const month=Number(label.slice(5,7));
           return months[month-1]+' '+Number(label.slice(8,10));
         }}},
-        y:{min:0,max:Math.max(210,Math.ceil((accumulated+10)/25)*25),
-          ticks:{color:muted(),stepSize:50,callback:function(v){return v+' mi';}},
+        y:{min:yMin,max:yMax,
+          ticks:{color:muted(),stepSize:shortRange?10:50,callback:function(v){return v+' mi';}},
           title:{display:true,text:'Cumulative miles',color:muted()}}
       },
       plugins:{
