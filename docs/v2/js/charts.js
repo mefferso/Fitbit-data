@@ -112,10 +112,14 @@ export class Charts {
       byDate.set(r.date,(byDate.get(r.date)||0)+Number(r.distanceMiles));
     });
 
-    const lastDate=yearRuns.length?yearRuns[yearRuns.length-1].date:prefix+'01-01';
+    // Start the visible annual timeline in July, while retaining all year-to-date miles.
+    const chartStart=prefix+'07-01';
+    const lastDate=yearRuns.length?yearRuns[yearRuns.length-1].date:chartStart;
     const labels=[], miles=[], additions=[];
-    let accumulated=0;
-    for(let day=Date.parse(prefix+'01-01T00:00:00Z'),end=Date.parse(lastDate+'T00:00:00Z');day<=end;day+=86400000){
+    let accumulated=yearRuns.reduce(function(total,r){
+      return total+(r.date<chartStart?Number(r.distanceMiles):0);
+    },0);
+    for(let day=Date.parse(chartStart+'T00:00:00Z'),end=Date.parse(lastDate+'T00:00:00Z');day<=end;day+=86400000){
       const date=new Date(day).toISOString().slice(0,10);
       const added=byDate.get(date)||0;
       accumulated+=added;
