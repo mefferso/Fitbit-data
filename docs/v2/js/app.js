@@ -698,7 +698,7 @@ async function loadAerobicTrends(){
 
 function renderTrends(){
   if(!store.index)return;
-  const annual=charts.cumulativeMileage(el('trend-mileage-chart'),store.runs,2026);
+  const annual=charts.cumulativeMileage(el('trend-mileage-chart'),store.runs,2026,state.trendDays);
   el('mileage-ytd-total').textContent=annual.total.toFixed(1);
   el('mileage-milestone-note').textContent=annual.runs===0
     ? 'No indexed 2026 runs yet.'
@@ -949,8 +949,13 @@ function setupInteractions(){
   el('trend-average-toggle').addEventListener('change',function(){state.trendAverage=this.checked;renderTrends();});
   all('#trend-range button').forEach(function(btn){
     btn.addEventListener('click',function(){
-      all('#trend-range button').forEach(function(b){b.classList.remove('active');});
-      btn.classList.add('active');state.trendDays=btn.dataset.days;renderTrends();
+      state.trendDays=btn.dataset.days;
+      all('#trend-range button').forEach(function(b){
+        const active=b===btn;
+        b.classList.toggle('active',active);
+        b.setAttribute('aria-pressed',String(active));
+      });
+      renderTrends();
     });
   });
   el('compare-a').addEventListener('change',renderCompare);
