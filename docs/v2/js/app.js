@@ -3,6 +3,7 @@ import {
   fmtNumber, signed
 } from './data.js';
 import {Charts, rollingDrift, chartPalette} from './charts.js';
+import {analyzeAerobicRun} from './aerobic-analysis.js';
 
 const store = new DataStore();
 const charts = new Charts();
@@ -128,8 +129,7 @@ function bests(){
     pace:Math.min.apply(null,valid('averagePaceSecondsPerMile').map(function(r){return Number(r.averagePaceSecondsPerMile);})),
     api:Math.max.apply(null,valid('adjustedPerformanceIndex').map(function(r){return Number(r.adjustedPerformanceIndex);})),
     distance:Math.max.apply(null,valid('distanceMiles').map(function(r){return Number(r.distanceMiles);})),
-    hrr1:Math.max.apply(null,valid('hrr1').map(function(r){return Number(r.hrr1);})),
-    drift:Math.min.apply(null,valid('cardioDriftPercent').map(function(r){return Number(r.cardioDriftPercent);}))
+    hrr1:Math.max.apply(null,valid('hrr1').map(function(r){return Number(r.hrr1);}))
   };
 }
 function isClose(a,b,tolerance){
@@ -140,7 +140,7 @@ function deltaText(current,previous,metric){
   if(a===null||b===null) return {text:'No prior comparison',className:''};
   const d=a-b;
   let good=null;
-  if(metric==='pace'||metric==='drift'||metric==='hr') good=d<0;
+  if(metric==='pace'||metric==='hr') good=d<0;
   if(metric==='api'||metric==='hrr'||metric==='distance') good=d>0;
   const suffix=metric==='pace'?' sec/mi':metric==='hr'||metric==='hrr'?' bpm':metric==='drift'?' pp':metric==='distance'?' mi':'';
   return {text:(d>0?'+':'')+d.toFixed(metric==='distance'?2:metric==='api'||metric==='drift'?1:0)+suffix+' vs prior',className:good===null?'':good?'good':'bad'};
@@ -160,13 +160,13 @@ function renderOverview(){
     heroMetric('Distance',cleanNumber(run.distanceMiles,2)+' mi',deltaText(run.distanceMiles,prev.distanceMiles,'distance')),
     heroMetric('Pace',fmtPace(run.averagePaceSecondsPerMile),deltaText(run.averagePaceSecondsPerMile,prev.averagePaceSecondsPerMile,'pace')),
     heroMetric('Avg HR',cleanNumber(run.averageHeartRate,0)+' bpm',deltaText(run.averageHeartRate,prev.averageHeartRate,'hr')),
-    heroMetric('Drift',signed(run.aerobicDecoupling&&run.aerobicDecoupling.percent,1,'%'),deltaText(run.aerobicDecoupling&&run.aerobicDecoupling.percent,prev.cardioDriftPercent,'drift'))
+    heroMetric('Whole-run drift',signed(run.aerobicDecoupling&&run.aerobicDecoupling.percent,1,'%'),{text:'Pacing-dependent · not a fitness grade',className:''})
   ].join('');
 
   const api=number(summary.adjustedPerformanceIndex);
   el('overview-api').textContent=api===null?'—':api.toFixed(1);
   const apiDelta=deltaText(api,prev.adjustedPerformanceIndex,'api');
-  el('overview-api-context').textContent=api===null?'Needs a qualifying run with weather, pace and HR.':apiDelta.text+' · 100 = baseline';
+  el('overview-api-context').textContent=api===null?'Needs a qualifying run with weather, pace and HR.':'Session score · 100 = original baseline · '+apiDelta.text;
   renderWeek();
   el('overview-insights').innerHTML=makeInsights(summary,false).map(insightCard).join('');
   renderOverviewRecent();
@@ -244,20 +244,14 @@ function makeInsights(run,detailed){
   if(api!==null){
     const diff=apiAvg===null?null:api-apiAvg;
     cards.push({
-      title:'Adjusted performance',
-      body:diff===null?'This run scored '+api.toFixed(1)+' against your current 100 baseline.':'Score '+api.toFixed(1)+' is '+Math.abs(diff).toFixed(1)+' points '+(diff>=0?'above':'below')+' your prior 4-week average.',
-      tone:diff===null?'info':diff>=0?'good':'warn',icon:diff===null?'◎':diff>=0?'↗':'↘'
+      title:'Session performance',
+      body:'Score '+api.toFixed(1)+' · '+(diff===null?'100 is the original baseline.':(diff>=0?'+':'')+diff.toFixed(1)+' vs prior 4 weeks.')+' Whole-run effort and weather affect comparisons.',
+      tone:'info',icon:'◎'
     });
   }
   const drift=number(run.cardioDriftPercent!==undefined?run.cardioDriftPercent:run.aerobicDecoupling&&run.aerobicDecoupling.percent);
-  const driftAvg=mean(history.map(function(r){return r.cardioDriftPercent;}));
   if(drift!==null){
-    const diff=driftAvg===null?null:drift-driftAvg;
-    cards.push({
-      title:'Cardio drift',
-      body:diff===null?'Whole-run drift was '+drift.toFixed(1)+'%. Lower is generally better when pace and conditions are comparable.':drift.toFixed(1)+'% drift is '+Math.abs(diff).toFixed(1)+' pp '+(diff<=0?'better':'higher')+' than your prior 4-week average.',
-      tone:diff===null?'info':diff<=0?'good':'warn',icon:diff!==null&&diff<=0?'↓':'≈'
-    });
+    cards.push({title:'Whole-run drift',body:drift.toFixed(1)+'% · Pace changes, warmup and intervals can change this number. Check steady-only analysis for aerobic comparisons.',tone:'info',icon:'≈'});
   }
   const hrr=number(run.hrr1!==undefined?run.hrr1:run.heartRateRecovery&&run.heartRateRecovery.minute1Drop);
   const hrrAvg=mean(history.map(function(r){return r.hrr1;}));
@@ -332,7 +326,6 @@ function renderBadges(run){
   if(isClose(run.adjustedPerformanceIndex,pb.api,.05)) badges.push('<span class="badge pb">Best adjusted performance</span>');
   if(isClose(run.distanceMiles,pb.distance,.01)) badges.push('<span class="badge pb">Longest run</span>');
   if(isClose(run.hrr1,pb.hrr1,.05)) badges.push('<span class="badge pb">Best HRR1</span>');
-  if(isClose(run.cardioDriftPercent,pb.drift,.05)) badges.push('<span class="badge good">Lowest drift</span>');
   if(!badges.length) badges.push('<span class="badge">Detailed workout</span>');
   el('analysis-badges').innerHTML=badges.join('');
 }
@@ -343,7 +336,7 @@ function renderAnalysisMetrics(run,summary,prev){
     ['Pace',fmtPace(run.averagePaceSecondsPerMile),deltaText(run.averagePaceSecondsPerMile,prev.averagePaceSecondsPerMile,'pace')],
     ['Average HR',cleanNumber(run.averageHeartRate,0)+' bpm',deltaText(run.averageHeartRate,prev.averageHeartRate,'hr')],
     ['Adj. performance',api===null?'—':api.toFixed(1),deltaText(api,prev.adjustedPerformanceIndex,'api')],
-    ['Cardio drift',signed(run.aerobicDecoupling&&run.aerobicDecoupling.percent,1,'%'),deltaText(run.aerobicDecoupling&&run.aerobicDecoupling.percent,prev.cardioDriftPercent,'drift')],
+    ['Whole-run drift',signed(run.aerobicDecoupling&&run.aerobicDecoupling.percent,1,'%'),{text:'Pacing-dependent',className:''}],
     ['Training load',cleanNumber(run.trainingLoad,0),{text:cleanNumber(run.vigorousPlusPeakMinutes,0)+' hard-effort min',className:''}]
   ];
   el('analysis-metrics').innerHTML=metrics.map(function(m){
@@ -460,20 +453,15 @@ async function renderDrift(run){
 
   charts.drift(el('drift-chart'),series);
   const overall=number(run.aerobicDecoupling&&run.aerobicDecoupling.percent);
+  const aerobic=analyzeAerobicRun(run);
   const pills=[
     'Whole run '+(overall===null?'—':signed(overall,1,'%')),
-    'Late rolling '+(result? signed(result.late,1,'%'):'—'),
-    'Peak rolling '+(result? signed(result.peak,1,'%'):'—')
+    'Steady '+(aerobic.steadyDriftPercent===null?'—':signed(aerobic.steadyDriftPercent,1,'%')),
+    aerobic.classification
   ];
   el('drift-summary').innerHTML=pills.map(function(x){return '<span class="drift-pill">'+x+'</span>';}).join('');
 
-  if(!result || !result.points.length){
-    el('drift-note').textContent='Rolling drift needs at least 15 minutes plus usable heart-rate and pace data.';
-  }else if(state.driftCompare && series.length>1){
-    el('drift-note').textContent='Each run is normalized to its own minutes 5–10 baseline, so the overlay compares drift shape and magnitude rather than raw pace or heart rate. Hover a line for its 5-minute average HR and pace.';
-  }else{
-    el('drift-note').textContent='Baseline is minutes 5–10 to avoid startup noise. Turn on Compare drift to overlay previous or older runs.';
-  }
+  el('drift-note').textContent='Steady: '+aerobic.reason+' ('+aerobic.quality+'). Rolling chart uses minutes 5–10 baseline; it is not steady-only. '+(state.driftCompare?'Overlaid runs are normalized separately.':'');
 }
 async function rerenderCurrentDrift(){
   if(!state.runId)return;
@@ -726,7 +714,8 @@ function trendAerobicSample(run){
   const matchedSpeed=matched.length>=20
     ? matched.reduce((s,p)=>s+3600/p.p,0)/matched.length : null;
   const weather=run.weather?.average||{};
-  return {date:run.date,pace:steadyPace,hr:steadyHr,allPace,allHr,matchedPace:matchedSpeed>0?3600/matchedSpeed:null,matchedMinutes:matched.length/4,tempoMinutesExcluded:removedTempoSamples/4,markedMinutesExcluded:removedMarkedSamples/4,minutes:samples.length/4,allMinutes:allSamples.length/4,cutoffMinute:cutoff.minute,cutoffMethod:cutoff.method,cutoffConfidence:cutoff.confidence,temp:number(weather.tempF),heat:number(weather.heatIndexF),solar:number(weather.solarRadiationWm2)};
+  const aerobic=analyzeAerobicRun(run);
+  return {date:run.date,pace:steadyPace,hr:steadyHr,allPace,allHr,matchedPace:aerobic.matchedPace,matchedMinutes:aerobic.matchedMinutes,steadyDriftPercent:aerobic.steadyDriftPercent,steadyMinutes:aerobic.steadyMinutes,steadyEfficiency:aerobic.steadyEfficiency,quality:aerobic.quality,classification:aerobic.classification,tempoMinutesExcluded:removedTempoSamples/4,markedMinutesExcluded:removedMarkedSamples/4,minutes:samples.length/4,allMinutes:allSamples.length/4,cutoffMinute:cutoff.minute,cutoffMethod:cutoff.method,cutoffConfidence:cutoff.confidence,temp:number(weather.tempF),heat:number(weather.heatIndexF),solar:number(weather.solarRadiationWm2)};
 }
 
 async function loadAerobicTrends(){
@@ -758,7 +747,8 @@ function renderTrends(){
   const api=runs.filter(function(r){return number(r.adjustedPerformanceIndex)!==null;});
   renderEfficiencyPanel('trend-eff','trend-api-chart',(store.trends.runningTrend?.weatherAdjusted?.runs||[]).filter(r=>state.trendDays==='all'||api.some(a=>a.date===r.date)),'trendApi');
   charts.hrrTrend(el('trend-hrr-chart'),runs.filter(r=>[r.hrr1,r.hrr2,r.hrr3].some(v=>number(v)!==null)),state.trendAverage);
-  charts.metricTrend('trendDrift',el('trend-drift-chart'),runs.filter(r=>number(r.cardioDriftPercent)!==null),'cardioDriftPercent',{color:chartPalette().warning,title:'%',showAverage:state.trendAverage,tooltip:ctx=>'Drift: '+Number(ctx.raw).toFixed(1)+'%'});
+  const steadyRuns=state.aerobicPoints.filter(p=>p.steadyDriftPercent!==null&&p.quality==='usable'&&(state.trendDays==='all'||runs.some(r=>r.date===p.date)));
+  charts.metricTrend('trendDrift',el('trend-drift-chart'),steadyRuns,'steadyDriftPercent',{color:chartPalette().warning,title:'%',showAverage:state.trendAverage,tooltip:ctx=>'Steady drift: '+Number(ctx.raw).toFixed(1)+'% · '+steadyRuns[ctx.dataIndex].steadyMinutes+' min'});
   charts.metricTrend('trendPace',el('trend-pace-chart'),runs.filter(r=>number(r.averagePaceSecondsPerMile)!==null),'averagePaceSecondsPerMile',{color:chartPalette().violet,title:'min/mi',reverse:true,showAverage:state.trendAverage,tick:v=>fmtPace(v).replace('/mi',''),tooltip:ctx=>'Pace: '+fmtPace(ctx.raw)});
   const points=state.aerobicPoints.filter(p=>state.trendDays==='all'||runs.some(r=>r.date===p.date));
   const cleanMode=state.steadyTrendMode==='clean';
@@ -778,7 +768,7 @@ function renderTrends(){
   const tempoFiltered=points.filter(p=>p.tempoMinutesExcluded>0);
   el('trend-matched-pace-status').textContent=state.aerobicLoading
     ? 'Reading detailed pace and heart-rate traces…'
-    : matched.length+' qualifying runs in the selected date range; '+tempoFiltered.length+' with repeated fast intervals detected and filtered. '+(matched.length<4?'Four-run average needs four qualifying runs.':'Dashed turquoise line shows the four-qualifying-run average.');
+    : matched.length+' runs with ≥5 matched steady minutes at 150–160 bpm. '+(matched.length<4?'More qualifying runs needed for a useful trend.':'Compare similar weather and effort.');
   const filteredCount=points.filter(p=>p.tempoMinutesExcluded>0||p.markedMinutesExcluded>0).length;
   el('trend-aerobic-status').textContent=state.aerobicLoading
     ? 'Reading detailed pace and heart-rate traces…'
