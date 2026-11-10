@@ -14,6 +14,7 @@ const state = {
   trendDays:'90',
   trendAverage:true,
   steadyTrendMode:'clean',
+  matchedHeartRate:155,
   aerobicPoints:[],
   aerobicLoading:false,
   aerobicLoaded:false,
@@ -712,7 +713,7 @@ function trendAerobicSample(run){
   // require at least five minutes of matched observations.
   const matched=samples.filter(p=>p.h>=150&&p.h<=160&&p.p>=480&&p.p<=960);
   const weather=run.weather?.average||{};
-  const aerobic=analyzeAerobicRun(run);
+  const aerobic=analyzeAerobicRun(run,state.matchedHeartRate);
   return {date:run.date,pace:steadyPace,hr:steadyHr,allPace,allHr,matchedPace:aerobic.matchedPace,matchedMinutes:aerobic.matchedMinutes,steadyDriftPercent:aerobic.steadyDriftPercent,steadyMinutes:aerobic.steadyMinutes,steadyEfficiency:aerobic.steadyEfficiency,quality:aerobic.quality,classification:aerobic.classification,tempoMinutesExcluded:removedTempoSamples/4,markedMinutesExcluded:removedMarkedSamples/4,minutes:samples.length/4,allMinutes:allSamples.length/4,cutoffMinute:cutoff.minute,cutoffMethod:cutoff.method,cutoffConfidence:cutoff.confidence,temp:number(weather.tempF),heat:number(weather.heatIndexF),solar:number(weather.solarRadiationWm2)};
 }
 
@@ -761,12 +762,12 @@ function renderTrends(){
   charts.metricTrend('trendMatchedPace',el('trend-matched-pace-chart'),matched,'matchedPace',{
     color:chartPalette().violet,title:'min/mi',reverse:true,showAverage:state.trendAverage,
     tick:v=>fmtPace(v).replace('/mi',''),
-    tooltip:ctx=>'150–160 bpm pace: '+fmtPace(ctx.raw)+' · '+matched[ctx.dataIndex].matchedMinutes.toFixed(1)+' matched min · '+matched[ctx.dataIndex].tempoMinutesExcluded.toFixed(1)+' tempo min filtered'
+    tooltip:ctx=>(state.matchedHeartRate-5)+'–'+(state.matchedHeartRate+5)+' bpm pace: '+fmtPace(ctx.raw)+' · '+matched[ctx.dataIndex].matchedMinutes.toFixed(1)+' matched steady min'
   });
   const tempoFiltered=points.filter(p=>p.tempoMinutesExcluded>0);
   el('trend-matched-pace-status').textContent=state.aerobicLoading
     ? 'Reading detailed pace and heart-rate traces…'
-    : matched.length+' runs with ≥5 matched steady minutes at 150–160 bpm. '+(matched.length<4?'More qualifying runs needed for a useful trend.':'Compare similar weather and effort.');
+    : matched.length+' runs with ≥5 matched steady minutes at '+(state.matchedHeartRate-5)+'–'+(state.matchedHeartRate+5)+' bpm. '+(matched.length<4?'More qualifying runs needed for a useful trend.':'Compare similar weather and effort.');
   const filteredCount=points.filter(p=>p.tempoMinutesExcluded>0||p.markedMinutesExcluded>0).length;
   el('trend-aerobic-status').textContent=state.aerobicLoading
     ? 'Reading detailed pace and heart-rate traces…'
@@ -1002,6 +1003,13 @@ function setupInteractions(){
   el('copy-run-link').addEventListener('click',async function(){
     try{await navigator.clipboard.writeText(location.href);toast('Run link copied.');}
     catch{toast('Copy failed — use the address bar URL.');}
+  });
+  el('matched-hr-center').addEventListener('change',function(){
+    state.matchedHeartRate=Number(this.value);
+    state.aerobicLoaded=false;
+    state.aerobicPoints=[];
+    loadAerobicTrends();
+    renderTrends();
   });
   el('trend-average-toggle').addEventListener('change',function(){state.trendAverage=this.checked;renderTrends();});
   all('#trend-steady-mode button').forEach(btn=>btn.addEventListener('click',function(){
