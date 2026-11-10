@@ -361,7 +361,11 @@
           </article>
           <article class="panel chart-panel wide">
             <div class="panel-heading"><div><div class="panel-kicker">Aerobic development</div><h2>Steady-running pace + heart rate</h2></div></div>
-            <div class="reference-note">First 10 minutes excluded; end of steady running determined from repeated walking patterns (including strides and recovery walks), or manually adjusted in Run Analysis. Marked walk / speed segments excluded where possible. Requires detailed pace and HR traces. This is an observational comparison, not a validated efficiency score. Home Tempest weather is a proxy for route conditions.</div>
+            <div class="segmented" id="trend-steady-mode" role="group" aria-label="Steady-running chart filtering" style="margin:8px 0 12px;display:inline-flex;flex-wrap:wrap">
+              <button type="button" class="active" data-steady-mode="clean" aria-pressed="true">Clean steady running</button>
+              <button type="button" data-steady-mode="all" aria-pressed="false">All running</button>
+            </div>
+            <div class="reference-note">Both modes use the same paired heart-rate and pace timestamps after the first 10 minutes, up to the detected steady cutoff (adjustable in Run Analysis). Clean steady running additionally filters marked walking, speed/recovery intervals, and detected repeated tempo bursts with recovery transitions. All running retains these segments for comparison within that same window. Minimum 12 usable minutes; the tooltip shows qualifying and excluded minutes. Four-run averages follow the selected mode. Exclusion is heuristic and cannot identify every surge. Home Tempest weather is a proxy, not a route measurement.</div>
             <div class="chart-wrap large"><canvas id="trend-aerobic-chart"></canvas></div>
             <div class="reference-note" id="trend-aerobic-status" aria-live="polite"></div>
           </article>
