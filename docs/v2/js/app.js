@@ -753,7 +753,7 @@ function renderTrends(){
   const points=state.aerobicPoints.filter(p=>state.trendDays==='all'||runs.some(r=>r.date===p.date));
   const matched=points.filter(p=>p.matchedPace!==null);
   charts.metricTrend('trendMatchedPace',el('trend-matched-pace-chart'),matched,'matchedPace',{
-    color:chartPalette().violet,title:'min/mi',reverse:true,showAverage:state.trendAverage,
+    color:chartPalette().violet,title:'min/mi',reverse:true,showAverage:state.trendAverage,compactDates:true,
     tick:v=>fmtPace(v).replace('/mi',''),
     tooltip:ctx=>(state.matchedHeartRate-5)+'–'+(state.matchedHeartRate+5)+' bpm pace: '+fmtPace(ctx.raw)+' · '+matched[ctx.dataIndex].matchedMinutes.toFixed(1)+' matched steady min'
   });
