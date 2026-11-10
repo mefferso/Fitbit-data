@@ -20,7 +20,7 @@ function paceWindow(points,a,b){
   }
   return sec>=(b-a)/1000*.8&&dist>0?3600*dist/sec:null;
 }
-export function analyzeAerobicRun(run){
+export function analyzeAerobicRun(run,targetHeartRate=155){
   const start=Date.parse(run.startTime),end=Date.parse(run.endTime);
   const no=(reason,classification='Unclassified')=>({classification,confidence:'limited',reason,steadyDriftPercent:null,steadyMinutes:0,steadyEfficiency:null,matchedPace:null,matchedMinutes:0,blocks:[],quality:'limited'});
   if(!Number.isFinite(start)||!Number.isFinite(end)||end-start<20*60000)return no('Insufficient run duration');
@@ -80,7 +80,7 @@ export function analyzeAerobicRun(run){
   for(const block of qualified){
     for(const b of bins){
       const min=(b.t-start)/60000;
-      if(min>=block.startMinute&&min<block.endMinute&&b.valid&&b.hr>=150&&b.hr<=160&&b.speed>=3.75&&b.speed<=7.5)matched.push(b);
+      if(min>=block.startMinute&&min<block.endMinute&&b.valid&&b.hr>=targetHeartRate-5&&b.hr<=targetHeartRate+5&&b.speed>=3.75&&b.speed<=7.5)matched.push(b);
     }
   }
   const quality=best&&best.minutes>=20?'usable':best?'limited':'not comparable';
