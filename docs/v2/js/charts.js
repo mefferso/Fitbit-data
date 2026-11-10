@@ -247,6 +247,11 @@ export class Charts {
     }
     const overrides = {
       scales:{
+        ...(options.compactDates?{x:{ticks:{color:muted(),maxTicksLimit:5,maxRotation:0,minRotation:0,callback:function(value){
+          const date=this.getLabelForValue(value);
+          if(typeof date!=='string'||date.length<10)return date;
+          return Number(date.slice(5,7))+'/'+Number(date.slice(8,10));
+        }}}}:{}),
         y:{
           grid:{color:grid()},
           ticks:{
@@ -266,44 +271,6 @@ export class Charts {
       }}}}
     };
     return this.line(name,canvas,runs.map(function(r){return r.date;}),datasets,overrides);
-  }
-
-  aerobicTrend(canvas, points, showAverage, mode='clean'){
-    const clean=mode!=='all';
-    const values=(key)=>points.map(p=>number(p[key]));
-    const average=arr=>arr.map((_,i)=>{
-      if(i<3)return null;
-      const block=arr.slice(i-3,i+1);
-      return block.every(v=>v!==null)?block.reduce((a,b)=>a+b,0)/4:null;
-    });
-    const pace=values(clean?'pace':'allPace'),hr=values(clean?'hr':'allHr');
-    const sets=[
-      {label:'Steady pace',data:pace,yAxisID:'pace',borderColor:violet(),backgroundColor:violet(),borderWidth:2,pointRadius:3,tension:.22,spanGaps:false},
-      {label:'Steady HR',data:hr,yAxisID:'hr',borderColor:positive(),backgroundColor:positive(),borderWidth:2,pointRadius:3,tension:.22,spanGaps:false}
-    ];
-    if(showAverage){
-      sets.push({label:'Pace · 4-run avg',data:average(pace),yAxisID:'pace',borderColor:violet(),borderDash:[7,4],borderWidth:3.5,pointRadius:0,tension:.28,spanGaps:false});
-      sets.push({label:'HR · 4-run avg',data:average(hr),yAxisID:'hr',borderColor:positive(),borderDash:[7,4],borderWidth:3.5,pointRadius:0,tension:.28,spanGaps:false});
-    }
-    return this.line('trendAerobic',canvas,points.map(p=>p.date),sets,{
-      plugins:{legend:{display:true,labels:{color:muted(),boxWidth:12}},tooltip:{displayColors:true,callbacks:{
-        label:ctx=>ctx.dataset.label+': '+(ctx.parsed.y===null?'—':ctx.dataset.yAxisID==='pace'?fmtPace(ctx.parsed.y):ctx.parsed.y.toFixed(1)+' bpm'),
-        afterBody:items=>{
-          const p=points[items[0]?.dataIndex];
-          if(!p)return [];
-          const sec=Math.round((p.cutoffMinute||0)*60);
-          const cutoff=Math.floor(sec/60)+':'+String(sec%60).padStart(2,'0');
-          return ['Steady window 10:00–'+cutoff+' · '+p.cutoffMethod+' ('+p.cutoffConfidence+')',
-            'Temp '+(p.temp??'—')+'°F · HI '+(p.heat??'—')+'°F · Solar '+(p.solar??'—')+' W/m²',
-            (clean?'Clean steady: ':'All paired running: ')+(clean?p.minutes:p.allMinutes).toFixed(1)+' min',
-            'Removed · detected tempo: '+p.tempoMinutesExcluded.toFixed(1)+' min; marked intervals: '+p.markedMinutesExcluded.toFixed(1)+' min'];
-        }
-      }}},
-      scales:{
-        pace:{type:'linear',position:'left',reverse:true,grid:{color:grid()},ticks:{color:muted(),callback:v=>fmtPace(v).replace('/mi','')},title:{display:true,text:'Pace (min/mi)',color:muted()}},
-        hr:{type:'linear',position:'right',grid:{drawOnChartArea:false},ticks:{color:muted()},title:{display:true,text:'Heart rate (bpm)',color:muted()}}
-      }
-    });
   }
 
   runStack(hrCanvas, paceCanvas, run, paceMode){

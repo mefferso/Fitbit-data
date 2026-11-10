@@ -357,19 +357,10 @@
             <div class="panel-heading"><div><div class="panel-kicker">Aerobic efficiency</div><h2>Steady pace at matched HR</h2></div></div>
 
             <label class="reference-note" for="matched-hr-center">Heart rate <select id="matched-hr-center" aria-label="Matched heart rate"><option value="145">145 ±5 bpm</option><option value="155" selected>155 ±5 bpm</option><option value="165">165 ±5 bpm</option></select></label>
-            <div class="chart-wrap large"><canvas id="trend-matched-pace-chart" role="img" aria-label="Observed pace in minutes per mile at 150 to 160 beats per minute, by run"></canvas></div>
-            <div class="reference-note" id="trend-matched-pace-status" aria-live="polite">Reading detailed pace and heart-rate traces…</div>
+            <div class="chart-wrap large"><canvas id="trend-matched-pace-chart" role="img" aria-label="Observed steady pace at selected matched heart rate, by run"></canvas></div>
+            <div class="reference-note" id="trend-matched-pace-status" aria-live="polite">Loading matched runs…</div>
           </article>
-          <article class="panel chart-panel wide">
-            <div class="panel-heading"><div><div class="panel-kicker">Aerobic development</div><h2>Steady-running pace + heart rate</h2></div></div>
-            <div class="segmented" id="trend-steady-mode" role="group" aria-label="Steady-running chart filtering" style="margin:8px 0 12px;display:inline-flex;flex-wrap:wrap">
-              <button type="button" class="active" data-steady-mode="clean" aria-pressed="true">Clean steady running</button>
-              <button type="button" data-steady-mode="all" aria-pressed="false">All running</button>
-            </div>
 
-            <div class="chart-wrap large"><canvas id="trend-aerobic-chart"></canvas></div>
-            <div class="reference-note" id="trend-aerobic-status" aria-live="polite"></div>
-          </article>
         </div>
       </section>
 
