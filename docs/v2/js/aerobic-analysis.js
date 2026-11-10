@@ -39,11 +39,11 @@ export function analyzeAerobicRun(run){
   }
   const valid=bins.filter(b=>b.valid);
   if(valid.length<12)return no('Insufficient clean minutes after warmup');
-  const speeds=valid.map(x=>x.speed),q=median(speeds),totalVar=(Math.max(...speeds)-Math.min(...speeds))/q;
+  const speeds=valid.map(x=>x.speed),q=median(speeds),lowSpeed=speeds.slice().sort((a,b)=>a-b)[Math.floor(speeds.length*.3)],totalVar=(Math.max(...speeds)-Math.min(...speeds))/q;
   const first=valid.slice(0,Math.max(3,Math.floor(valid.length/3))),last=valid.slice(-Math.max(3,Math.floor(valid.length/3)));
   const change=(mean(last.map(x=>x.speed))/mean(first.map(x=>x.speed))-1)*100;
   // Persistent faster intervals require at least two fast bouts separated by easier running.
-  const fast=valid.map(b=>b.speed>q*1.12);
+  const fast=valid.map(b=>b.speed>lowSpeed*1.12);
   let bouts=0,inside=false;
   for(let i=0;i<fast.length;i++){
     if(fast[i]&&!inside){let j=i;while(j<fast.length&&fast[j])j++;if(j-i>=2)bouts++;i=j-1;inside=false;}
@@ -72,7 +72,7 @@ export function analyzeAerobicRun(run){
     const a=group.slice(0,half),b=group.slice(half);
     const s1=a.length?mean(a.map(x=>x.speed)):null,s2=b.length?mean(b.map(x=>x.speed)):null;
     const h1=a.length?mean(a.map(x=>x.hr)):null,h2=b.length?mean(b.map(x=>x.hr)):null;
-    if(group.length>=12&&spread<=.14&&s1&&s2&&h1&&h2){
+    if(group.length>=12&&spread<=.075&&s1&&s2&&Math.abs(s2/s1-1)<=.025&&h1&&h2){
       const e1=s1/h1,e2=s2/h2;
       blocks.push({startMinute:round((group[0].t-start)/60000,0),endMinute:round((group[group.length-1].t+60000-start)/60000,0),minutes:group.length,driftPercent:round((1-e2/e1)*100),efficiency:mean(group.map(x=>x.speed/x.hr)),firstHr:round(h1),lastHr:round(h2)});
     }
