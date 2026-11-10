@@ -12,6 +12,7 @@ const state = {
   runId:null,
   trendDays:'90',
   trendAverage:true,
+  steadyTrendMode:'clean',
   aerobicPoints:[],
   aerobicLoading:false,
   aerobicLoaded:false,
@@ -702,16 +703,22 @@ function trendAerobicSample(run){
   }
   const tempoRanges=repeatedTempoRanges(pace,start,lower,upper);
   const tempoExcluded=t=>tempoRanges.some(b=>t>=b.start&&t<=b.end);
-  const samples=[];
-  let removedTempoSamples=0;
+  const samples=[],allSamples=[];
+  let removedTempoSamples=0,removedMarkedSamples=0;
   for(let t=lower;t<=upper;t+=15000){
-    if(excluded(t))continue;
-    if(tempoExcluded(t)){removedTempoSamples++;continue;}
     const h=near(hr,t),p=near(pace,t);
-    if(h!==null&&p!==null&&h>=80&&h<=210)samples.push({h,p});
+    if(h===null||p===null||h<80||h>210||p<240||p>1800)continue;
+    const pair={h,p};
+    allSamples.push(pair);
+    if(excluded(t)){removedMarkedSamples++;continue;}
+    if(tempoExcluded(t)){removedTempoSamples++;continue;}
+    samples.push(pair);
   }
-  if(samples.length<48)return null;
-  const speed=samples.reduce((s,p)=>s+3600/p.p,0)/samples.length;
+  if(allSamples.length<48)return null;
+  const paceFor=arr=>arr.length>=48?3600/(arr.reduce((s,p)=>s+3600/p.p,0)/arr.length):null;
+  const hrFor=arr=>arr.length>=48?arr.reduce((s,p)=>s+p.h,0)/arr.length:null;
+  const steadyPace=paceFor(samples),steadyHr=hrFor(samples);
+  const allPace=paceFor(allSamples),allHr=hrFor(allSamples);
   // Observed pace while HR is 150–160 bpm (155 ±5), NOT a modeled
   // prediction at exactly 155 bpm. Exclude implausible pace spikes and
   // require at least five minutes of matched observations.
@@ -719,7 +726,7 @@ function trendAerobicSample(run){
   const matchedSpeed=matched.length>=20
     ? matched.reduce((s,p)=>s+3600/p.p,0)/matched.length : null;
   const weather=run.weather?.average||{};
-  return {date:run.date,pace:speed>0?3600/speed:null,hr:samples.reduce((s,p)=>s+p.h,0)/samples.length,matchedPace:matchedSpeed>0?3600/matchedSpeed:null,matchedMinutes:matched.length/4,tempoMinutesExcluded:removedTempoSamples/4,minutes:Math.round(samples.length/4),cutoffMinute:cutoff.minute,cutoffMethod:cutoff.method,cutoffConfidence:cutoff.confidence,temp:number(weather.tempF),heat:number(weather.heatIndexF),solar:number(weather.solarRadiationWm2)};
+  return {date:run.date,pace:steadyPace,hr:steadyHr,allPace,allHr,matchedPace:matchedSpeed>0?3600/matchedSpeed:null,matchedMinutes:matched.length/4,tempoMinutesExcluded:removedTempoSamples/4,markedMinutesExcluded:removedMarkedSamples/4,minutes:samples.length/4,allMinutes:allSamples.length/4,cutoffMinute:cutoff.minute,cutoffMethod:cutoff.method,cutoffConfidence:cutoff.confidence,temp:number(weather.tempF),heat:number(weather.heatIndexF),solar:number(weather.solarRadiationWm2)};
 }
 
 async function loadAerobicTrends(){
@@ -754,7 +761,14 @@ function renderTrends(){
   charts.metricTrend('trendDrift',el('trend-drift-chart'),runs.filter(r=>number(r.cardioDriftPercent)!==null),'cardioDriftPercent',{color:chartPalette().warning,title:'%',showAverage:state.trendAverage,tooltip:ctx=>'Drift: '+Number(ctx.raw).toFixed(1)+'%'});
   charts.metricTrend('trendPace',el('trend-pace-chart'),runs.filter(r=>number(r.averagePaceSecondsPerMile)!==null),'averagePaceSecondsPerMile',{color:chartPalette().violet,title:'min/mi',reverse:true,showAverage:state.trendAverage,tick:v=>fmtPace(v).replace('/mi',''),tooltip:ctx=>'Pace: '+fmtPace(ctx.raw)});
   const points=state.aerobicPoints.filter(p=>state.trendDays==='all'||runs.some(r=>r.date===p.date));
-  charts.aerobicTrend(el('trend-aerobic-chart'),points,state.trendAverage);
+  const cleanMode=state.steadyTrendMode==='clean';
+  const aerobicPoints=points.filter(p=>cleanMode?p.pace!==null&&p.hr!==null:p.allPace!==null&&p.allHr!==null);
+  charts.aerobicTrend(el('trend-aerobic-chart'),aerobicPoints,state.trendAverage,state.steadyTrendMode);
+  all('#trend-steady-mode button').forEach(btn=>{
+    const active=btn.dataset.steadyMode===state.steadyTrendMode;
+    btn.classList.toggle('active',active);
+    btn.setAttribute('aria-pressed',String(active));
+  });
   const matched=points.filter(p=>p.matchedPace!==null);
   charts.metricTrend('trendMatchedPace',el('trend-matched-pace-chart'),matched,'matchedPace',{
     color:chartPalette().violet,title:'min/mi',reverse:true,showAverage:state.trendAverage,
@@ -765,7 +779,10 @@ function renderTrends(){
   el('trend-matched-pace-status').textContent=state.aerobicLoading
     ? 'Reading detailed pace and heart-rate traces…'
     : matched.length+' qualifying runs in the selected date range; '+tempoFiltered.length+' with repeated fast intervals detected and filtered. '+(matched.length<4?'Four-run average needs four qualifying runs.':'Dashed turquoise line shows the four-qualifying-run average.');
-  el('trend-aerobic-status').textContent=state.aerobicLoading?'Reading detailed pace and heart-rate traces…':points.length+' runs with matched steady-running traces. Runs without sufficient clean samples are omitted.';
+  const filteredCount=points.filter(p=>p.tempoMinutesExcluded>0||p.markedMinutesExcluded>0).length;
+  el('trend-aerobic-status').textContent=state.aerobicLoading
+    ? 'Reading detailed pace and heart-rate traces…'
+    : aerobicPoints.length+' runs with at least 12 minutes of '+(cleanMode?'clean steady':'paired running')+' data. '+(cleanMode?filteredCount+' runs had detected interval/marked segments excluded. ':'')+'Hover a point for sample minutes, excluded time and weather context.';
   if(!state.aerobicLoaded&&!state.aerobicLoading)loadAerobicTrends();
 }
 
@@ -999,6 +1016,10 @@ function setupInteractions(){
     catch{toast('Copy failed — use the address bar URL.');}
   });
   el('trend-average-toggle').addEventListener('change',function(){state.trendAverage=this.checked;renderTrends();});
+  all('#trend-steady-mode button').forEach(btn=>btn.addEventListener('click',function(){
+    state.steadyTrendMode=btn.dataset.steadyMode;
+    renderTrends();
+  }));
   all('#trend-range button').forEach(function(btn){
     btn.addEventListener('click',function(){
       state.trendDays=btn.dataset.days;
