@@ -46,7 +46,7 @@ export function analyzeAerobicRun(run){
   const fast=valid.map(b=>b.speed>lowSpeed*1.12);
   let bouts=0,inside=false;
   for(let i=0;i<fast.length;i++){
-    if(fast[i]&&!inside){let j=i;while(j<fast.length&&fast[j])j++;if(j-i>=2)bouts++;i=j-1;inside=false;}
+    if(fast[i]&&!inside){let j=i;while(j<fast.length&&fast[j])j++;if(j-i>=3)bouts++;i=j-1;inside=false;}
   }
   let classification='Easy / steady';
   if(bouts>=2)classification='Intervals / mixed effort';
@@ -54,25 +54,29 @@ export function analyzeAerobicRun(run){
   else if(totalVar>.28)classification='Variable pace';
   else if((end-start)/60000>=50)classification='Long steady';
   // Repeated 1-min bins require a contiguous stable block; never stitch distant intervals.
+  const smooth=bins.map((b,i)=>{
+    const nearby=bins.slice(Math.max(0,i-1),Math.min(bins.length,i+2)).filter(x=>x.valid).map(x=>x.speed);
+    return nearby.length>=2?median(nearby):null;
+  });
   const stable=bins.map((b,i)=>{
     if(!b.valid)return false;
     const context=bins.slice(Math.max(0,i-2),Math.min(bins.length,i+3)).filter(x=>x.valid);
     if(context.length<3)return false;
     const m=median(context.map(x=>x.speed));
-    return Math.abs(b.speed/m-1)<=.075;
+    return smooth[i]!==null&&Math.abs(smooth[i]/m-1)<=.08;
   });
   const blocks=[];let i=0;
   while(i<bins.length){
     if(!stable[i]){i++;continue;}
     let j=i;while(j<bins.length&&stable[j]&&bins[j].valid)j++;
-    const group=bins.slice(i,j),m=median(group.map(x=>x.speed));
+    const group=bins.slice(i,j),smoothed=smooth.slice(i,j),m=median(smoothed);
     // Reject gentle-but-substantial progressions disguised as stable rolling windows.
-    const spread=(Math.max(...group.map(x=>x.speed))-Math.min(...group.map(x=>x.speed)))/m;
+    const spread=(Math.max(...smoothed)-Math.min(...smoothed))/m;
     const half=Math.floor(group.length/2);
     const a=group.slice(0,half),b=group.slice(half);
     const s1=a.length?mean(a.map(x=>x.speed)):null,s2=b.length?mean(b.map(x=>x.speed)):null;
     const h1=a.length?mean(a.map(x=>x.hr)):null,h2=b.length?mean(b.map(x=>x.hr)):null;
-    if(group.length>=12&&spread<=.075&&s1&&s2&&Math.abs(s2/s1-1)<=.025&&h1&&h2){
+    if(group.length>=12&&spread<=.11&&s1&&s2&&Math.abs(s2/s1-1)<=.035&&h1&&h2){
       const e1=s1/h1,e2=s2/h2;
       blocks.push({startMinute:round((group[0].t-start)/60000,0),endMinute:round((group[group.length-1].t+60000-start)/60000,0),minutes:group.length,driftPercent:round((1-e2/e1)*100),efficiency:mean(group.map(x=>x.speed/x.hr)),firstHr:round(h1),lastHr:round(h2)});
     }
