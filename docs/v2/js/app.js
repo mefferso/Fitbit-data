@@ -729,8 +729,10 @@ async function loadAerobicTrends(){
     }
     state.aerobicPoints=samples.sort((a,b)=>a.date.localeCompare(b.date));
     state.aerobicLoaded=true;
+  }finally{
+    state.aerobicLoading=false;
     if(state.view==='trends')renderTrends();
-  }finally{state.aerobicLoading=false;}
+  }
 }
 
 function renderTrends(){
