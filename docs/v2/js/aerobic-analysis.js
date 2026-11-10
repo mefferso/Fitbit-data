@@ -65,7 +65,7 @@ export function analyzeAerobicRun(run){
       const half=Math.floor(group.length/2),a=group.slice(0,half),b=group.slice(half);
       const s1=mean(a.map(x=>x.speed)),s2=mean(b.map(x=>x.speed));
       const h1=mean(a.map(x=>x.hr)),h2=mean(b.map(x=>x.hr));
-      if(variation>.075||largest>.20||Math.abs(s2/s1-1)>.045)continue;
+      if(variation>.075||largest>.20||Math.abs(s2/s1-1)>.025)continue;
       const e1=s1/h1,e2=s2/h2;
       blocks.push({startMinute:round((group[0].t-start)/60000,0),
         endMinute:round((group[group.length-1].t+60000-start)/60000,0),
