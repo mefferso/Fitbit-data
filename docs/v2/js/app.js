@@ -13,7 +13,6 @@ const state = {
   runId:null,
   trendDays:'90',
   trendAverage:true,
-  steadyTrendMode:'clean',
   matchedHeartRate:155,
   aerobicPoints:[],
   aerobicLoading:false,
@@ -752,14 +751,6 @@ function renderTrends(){
   charts.metricTrend('trendDrift',el('trend-drift-chart'),steadyRuns,'steadyDriftPercent',{color:chartPalette().warning,title:'%',showAverage:state.trendAverage,tooltip:ctx=>'Steady drift: '+Number(ctx.raw).toFixed(1)+'% · '+steadyRuns[ctx.dataIndex].steadyMinutes+' min'});
   charts.metricTrend('trendPace',el('trend-pace-chart'),runs.filter(r=>number(r.averagePaceSecondsPerMile)!==null),'averagePaceSecondsPerMile',{color:chartPalette().violet,title:'min/mi',reverse:true,showAverage:state.trendAverage,tick:v=>fmtPace(v).replace('/mi',''),tooltip:ctx=>'Pace: '+fmtPace(ctx.raw)});
   const points=state.aerobicPoints.filter(p=>state.trendDays==='all'||runs.some(r=>r.date===p.date));
-  const cleanMode=state.steadyTrendMode==='clean';
-  const aerobicPoints=points.filter(p=>cleanMode?p.pace!==null&&p.hr!==null:p.allPace!==null&&p.allHr!==null);
-  charts.aerobicTrend(el('trend-aerobic-chart'),aerobicPoints,state.trendAverage,state.steadyTrendMode);
-  all('#trend-steady-mode button').forEach(btn=>{
-    const active=btn.dataset.steadyMode===state.steadyTrendMode;
-    btn.classList.toggle('active',active);
-    btn.setAttribute('aria-pressed',String(active));
-  });
   const matched=points.filter(p=>p.matchedPace!==null);
   charts.metricTrend('trendMatchedPace',el('trend-matched-pace-chart'),matched,'matchedPace',{
     color:chartPalette().violet,title:'min/mi',reverse:true,showAverage:state.trendAverage,
@@ -769,11 +760,7 @@ function renderTrends(){
   const tempoFiltered=points.filter(p=>p.tempoMinutesExcluded>0);
   el('trend-matched-pace-status').textContent=state.aerobicLoading
     ? 'Reading detailed pace and heart-rate traces…'
-    : matched.length+' runs with ≥5 matched steady minutes at '+(state.matchedHeartRate-5)+'–'+(state.matchedHeartRate+5)+' bpm. '+(matched.length<4?'More qualifying runs needed for a useful trend.':'Compare similar weather and effort.');
-  const filteredCount=points.filter(p=>p.tempoMinutesExcluded>0||p.markedMinutesExcluded>0).length;
-  el('trend-aerobic-status').textContent=state.aerobicLoading
-    ? 'Reading detailed pace and heart-rate traces…'
-    : aerobicPoints.length+' runs with at least 12 minutes of '+(cleanMode?'clean steady':'paired running')+' data. '+(cleanMode?filteredCount+' runs had detected interval/marked segments excluded. ':'')+'Hover a point for sample minutes, excluded time and weather context.';
+    : matched.length+' qualifying runs · '+(state.matchedHeartRate-5)+'–'+(state.matchedHeartRate+5)+' bpm · Weather and effort affect comparisons.';
   if(!state.aerobicLoaded&&!state.aerobicLoading)loadAerobicTrends();
 }
 
@@ -1014,10 +1001,6 @@ function setupInteractions(){
     renderTrends();
   });
   el('trend-average-toggle').addEventListener('change',function(){state.trendAverage=this.checked;renderTrends();});
-  all('#trend-steady-mode button').forEach(btn=>btn.addEventListener('click',function(){
-    state.steadyTrendMode=btn.dataset.steadyMode;
-    renderTrends();
-  }));
   all('#trend-range button').forEach(function(btn){
     btn.addEventListener('click',function(){
       state.trendDays=btn.dataset.days;
