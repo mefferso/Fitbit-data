@@ -220,7 +220,7 @@ function renderEfficiencyPanel(id,canvasId,runs,chartName){
   function inspect(i){
     const r=valid[i];if(!r){details.textContent='No qualifying runs';return;}
     const score=Number(r.score),rawScore=score/Number(r.weatherFactor);
-    details.textContent=r.date+' · Raw '+rawScore.toFixed(1)+' · Adjusted '+score.toFixed(1)+' · Weather lift +'+(score-rawScore).toFixed(1)+' points · Factor '+Number(r.weatherFactor).toFixed(3)+' (heat +'+Number(r.heatPenaltyPct||0).toFixed(1)+'%, solar +'+Number(r.solarPenaltyPct||0).toFixed(1)+'%)';
+    details.textContent=r.date+' · Raw '+rawScore.toFixed(1)+' · Adjusted '+score.toFixed(1)+' · Weather lift +'+(score-rawScore).toFixed(1)+' points · Factor '+Number(r.weatherFactor).toFixed(3)+' (heat +'+Number(r.heatPenaltyPct||0).toFixed(1)+'%, solar +'+Number(r.solarPenaltyPct||0).toFixed(1)+'%) · Heuristic; home-station weather proxy';
   }
   select.onchange=()=>inspect(Number(select.value));inspect(Number(select.value));
   function draw(){
@@ -265,7 +265,7 @@ function makeInsights(run,detailed){
   }
   const hi=number(run.heatIndexF!==undefined?run.heatIndexF:run.weather&&run.weather.average&&run.weather.average.heatIndexF);
   if(hi!==null && hi>=90){
-    cards.push({title:'Heat burden',body:'Average heat index was '+hi.toFixed(0)+'°F. The adjusted-performance model accounts for heat and solar load before comparing efficiency.',tone:'warn',icon:'☀'});
+    cards.push({title:'Heat burden',body:'Average heat index was '+hi.toFixed(0)+'°F. Weather adjustment is heuristic and uses home-station observations, not measured route exposure.',tone:'warn',icon:'☀'});
   }
   if(detailed && run.analysisSummary && number(run.analysisSummary.heartRateSlopeBpmPerMinute)!==null){
     const slope=Number(run.analysisSummary.heartRateSlopeBpmPerMinute);
@@ -711,8 +711,6 @@ function trendAerobicSample(run){
   // prediction at exactly 155 bpm. Exclude implausible pace spikes and
   // require at least five minutes of matched observations.
   const matched=samples.filter(p=>p.h>=150&&p.h<=160&&p.p>=480&&p.p<=960);
-  const matchedSpeed=matched.length>=20
-    ? matched.reduce((s,p)=>s+3600/p.p,0)/matched.length : null;
   const weather=run.weather?.average||{};
   const aerobic=analyzeAerobicRun(run);
   return {date:run.date,pace:steadyPace,hr:steadyHr,allPace,allHr,matchedPace:aerobic.matchedPace,matchedMinutes:aerobic.matchedMinutes,steadyDriftPercent:aerobic.steadyDriftPercent,steadyMinutes:aerobic.steadyMinutes,steadyEfficiency:aerobic.steadyEfficiency,quality:aerobic.quality,classification:aerobic.classification,tempoMinutesExcluded:removedTempoSamples/4,markedMinutesExcluded:removedMarkedSamples/4,minutes:samples.length/4,allMinutes:allSamples.length/4,cutoffMinute:cutoff.minute,cutoffMethod:cutoff.method,cutoffConfidence:cutoff.confidence,temp:number(weather.tempF),heat:number(weather.heatIndexF),solar:number(weather.solarRadiationWm2)};
