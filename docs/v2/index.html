@@ -354,8 +354,9 @@
             <div class="chart-wrap medium"><canvas id="trend-pace-chart"></canvas></div>
           </article>
           <article class="panel chart-panel wide">
-            <div class="panel-heading"><div><div class="panel-kicker">Aerobic efficiency</div><h2>Steady pace at 150–160 bpm</h2></div></div>
+            <div class="panel-heading"><div><div class="panel-kicker">Aerobic efficiency</div><h2>Steady pace at matched HR</h2></div></div>
 
+            <label class="reference-note" for="matched-hr-center">Heart rate <select id="matched-hr-center" aria-label="Matched heart rate"><option value="145">145 ±5 bpm</option><option value="155" selected>155 ±5 bpm</option><option value="165">165 ±5 bpm</option></select></label>
             <div class="chart-wrap large"><canvas id="trend-matched-pace-chart" role="img" aria-label="Observed pace in minutes per mile at 150 to 160 beats per minute, by run"></canvas></div>
             <div class="reference-note" id="trend-matched-pace-status" aria-live="polite">Reading detailed pace and heart-rate traces…</div>
           </article>
