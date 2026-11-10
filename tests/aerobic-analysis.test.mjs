@@ -37,3 +37,17 @@ test('missing HR data never produces a misleading drift number',()=>{
   const d=run();d.heartRateSeries=[];
   assert.equal(analyzeAerobicRun(d).steadyDriftPercent,null);
 });
+
+test('recorded November 5 tempo workout is not graded as steady',async()=>{
+  const d=JSON.parse(await readFile(new URL('../docs/data/runs/2026/2026-11-05T20-57-15-000Z.json',import.meta.url),'utf8'));
+  const a=analyzeAerobicRun(d);
+  assert.match(a.classification,/Intervals/);
+  assert.equal(a.steadyDriftPercent,null);
+});
+test('recorded October 19 aerobic run yields a comparable segment',async()=>{
+  const d=JSON.parse(await readFile(new URL('../docs/data/runs/2026/2026-10-19T20-15-05-000Z.json',import.meta.url),'utf8'));
+  const a=analyzeAerobicRun(d);
+  assert.equal(a.classification,'Easy / steady');
+  assert.ok(a.steadyMinutes>=20);
+  assert.equal(a.quality,'usable');
+});
