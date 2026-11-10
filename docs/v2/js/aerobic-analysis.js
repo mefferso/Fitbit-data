@@ -53,39 +53,32 @@ export function analyzeAerobicRun(run){
   else if(change>6||totalVar>.26&&change>3)classification='Progression / mixed pace';
   else if(totalVar>.28)classification='Variable pace';
   else if((end-start)/60000>=50)classification='Long steady';
-  // Repeated 1-min bins require a contiguous stable block; never stitch distant intervals.
-  const smooth=bins.map((b,i)=>{
-    const nearby=bins.slice(Math.max(0,i-1),Math.min(bins.length,i+2)).filter(x=>x.valid).map(x=>x.speed);
-    return nearby.length>=2?median(nearby):null;
-  });
-  const stable=bins.map((b,i)=>{
-    if(!b.valid)return false;
-    const context=bins.slice(Math.max(0,i-2),Math.min(bins.length,i+3)).filter(x=>x.valid);
-    if(context.length<3)return false;
-    const m=median(context.map(x=>x.speed));
-    return smooth[i]!==null&&Math.abs(smooth[i]/m-1)<=.08;
-  });
-  const blocks=[];let i=0;
-  while(i<bins.length){
-    if(!stable[i]){i++;continue;}
-    let j=i;while(j<bins.length&&stable[j]&&bins[j].valid)j++;
-    const group=bins.slice(i,j),smoothed=smooth.slice(i,j),m=median(smoothed);
-    // Reject gentle-but-substantial progressions disguised as stable rolling windows.
-    const spread=(Math.max(...smoothed)-Math.min(...smoothed))/m;
-    const half=Math.floor(group.length/2);
-    const a=group.slice(0,half),b=group.slice(half);
-    const s1=a.length?mean(a.map(x=>x.speed)):null,s2=b.length?mean(b.map(x=>x.speed)):null;
-    const h1=a.length?mean(a.map(x=>x.hr)):null,h2=b.length?mean(b.map(x=>x.hr)):null;
-    if(group.length>=12&&spread<=.11&&s1&&s2&&Math.abs(s2/s1-1)<=.035&&h1&&h2){
+  // Scan continuous windows after warmup; compare only sufficiently stable speed.
+  // Window statistics reject interval transitions without demanding GPS-perfect 1-minute pace.
+  const blocks=[];
+  for(let i=0;i+12<=bins.length;i++){
+    for(let j=i+12;j<=bins.length;j++){
+      const group=bins.slice(i,j);
+      if(group.some(x=>!x.valid))break;
+      const speeds=group.map(x=>x.speed),m=mean(speeds);
+      const variation=Math.sqrt(mean(speeds.map(x=>(x-m)**2)))/m;
+      const largest=Math.max(...speeds.map(x=>Math.abs(x/m-1)));
+      const half=Math.floor(group.length/2),a=group.slice(0,half),b=group.slice(half);
+      const s1=mean(a.map(x=>x.speed)),s2=mean(b.map(x=>x.speed));
+      const h1=mean(a.map(x=>x.hr)),h2=mean(b.map(x=>x.hr));
+      if(variation>.075||largest>.20||Math.abs(s2/s1-1)>.045)continue;
       const e1=s1/h1,e2=s2/h2;
-      blocks.push({startMinute:round((group[0].t-start)/60000,0),endMinute:round((group[group.length-1].t+60000-start)/60000,0),minutes:group.length,driftPercent:round((1-e2/e1)*100),efficiency:mean(group.map(x=>x.speed/x.hr)),firstHr:round(h1),lastHr:round(h2)});
+      blocks.push({startMinute:round((group[0].t-start)/60000,0),
+        endMinute:round((group[group.length-1].t+60000-start)/60000,0),
+        minutes:group.length,driftPercent:round((1-e2/e1)*100),
+        efficiency:mean(group.map(x=>x.speed/x.hr)),firstHr:round(h1),lastHr:round(h2)});
     }
-    i=j;
   }
   const best=blocks.sort((a,b)=>b.minutes-a.minutes)[0]||null;
+  const qualified=best?[best]:[];
   // Matched-HR uses only stable contiguous blocks and avoids interpolation across gaps.
   const matched=[];
-  for(const block of blocks){
+  for(const block of qualified){
     for(const b of bins){
       const min=(b.t-start)/60000;
       if(min>=block.startMinute&&min<block.endMinute&&b.valid&&b.hr>=150&&b.hr<=160&&b.speed>=3.75&&b.speed<=7.5)matched.push(b);
@@ -97,5 +90,5 @@ export function analyzeAerobicRun(run){
     steadyDriftPercent:best?best.driftPercent:null,
     steadyMinutes:best?best.minutes:0,steadyEfficiency:best?round(best.efficiency,6):null,
     matchedPace:matched.length>=5?3600/mean(matched.map(b=>b.speed)):null,
-    matchedMinutes:matched.length,blocks,quality,paceChangePercent:round(change),totalPaceVariationPercent:round(totalVar*100)};
+    matchedMinutes:matched.length,blocks:qualified,quality,paceChangePercent:round(change),totalPaceVariationPercent:round(totalVar*100)};
 }
