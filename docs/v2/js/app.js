@@ -642,6 +642,38 @@ function updateSteadyControls(run){
   const mmss=value=>{const seconds=Math.round(value*60);return Math.floor(seconds/60)+':'+String(seconds%60).padStart(2,'0');};
   el('steady-cutoff-info').textContent='Using minutes 10:00–'+mmss(actual.minute)+' · '+(actual.method==='manual'?'Manually selected':'Automatic: '+actual.method+' ('+actual.confidence+' confidence)')+'. Auto suggestion: '+mmss(auto.minute)+'.';
 }
+// Detect repeated sustained fast/easy alternations even when exported intervals
+// are unlabelled (as on the Nov 5 structured tempo). Conservative: a
+// single faster stretch does not reclassify a naturally faster steady run.
+function repeatedTempoRanges(pace,start,lower,upper){
+  const values=Array.from({length:Math.ceil((upper-start)/30000)},()=>[]);
+  pace.forEach(p=>{
+    if(p.t<lower||p.t>upper||p.v<300||p.v>1200)return;
+    const i=Math.floor((p.t-start)/30000);
+    if(values[i])values[i].push(p.v);
+  });
+  function percentile(input,fraction){
+    const sorted=input.filter(Number.isFinite).sort((a,b)=>a-b);
+    return sorted.length?sorted[Math.floor((sorted.length-1)*fraction)]:null;
+  }
+  const bins=values.map(group=>group.length>=8?percentile(group,.5):null);
+  const baseline=percentile(bins,.7); // slower-side typical pace, not the fast interval median
+  if(baseline===null)return [];
+  const fast=bins.map(v=>v!==null&&v<=baseline*.87);
+  const bouts=[];let from=-1;
+  for(let i=0;i<=fast.length;i++){
+    if(i<fast.length&&fast[i]){if(from<0)from=i;}
+    else if(from>=0){
+      if(i-from>=3 && i-from<=20)bouts.push({from,to:i}); // 1.5–10 min
+      from=-1;
+    }
+  }
+  // Require an interval pattern, rather than deleting naturally quicker
+  // stretches or individual GPS spikes from an otherwise steady session.
+  if(bouts.length<2 || !bouts.some((b,i)=>i>0&&b.from-bouts[i-1].to>=2))return [];
+  return bouts.map(b=>({start:start+b.from*30000-15000,
+    end:Math.min(upper,start+b.to*30000+60000)}));
+}
 function trendAerobicSample(run){
   const start=Date.parse(run.startTime);
   const end=Date.parse(run.endTime);
@@ -668,9 +700,13 @@ function trendAerobicSample(run){
     const nearest=!a?b:!b?a:Math.abs(a.t-t)<=Math.abs(b.t-t)?a:b;
     return nearest&&Math.abs(nearest.t-t)<=15000?nearest.v:null;
   }
+  const tempoRanges=repeatedTempoRanges(pace,start,lower,upper);
+  const tempoExcluded=t=>tempoRanges.some(b=>t>=b.start&&t<=b.end);
   const samples=[];
+  let removedTempoSamples=0;
   for(let t=lower;t<=upper;t+=15000){
     if(excluded(t))continue;
+    if(tempoExcluded(t)){removedTempoSamples++;continue;}
     const h=near(hr,t),p=near(pace,t);
     if(h!==null&&p!==null&&h>=80&&h<=210)samples.push({h,p});
   }
@@ -683,7 +719,7 @@ function trendAerobicSample(run){
   const matchedSpeed=matched.length>=20
     ? matched.reduce((s,p)=>s+3600/p.p,0)/matched.length : null;
   const weather=run.weather?.average||{};
-  return {date:run.date,pace:speed>0?3600/speed:null,hr:samples.reduce((s,p)=>s+p.h,0)/samples.length,matchedPace:matchedSpeed>0?3600/matchedSpeed:null,matchedMinutes:matched.length/4,minutes:Math.round(samples.length/4),cutoffMinute:cutoff.minute,cutoffMethod:cutoff.method,cutoffConfidence:cutoff.confidence,temp:number(weather.tempF),heat:number(weather.heatIndexF),solar:number(weather.solarRadiationWm2)};
+  return {date:run.date,pace:speed>0?3600/speed:null,hr:samples.reduce((s,p)=>s+p.h,0)/samples.length,matchedPace:matchedSpeed>0?3600/matchedSpeed:null,matchedMinutes:matched.length/4,tempoMinutesExcluded:removedTempoSamples/4,minutes:Math.round(samples.length/4),cutoffMinute:cutoff.minute,cutoffMethod:cutoff.method,cutoffConfidence:cutoff.confidence,temp:number(weather.tempF),heat:number(weather.heatIndexF),solar:number(weather.solarRadiationWm2)};
 }
 
 async function loadAerobicTrends(){
@@ -723,11 +759,12 @@ function renderTrends(){
   charts.metricTrend('trendMatchedPace',el('trend-matched-pace-chart'),matched,'matchedPace',{
     color:chartPalette().violet,title:'min/mi',reverse:true,showAverage:state.trendAverage,
     tick:v=>fmtPace(v).replace('/mi',''),
-    tooltip:ctx=>'150–160 bpm pace: '+fmtPace(ctx.raw)+' · '+matched[ctx.dataIndex].matchedMinutes.toFixed(1)+' matched min'
+    tooltip:ctx=>'150–160 bpm pace: '+fmtPace(ctx.raw)+' · '+matched[ctx.dataIndex].matchedMinutes.toFixed(1)+' matched min · '+matched[ctx.dataIndex].tempoMinutesExcluded.toFixed(1)+' tempo min filtered'
   });
+  const tempoFiltered=points.filter(p=>p.tempoMinutesExcluded>0);
   el('trend-matched-pace-status').textContent=state.aerobicLoading
     ? 'Reading detailed pace and heart-rate traces…'
-    : matched.length+' qualifying runs in the selected date range. '+(matched.length<4?'Four-run average needs four qualifying runs.':'Dashed turquoise line shows the four-qualifying-run average.');
+    : matched.length+' qualifying runs in the selected date range; '+tempoFiltered.length+' with repeated fast intervals detected and filtered. '+(matched.length<4?'Four-run average needs four qualifying runs.':'Dashed turquoise line shows the four-qualifying-run average.');
   el('trend-aerobic-status').textContent=state.aerobicLoading?'Reading detailed pace and heart-rate traces…':points.length+' runs with matched steady-running traces. Runs without sufficient clean samples are omitted.';
   if(!state.aerobicLoaded&&!state.aerobicLoading)loadAerobicTrends();
 }
