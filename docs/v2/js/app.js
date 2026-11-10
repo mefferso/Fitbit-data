@@ -676,8 +676,14 @@ function trendAerobicSample(run){
   }
   if(samples.length<48)return null;
   const speed=samples.reduce((s,p)=>s+3600/p.p,0)/samples.length;
+  // Observed pace while HR is 150–160 bpm (155 ±5), NOT a modeled
+  // prediction at exactly 155 bpm. Exclude implausible pace spikes and
+  // require at least five minutes of matched observations.
+  const matched=samples.filter(p=>p.h>=150&&p.h<=160&&p.p>=480&&p.p<=960);
+  const matchedSpeed=matched.length>=20
+    ? matched.reduce((s,p)=>s+3600/p.p,0)/matched.length : null;
   const weather=run.weather?.average||{};
-  return {date:run.date,pace:speed>0?3600/speed:null,hr:samples.reduce((s,p)=>s+p.h,0)/samples.length,minutes:Math.round(samples.length/4),cutoffMinute:cutoff.minute,cutoffMethod:cutoff.method,cutoffConfidence:cutoff.confidence,temp:number(weather.tempF),heat:number(weather.heatIndexF),solar:number(weather.solarRadiationWm2)};
+  return {date:run.date,pace:speed>0?3600/speed:null,hr:samples.reduce((s,p)=>s+p.h,0)/samples.length,matchedPace:matchedSpeed>0?3600/matchedSpeed:null,matchedMinutes:matched.length/4,minutes:Math.round(samples.length/4),cutoffMinute:cutoff.minute,cutoffMethod:cutoff.method,cutoffConfidence:cutoff.confidence,temp:number(weather.tempF),heat:number(weather.heatIndexF),solar:number(weather.solarRadiationWm2)};
 }
 
 async function loadAerobicTrends(){
@@ -713,6 +719,15 @@ function renderTrends(){
   charts.metricTrend('trendPace',el('trend-pace-chart'),runs.filter(r=>number(r.averagePaceSecondsPerMile)!==null),'averagePaceSecondsPerMile',{color:chartPalette().violet,title:'min/mi',reverse:true,showAverage:state.trendAverage,tick:v=>fmtPace(v).replace('/mi',''),tooltip:ctx=>'Pace: '+fmtPace(ctx.raw)});
   const points=state.aerobicPoints.filter(p=>state.trendDays==='all'||runs.some(r=>r.date===p.date));
   charts.aerobicTrend(el('trend-aerobic-chart'),points,state.trendAverage);
+  const matched=points.filter(p=>p.matchedPace!==null);
+  charts.metricTrend('trendMatchedPace',el('trend-matched-pace-chart'),matched,'matchedPace',{
+    color:chartPalette().violet,title:'min/mi',reverse:true,showAverage:state.trendAverage,
+    tick:v=>fmtPace(v).replace('/mi',''),
+    tooltip:ctx=>'150–160 bpm pace: '+fmtPace(ctx.raw)+' · '+matched[ctx.dataIndex].matchedMinutes.toFixed(1)+' matched min'
+  });
+  el('trend-matched-pace-status').textContent=state.aerobicLoading
+    ? 'Reading detailed pace and heart-rate traces…'
+    : matched.length+' qualifying runs in the selected date range. '+(matched.length<4?'Four-run average needs four qualifying runs.':'Dashed turquoise line shows the four-qualifying-run average.');
   el('trend-aerobic-status').textContent=state.aerobicLoading?'Reading detailed pace and heart-rate traces…':points.length+' runs with matched steady-running traces. Runs without sufficient clean samples are omitted.';
   if(!state.aerobicLoaded&&!state.aerobicLoading)loadAerobicTrends();
 }
