@@ -269,9 +269,9 @@
           <div class="panel-heading drift-heading">
             <div>
               <div class="panel-kicker">Efficiency</div>
-              <h2>Cardio drift through the run</h2>
+              <h2>Heart-rate / pace drift</h2>
             </div>
-            <span class="reference-note">5% reference line</span>
+            
           </div>
 
           <div class="drift-compare-bar">
@@ -297,7 +297,7 @@
 
           <div class="drift-summary" id="drift-summary"></div>
           <div class="chart-wrap medium drift-chart-wrap"><canvas id="drift-chart"></canvas></div>
-          <div class="drift-note" id="drift-note">Each run is normalized to its own minutes 5–10 baseline. Comparison is off by default.</div>
+          <div class="drift-note" id="drift-note">Steady segments are assessed separately from the rolling full-run chart.</div>
         </article>
 
         <section class="section-block">
@@ -338,7 +338,7 @@
             <div class="reference-note">Select 7D, 14D, 30D, 90D, 6M or ALL to zoom the running history (ALL starts July 1, 2026). The total and milestone progress always include every logged 2026 run. Dashed lines mark 100, 150, and 200 miles.</div>
           </article>
           <article class="panel chart-panel wide">
-            <div class="panel-heading"><div><div class="panel-kicker">Performance</div><h2>Adjusted Performance Index</h2></div></div>
+            <div class="panel-heading"><div><div class="panel-kicker">Performance</div><h2>Session Performance Index</h2></div></div>
             <div class="efficiency-controls" style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;padding:8px 0;font-size:12px"><label><input type="checkbox" id="trend-eff-raw" checked> <span style="color:#3b82f6">●</span> Raw</label><label><input type="checkbox" id="trend-eff-adj" checked> <span style="color:#10b981">●</span> Adjusted</label><label>Run <select id="trend-eff-select" style="max-width:135px"></select></label></div><div class="reference-note" id="trend-eff-details" aria-live="polite"></div><div class="chart-wrap large"><canvas id="trend-api-chart"></canvas></div>
           </article>
           <article class="panel chart-panel">
@@ -346,7 +346,7 @@
             <div class="chart-wrap medium"><canvas id="trend-hrr-chart"></canvas></div>
           </article>
           <article class="panel chart-panel">
-            <div class="panel-heading"><div><div class="panel-kicker">Efficiency</div><h2>Cardio drift</h2></div></div>
+            <div class="panel-heading"><div><div class="panel-kicker">Efficiency</div><h2>Steady-state drift</h2></div></div>
             <div class="chart-wrap medium"><canvas id="trend-drift-chart"></canvas></div>
           </article>
           <article class="panel chart-panel">
@@ -354,8 +354,9 @@
             <div class="chart-wrap medium"><canvas id="trend-pace-chart"></canvas></div>
           </article>
           <article class="panel chart-panel wide">
-            <div class="panel-heading"><div><div class="panel-kicker">Aerobic efficiency</div><h2>Pace at a matched heart rate · 155 bpm ±5</h2></div></div>
+            <div class="panel-heading"><div><div class="panel-kicker">Aerobic efficiency</div><h2>Steady pace at matched HR</h2></div></div>
 
+            <label class="reference-note" for="matched-hr-center">Heart rate <select id="matched-hr-center" aria-label="Matched heart rate"><option value="145">145 ±5 bpm</option><option value="155" selected>155 ±5 bpm</option><option value="165">165 ±5 bpm</option></select></label>
             <div class="chart-wrap large"><canvas id="trend-matched-pace-chart" role="img" aria-label="Observed pace in minutes per mile at 150 to 160 beats per minute, by run"></canvas></div>
             <div class="reference-note" id="trend-matched-pace-status" aria-live="polite">Reading detailed pace and heart-rate traces…</div>
           </article>

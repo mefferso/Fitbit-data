@@ -57,7 +57,7 @@ function analyzeRun(meta,d){
   const mph=3600/paceSec,oxygen=0.2*(mph*1609.344/60)+3.5;
   entry.eligible.push({date:meta.date,runId:meta.runId,start:new Date(t).toISOString(),hr:h,mph,oxygen,paceSec,dewpoint:meta.dewpointF,heatIndex:meta.heatIndexF,solar:meta.solarRadiationWm2});
  }
- const halves=d.aerobicDecoupling||{};if(finite(halves.firstHalfHeartRate)&&finite(halves.secondHalfHeartRate)&&Number(halves.secondHalfHeartRate)-Number(halves.firstHalfHeartRate)>=18){entry.eligible=[];entry.reason='Large HR rise / progressive or hard finish';return entry}
+ // Evaluate each stable window independently of whole-run HR rise.
  if(!entry.eligible.length){entry.reason='No stable qualifying windows';return entry}
  entry.median={hr:med(entry.eligible.map(x=>x.hr)),mph:med(entry.eligible.map(x=>x.mph)),oxygen:med(entry.eligible.map(x=>x.oxygen))};
  entry.reason='Eligible · observational';return entry;

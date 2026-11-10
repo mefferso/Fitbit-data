@@ -1,0 +1,20 @@
+name: Aerobic analysis checks
+on:
+  pull_request:
+    paths:
+      - 'docs/v2/js/aerobic-analysis.js'
+      - 'tests/aerobic-analysis.test.mjs'
+  push:
+    branches: [main]
+    paths:
+      - 'docs/v2/js/aerobic-analysis.js'
+      - 'tests/aerobic-analysis.test.mjs'
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/aerobic-analysis.test.mjs
