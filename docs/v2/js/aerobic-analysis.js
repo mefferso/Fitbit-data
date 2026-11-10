@@ -1,5 +1,4 @@
 // Clean, conservative aerobic analysis. Does not alter historic whole-run metrics.
-const finite = x => Number.isFinite(Number(x));
 const median = a => { const s=a.filter(Number.isFinite).sort((x,y)=>x-y); return s.length?s[Math.floor(s.length/2)]:null; };
 const mean = a => a.reduce((s,v)=>s+v,0)/a.length;
 const round = (n,d=1) => Math.round(n*10**d)/10**d;
@@ -44,9 +43,9 @@ export function analyzeAerobicRun(run){
   const change=(mean(last.map(x=>x.speed))/mean(first.map(x=>x.speed))-1)*100;
   // Persistent faster intervals require at least two fast bouts separated by easier running.
   const fast=valid.map(b=>b.speed>lowSpeed*1.12);
-  let bouts=0,inside=false;
+  let bouts=0;
   for(let i=0;i<fast.length;i++){
-    if(fast[i]&&!inside){let j=i;while(j<fast.length&&fast[j])j++;if(j-i>=3)bouts++;i=j-1;inside=false;}
+    if(fast[i]){let j=i;while(j<fast.length&&fast[j])j++;if(j-i>=3)bouts++;i=j-1;}
   }
   let classification='Easy / steady';
   if(bouts>=2)classification='Intervals / mixed effort';
