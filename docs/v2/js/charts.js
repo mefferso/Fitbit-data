@@ -268,14 +268,15 @@ export class Charts {
     return this.line(name,canvas,runs.map(function(r){return r.date;}),datasets,overrides);
   }
 
-  aerobicTrend(canvas, points, showAverage){
+  aerobicTrend(canvas, points, showAverage, mode='clean'){
+    const clean=mode!=='all';
     const values=(key)=>points.map(p=>number(p[key]));
     const average=arr=>arr.map((_,i)=>{
       if(i<3)return null;
       const block=arr.slice(i-3,i+1);
       return block.every(v=>v!==null)?block.reduce((a,b)=>a+b,0)/4:null;
     });
-    const pace=values('pace'),hr=values('hr');
+    const pace=values(clean?'pace':'allPace'),hr=values(clean?'hr':'allHr');
     const sets=[
       {label:'Steady pace',data:pace,yAxisID:'pace',borderColor:violet(),backgroundColor:violet(),borderWidth:2,pointRadius:3,tension:.22,spanGaps:false},
       {label:'Steady HR',data:hr,yAxisID:'hr',borderColor:positive(),backgroundColor:positive(),borderWidth:2,pointRadius:3,tension:.22,spanGaps:false}
@@ -289,12 +290,13 @@ export class Charts {
         label:ctx=>ctx.dataset.label+': '+(ctx.parsed.y===null?'—':ctx.dataset.yAxisID==='pace'?fmtPace(ctx.parsed.y):ctx.parsed.y.toFixed(1)+' bpm'),
         afterBody:items=>{
           const p=points[items[0]?.dataIndex];
-          if(!p||p.pace===null)return [];
+          if(!p)return [];
           const sec=Math.round((p.cutoffMinute||0)*60);
           const cutoff=Math.floor(sec/60)+':'+String(sec%60).padStart(2,'0');
           return ['Steady window 10:00–'+cutoff+' · '+p.cutoffMethod+' ('+p.cutoffConfidence+')',
             'Temp '+(p.temp??'—')+'°F · HI '+(p.heat??'—')+'°F · Solar '+(p.solar??'—')+' W/m²',
-            'Steady sample '+p.minutes+' min'];
+            (clean?'Clean steady: ':'All paired running: ')+(clean?p.minutes:p.allMinutes).toFixed(1)+' min',
+            'Removed · detected tempo: '+p.tempoMinutesExcluded.toFixed(1)+' min; marked intervals: '+p.markedMinutesExcluded.toFixed(1)+' min'];
         }
       }}},
       scales:{
