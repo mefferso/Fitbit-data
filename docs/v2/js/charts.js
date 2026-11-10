@@ -247,6 +247,11 @@ export class Charts {
     }
     const overrides = {
       scales:{
+        ...(options.compactDates?{x:{ticks:{color:muted(),maxTicksLimit:5,maxRotation:0,minRotation:0,callback:function(value){
+          const date=this.getLabelForValue(value);
+          if(typeof date!=='string'||date.length<10)return date;
+          return Number(date.slice(5,7))+'/'+Number(date.slice(8,10));
+        }}}}:{}),
         y:{
           grid:{color:grid()},
           ticks:{
