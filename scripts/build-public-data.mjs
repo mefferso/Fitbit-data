@@ -779,6 +779,15 @@ for(const workout of runs.slice(0,DETAIL_REFRESH_RUNS)){
     vigorousPlusPeakMinutes:round(vigPeak,0),
     aerobicDecoupling:decoupling(start,end,hr,paces),
     heartRateRecovery:recovery(end,recoveryHr),
+    heartRateRecoveryDiagnostics:{
+      source:'Google Health heart-rate samples',
+      queriedFrom:new Date(end.getTime()-60000).toISOString(),
+      queriedThrough:new Date(end.getTime()+5*60000).toISOString(),
+      samplesAtOrBeforeEnd:recoveryHr.filter(p=>new Date(p.time)<=end).length,
+      samplesAfterEnd:recoveryHr.filter(p=>new Date(p.time)>end).length,
+      lastSampleTime:recoveryHr.length?recoveryHr[recoveryHr.length-1].time:null,
+      note:'Missing recovery values mean no sufficiently close post-exercise HR sample was returned; do not infer zero recovery.'
+    },
     weather:summarizeWorkoutWeather(tempestObs,start,end),
     zoneSummary,
     runWalkIntervals:[],
@@ -800,7 +809,22 @@ for(const workout of runs.slice(0,DETAIL_REFRESH_RUNS)){
 // dashboard remains unchanged while every detailed run gains a permanent archive file.
 const detailByStart=new Map();
 for(const w of previousOutput?.detailedRuns||[]) if(w?.startTime) detailByStart.set(w.startTime,w);
-for(const w of detailedRuns) if(w?.startTime) detailByStart.set(w.startTime,w);
+for(const w of detailedRuns){
+  if(!w?.startTime)continue;
+  const old=detailByStart.get(w.startTime);
+  // A later API read can be temporarily incomplete. Never replace a previously
+  // measured recovery series with fewer valid checkpoints for the same workout.
+  const countRecovery=x=>[1,2,3].filter(m=>Number.isFinite(x?.[`minute${m}Drop`])).length;
+  if(old?.endTime===w.endTime && countRecovery(old.heartRateRecovery)>countRecovery(w.heartRateRecovery)){
+    w.heartRateRecovery=old.heartRateRecovery;
+    w.heartRateRecoveryDiagnostics={
+      ...w.heartRateRecoveryDiagnostics,
+      preservedEarlierValidRecovery:true,
+      note:'Latest query had fewer valid recovery checkpoints; kept previously measured values.'
+    };
+  }
+  detailByStart.set(w.startTime,w);
+}
 detailedRuns=runs.slice(0,DASHBOARD_DETAIL_RUNS).map(w=>detailByStart.get(w.startTime)).filter(Boolean);
 
 const MIN_EFFICIENCY_SECONDS=30*60;
@@ -903,9 +927,9 @@ const runIndexRuns=runs.map(w=>{
     averagePaceSecondsPerMile:d?.averagePaceSecondsPerMile??w.averagePaceSecondsPerMile,
     averageHeartRate:d?.averageHeartRate??w.averageHeartRate,
     peakHeartRate:d?.peakHeartRate??old.peakHeartRate??null,
-    hrr1:d?recovery.minute1Drop??null:old.hrr1??null,
-    hrr2:d?recovery.minute2Drop??null:old.hrr2??null,
-    hrr3:d?recovery.minute3Drop??null:old.hrr3??null,
+    hrr1:recovery.minute1Drop??old.hrr1??null,
+    hrr2:recovery.minute2Drop??old.hrr2??null,
+    hrr3:recovery.minute3Drop??old.hrr3??null,
     cardioDriftPercent:d?.aerobicDecoupling?.percent??old.cardioDriftPercent??null,
     trainingLoad:d?.trainingLoad??old.trainingLoad??null,
     adjustedPerformanceIndex:d?.weatherAdjustedEfficiency?.score??old.adjustedPerformanceIndex??null,
