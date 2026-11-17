@@ -5,8 +5,10 @@ on:
       - 'scripts/sync-garmin.py'
       - 'scripts/stage-garmin-runs.py'
       - 'scripts/publish-garmin.mjs'
+      - 'scripts/garmin-analysis.mjs'
       - 'docs/v2/**'
       - 'tests/garmin-first.test.mjs'
+      - 'tests/garmin-analysis.test.mjs'
       - '.github/workflows/garmin-tests.yml'
   push:
     branches: [main]
@@ -32,7 +34,8 @@ jobs:
       - name: Validate JavaScript syntax
         run: |
           node --check scripts/publish-garmin.mjs
+          node --check scripts/garmin-analysis.mjs
           node --check docs/v2/js/app.js
           node --check docs/v2/js/garmin-lab.js
       - name: Run Garmin and existing analytics tests
-        run: node --test tests/garmin-first.test.mjs tests/aerobic-analysis.test.mjs tests/run-comparison.test.mjs
+        run: node --test tests/garmin-first.test.mjs tests/garmin-analysis.test.mjs tests/aerobic-analysis.test.mjs tests/run-comparison.test.mjs
