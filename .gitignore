@@ -4,3 +4,6 @@
 
 # local dependencies
 node_modules/
+
+# Private, transient Garmin health data - never commit
+.garmin-staging/
