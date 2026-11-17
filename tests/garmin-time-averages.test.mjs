@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
 import {averageTimeline} from '../docs/v2/js/garmin-time-averages.js';
 const base=Date.parse('2026-11-16T21:22:41Z');
 const at=sec=>new Date(base+1000*sec).toISOString();
@@ -23,4 +24,13 @@ test('pace uses mean speed, not arithmetic mean of seconds per mile',()=>{
 });
 test('all offered intervals and startup trimming are supported',()=>{
   for(const d of [1,15,30,60,300])assert.equal(averageTimeline([{time:at(20),value:5}], 'value',at(21),d).length,0);
+});
+
+test('Garmin timeline renders unaveraged HR independently of selected pace interval',()=>{
+  const source=readFileSync(new URL('../docs/v2/js/garmin-lab.js',import.meta.url),'utf8');
+  const render=source.slice(source.indexOf('function renderPrimaryTimeline('),source.indexOf('function rowsHtml('));
+  assert.match(render,/const hr=\(details\.heartRateSeries\|\|\[\]\)\.filter/);
+  assert.doesNotMatch(render,/averageTimeline\([\s\S]*?heartRateSeries/);
+  assert.match(render,/const pacePoints=averageTimeline\(/);
+  assert.match(render,/axis:'right',reverse:true/);
 });
