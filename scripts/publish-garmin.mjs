@@ -5,6 +5,7 @@
  */
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import {garminAnalysis} from './garmin-analysis.mjs';
 
 const CUTOVER='2026-11-16';
 const TZ='America/Chicago';
@@ -130,14 +131,17 @@ for(const r of incoming){
     try{weather=await tempestWeather(r);}
     catch(e){console.log('Tempest unavailable for one run: '+e.name);}
   }
+  const derived=garminAnalysis(r,{zoneBoundaries:process.env.GARMIN_HR_ZONE_BOUNDARIES_BPM?.split(',').map(Number)});
   const detail={
     ...r,runId,detailFile,
     // Old Google traces and all old source-dependent calculations are removed.
     route:r.route||null,routeSource:r.route?'garmin-fit-relative':null,
-    zoneSummary:[],zoneSummarySource:null,
-    heartRateRecovery:null,heartRateRecoverySource:null,
-    aerobicDecoupling:null,trainingLoad:null,weatherAdjustedEfficiency:null,
-    adjustedPerformanceIndex:null,analysisSummary:null,
+    zoneSummary:derived.zoneSummary,zoneSummarySource:derived.zoneSummary?'configured-Garmin-HR-thresholds':null,
+    heartRateBands:derived.heartRateBands,
+    heartRateRecovery:derived.heartRateRecovery,heartRateRecoverySource:derived.heartRateRecoverySource,
+    aerobicDecoupling:derived.aerobicDecoupling,trainingLoad:null,weatherAdjustedEfficiency:null,
+    adjustedPerformanceIndex:null,analysisSummary:{method:derived.analysisMethod},
+    runningDynamicsByPace:derived.runningDynamicsByPace,
     runWalkIntervals:[],splitSummaries:r.lapSummaries||[],
     weather, dataSourceNotice:'Garmin FIT running data; Tempest home-station weather where available.'
   };
@@ -151,7 +155,7 @@ for(const r of incoming){
     distanceMiles:r.distanceMiles,averagePaceSecondsPerMile:r.averagePaceSecondsPerMile,
     averageHeartRate:r.averageHeartRate,peakHeartRate:r.peakHeartRate,
     source:'garmin',sourceActivityId:r.sourceActivityId,detailFile,
-    hrr1:null,hrr2:null,hrr3:null,cardioDriftPercent:null,trainingLoad:null,
+    hrr1:null,hrr2:null,hrr3:null,cardioDriftPercent:derived.aerobicDecoupling?.percent??null,trainingLoad:null,
     adjustedPerformanceIndex:null,heatIndexF:weather?.average?.heatIndexF??null,
     dewpointF:weather?.average?.dewpointF??null
   });
