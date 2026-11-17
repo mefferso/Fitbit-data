@@ -8,6 +8,7 @@ on:
       - 'scripts/garmin-analysis.mjs'
       - 'scripts/garmin-recovery.mjs'
       - 'docs/v2/**'
+      - 'tests/bridge-lab.test.mjs'
       - 'tests/garmin-first.test.mjs'
       - 'tests/garmin-analysis.test.mjs'
       - 'tests/garmin-recovery.test.mjs'
@@ -42,5 +43,6 @@ jobs:
           node --check scripts/garmin-recovery.mjs
           node --check docs/v2/js/app.js
           node --check docs/v2/js/garmin-lab.js
+          node --check docs/v2/js/bridge-lab.js
       - name: Run Garmin and existing analytics tests
-        run: node --test tests/garmin-time-averages.test.mjs tests/garmin-first.test.mjs tests/garmin-analysis.test.mjs tests/garmin-recovery.test.mjs tests/aerobic-analysis.test.mjs tests/run-comparison.test.mjs
+        run: node --test tests/bridge-lab.test.mjs tests/garmin-time-averages.test.mjs tests/garmin-first.test.mjs tests/garmin-analysis.test.mjs tests/garmin-recovery.test.mjs tests/aerobic-analysis.test.mjs tests/run-comparison.test.mjs

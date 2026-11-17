@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Bridge Metrics · Performance Lab</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<style>
+:root{color-scheme:dark;font-family:system-ui,-apple-system,sans-serif;background:#0d1725;color:#e4edf9}
+body{margin:0 auto;max-width:1100px;padding:22px}a{color:#92c8ff}
+h1{margin:14px 0 4px}.muted{color:#a9b9cc;line-height:1.5}
+.panel{padding:18px;margin:20px 0;border:1px solid #2f4760;background:#142238;border-radius:14px}
+.chart{height:290px;position:relative}.status{white-space:pre-line;color:#c6d6e8;font-size:13px}
+small{color:#a9b9cc}button{background:#294564;border:1px solid #517699;padding:9px 14px;color:white;border-radius:8px;cursor:pointer}
+</style></head><body>
+<a href="./">← Performance Lab</a><h1>Fitbit ↔ Garmin · bridge metrics</h1>
+<p class="muted">Only common raw pace and heart-rate series are recomputed with the same steady-window method for both devices. Original legacy values remain unchanged. The November 16, 2026 cutover marks a change in device and sampling characteristics—not a proven change in physiology. Garmin n is too small for an average or trend.</p>
+<p id="bridge-status" class="status" role="status">Loading raw workout traces…</p>
+<section class="panel"><h2>Steady-window efficiency (mph per bpm)</h2><div class="chart"><canvas id="efficiency"></canvas></div><p class="status" id="efficiency-status"></p></section>
+<section class="panel"><h2>Steady-window decoupling (%)</h2><div class="chart"><canvas id="decoupling"></canvas></div><p class="status" id="decoupling-status"></p></section>
+<section class="panel"><h2>Matched heart rate (150–160 bpm) pace</h2><div class="chart"><canvas id="matched"></canvas></div><p class="status" id="matched-status"></p></section>
+<p class="muted">QC: The September 16/24, October 8/15, and November 11 legacy pace traces are excluded from bridge computations because the accepted pace/GPS record is defective or absent. A qualifying window must also pass the existing steady/coverage checks. Intervals, hills, shifts in effort, weather and sensor sampling remain confounders. Tempest weather is contextual, not an adjustment to observed performance.</p>
+<script type="module" src="./js/bridge-lab.js"></script></body></html>
