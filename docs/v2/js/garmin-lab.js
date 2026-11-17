@@ -14,6 +14,7 @@ const fmt=(v,d=1)=>n(v)===null?'—':v.toFixed(d);
 const pace=seconds=>n(seconds)!==null&&seconds>0?Math.floor(seconds/60)+':'+String(Math.round(seconds%60)).padStart(2,'0')+'/mi':'—';
 const duration=seconds=>n(seconds)!==null?Math.floor(seconds/60)+':'+String(Math.round(seconds%60)).padStart(2,'0'):'—';
 const dateTime=iso=>iso?new Date(iso).toLocaleString('en-US',{timeZone:'America/Chicago',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}):'—';
+const missing=(reason='NO_SAMPLE')=>reason==='NOT_RECORDED_BY_DEVICE'?"Sense 2 didn't record this":reason==='NOT_YET_BASELINED'?'Garmin baseline building':'No sample recorded';
 const metric=(label,value,hint='')=>'<div class="metric"><div class="value">'+esc(value)+'</div><div class="label">'+esc(label)+'</div><div class="hint">'+esc(hint)+'</div></div>';
 async function loadJson(path){
   const response=await fetch(path,{cache:'no-store'});
@@ -88,10 +89,10 @@ function renderPrimaryTimeline(details,origin){
 }
 function rowsHtml(laps){
   if(!laps||!laps.length)return '<div class="empty">This FIT recording has no exported lap breakdown.</div>';
-  const head='<table><thead><tr><th>#</th><th>Distance</th><th>Time</th><th>Pace</th><th>Avg HR</th><th>Peak HR</th><th>Power</th></tr></thead><tbody>';
+  const head='<table><thead><tr><th>#</th><th>Distance</th><th>Time</th><th>Pace</th><th>Avg HR</th><th>Peak HR</th><th>Power</th><th>Cadence</th><th>GCT</th><th>Balance</th><th>Stride</th><th>Ascent</th></tr></thead><tbody>';
   return head+laps.map((l,i)=>{
     const p=n(l.durationSeconds)!==null&&n(l.distanceMiles)>0?l.durationSeconds/l.distanceMiles:null;
-    return '<tr><td>'+(i+1)+'</td><td>'+fmt(l.distanceMiles,2)+' mi</td><td>'+duration(l.durationSeconds)+'</td><td>'+pace(p)+'</td><td>'+fmt(l.averageHeartRate,0)+'</td><td>'+fmt(l.peakHeartRate,0)+'</td><td>'+fmt(l.averagePowerWatts,0)+'</td></tr>';
+    return '<tr><td>'+(i+1)+'</td><td>'+fmt(l.distanceMiles,2)+' mi</td><td>'+duration(l.durationSeconds)+'</td><td>'+pace(p)+'</td><td>'+fmt(l.averageHeartRate,0)+'</td><td>'+fmt(l.peakHeartRate,0)+'</td><td>'+fmt(l.averagePowerWatts,0)+'</td><td>'+fmt(l.averageCadenceSpm,0)+' spm</td><td>'+fmt(l.avgGroundContactMs,0)+' ms</td><td>'+fmt(l.avgGroundContactBalancePct,1)+'%</td><td>'+fmt(l.avgStrideLengthM,2)+' m</td><td>'+fmt(l.ascentM,0)+' m</td></tr>';
   }).join('')+'</tbody></table>';
 }
 async function showRun(run){
@@ -127,8 +128,15 @@ async function showRun(run){
       'Garmin activity load, if returned by Connect'),
     metric('Aerobic training effect',n(details.garminNative?.aerobicTrainingEffect)===null?'—':fmt(details.garminNative.aerobicTrainingEffect,1),
       'Garmin-native score, if available'),
-    metric('Anaerobic training effect',n(details.garminNative?.anaerobicTrainingEffect)===null?'—':fmt(details.garminNative.anaerobicTrainingEffect,1),
-      'Garmin-native score, if available')
+    metric('Anaerobic training effect',n(details.garminNative?.anaerobicTrainingEffect)===null?missing():fmt(details.garminNative.anaerobicTrainingEffect,1),'Garmin Connect native'),
+    metric('Training effect focus',details.garminNative?.trainingEffectLabel||missing(),'Garmin native category'),
+    metric('Recovery time',n(details.garminNative?.recoveryTimeHours)===null?missing():fmt(details.garminNative.recoveryTimeHours,0)+' hr','Garmin native; if exported'),
+    metric('Performance condition',n(details.garminNative?.performanceCondition)===null?missing():fmt(details.garminNative.performanceCondition,0),'Garmin native; if exported'),
+    metric('Ground contact balance',n(m.avgGroundContactBalancePct)===null?missing():fmt(m.avgGroundContactBalancePct,1)+'%','FIT; inspect left/right interpretation'),
+    metric('Stride length',n(m.avgStrideLengthM)===null?missing():fmt(m.avgStrideLengthM,2)+' m','FIT; on new syncs'),
+    metric('Ascent',n(details.garminSessionTotals?.ascentM)===null?missing():fmt(details.garminSessionTotals.ascentM*3.28084,0)+' ft','FIT session'),
+    metric('Descent',n(details.garminSessionTotals?.descentM)===null?missing():fmt(details.garminSessionTotals.descentM*3.28084,0)+' ft','FIT session'),
+    metric('Calories',n(details.garminSessionTotals?.calories)===null?missing():fmt(details.garminSessionTotals.calories,0),'FIT session')
   ].join('');
   document.querySelector('#running-hr-zone-table')?.remove();
   if(details.zoneSummary?.length){
@@ -154,7 +162,9 @@ async function showRun(run){
     ' · '+(details.heartRateSeries?.length||0)+' HR samples · '+(details.paceSeries?.length||0)+
     ' Garmin pace points · '+(details.dynamicsSeries?.length||0)+' dynamics records';
   const chartStart=detectChartStart(details);
-  $('run-context').innerHTML=esc(summaryLine)
+  const wx=details.weather?.average||{};
+  const weatherContext=n(wx.tempF)!==null?' · Tempest: '+fmt(wx.tempF,1)+'°F; dewpoint '+fmt(wx.dewpointF,1)+'°F; wind '+fmt(wx.windAvgMph,1)+' mph; solar '+fmt(wx.solarRadiationWm2,0)+' W/m²':'';
+  $('run-context').innerHTML=esc(summaryLine+weatherContext)
     +(chartStart.trimmedSeconds>0
       ? ' · chart-only startup trim: '+chartStart.trimmedSeconds+' sec'
       : '')
@@ -179,6 +189,10 @@ async function showRun(run){
     {label:'Running power (W)',source:dyn,key:'powerWatts',axis:'right',color:'#edab60',
       every:Math.max(1,Math.floor(dyn.length/700))}
   ]);
+  const heights=(details.dynamicsSeries||[]).map(p=>p.elevationFt).filter(v=>n(v)!==null);
+  let elevationNote=document.getElementById('garmin-elevation-note');
+  if(!elevationNote){elevationNote=document.createElement('div');elevationNote.id='garmin-elevation-note';$('run-context').insertAdjacentElement('afterend',elevationNote);}
+  elevationNote.textContent=heights.length?'Elevation range: '+fmt(Math.min(...heights),0)+'–'+fmt(Math.max(...heights),0)+' ft (FIT samples)':'Elevation: '+missing();
   $('lap-table').innerHTML=rowsHtml(details.lapSummaries);
   $('source-note').textContent=details.dataSourceNotice||
     'Garmin FIT measurements only. Missing fields are not filled from Fitbit/Google Health.';
@@ -230,7 +244,12 @@ function showWellness(dayKey){
   const stress=dayMeasurement(day,'stress',['overallStressLevel','averageStressLevel']);
   const steps=dayMeasurement(day,'steps',['totalSteps','steps']);
   const vo2=dayMeasurement(day,'vo2Max',['maxMetRun','vo2MaxValue','vo2Max']);
-  const hours=n(sleep)!==null?Math.floor(sleep/3600)+'h '+Math.round(sleep%3600/60)+'m':'—';
+  const hours=n(sleep)!==null?Math.floor(sleep/3600)+'h '+Math.round(sleep%3600/60)+'m':missing();
+  const sleepObj=day.sleep||{};
+  const bbEntry=(day.bodyBattery||[])[0]||{};
+  const daily=day.dailySummaries?.data?.[0]||{};
+  const minText=v=>n(v)===null?missing():Math.round(v/60)+' min';
+  const sleepNeed=sleepObj.sleepNeed||sleepObj.nextSleepNeed||{};
   $('daily-metrics').innerHTML=[
     metric('Overnight HRV',n(hr)===null?'—':fmt(hr,1)+' ms','7-day '+fmt(weekly,1)+' ms'),
     metric('Resting HR',n(rest)===null?'—':fmt(rest,0)+' bpm','Garmin daily HR'),
@@ -238,11 +257,23 @@ function showWellness(dayKey){
     metric('Body Battery',n(bb)===null?'—':fmt(bb,0),'Last sample · first '+fmt(bbFirst,0)),
     metric('Stress',n(stress)===null?'—':fmt(stress,0),'Garmin proprietary scale'),
     metric('Steps',n(steps)===null?'—':Math.round(steps).toLocaleString(),'Garmin daily steps'),
-    metric('Running VO₂ max',n(vo2)===null?'—':fmt(vo2,1),'Wearable estimate'),
+    metric('Running VO₂ max',n(vo2)===null?missing('NOT_YET_BASELINED'):fmt(vo2,1),'Watch estimate; no cross-device splice'),
+    metric('Sleep score',n(sleepObj.sleepScores?.overall?.value)===null?missing():fmt(sleepObj.sleepScores.overall.value,0),'Garmin score'),
+    metric('Sleep need',n(sleepNeed.actual)===null?missing():Math.round(sleepNeed.actual)+' min','Garmin reported; baseline '+(n(sleepNeed.baseline)===null?missing():Math.round(sleepNeed.baseline)+' min')),
+    metric('Nap',minText(sleepObj.napTimeSeconds),'Garmin-estimated'),
+    metric('Light sleep',minText(sleepObj.lightSleepSeconds),'Garmin-estimated'),
+    metric('Awake',minText(sleepObj.awakeSleepSeconds),'Count '+(sleepObj.awakeCount??missing())),
+    metric('Avg sleep stress',n(sleepObj.avgSleepStress)===null?missing():fmt(sleepObj.avgSleepStress,0),'Garmin sleep'),
+    metric('Avg sleep HR',n(sleepObj.avgHeartRate)===null?missing():fmt(sleepObj.avgHeartRate,0)+' bpm','Garmin sleep'),
+    metric('Battery charged',n(bbEntry.charged)===null?missing():'+'+fmt(bbEntry.charged,0),'Garmin daily'),
+    metric('Battery drained',n(bbEntry.drained)===null?missing():'−'+fmt(bbEntry.drained,0),'Garmin daily'),
+    metric('Step distance',n(day.steps?.[0]?.totalDistance)===null?missing():fmt(day.steps[0].totalDistance/1609.344,2)+' mi','Garmin steps endpoint'),
+    metric('Total calories',n(daily.calories?.burnedTotal)===null?missing():fmt(daily.calories.burnedTotal,0),'Garmin daily summary'),
+    metric('Intensity minutes',n(daily.intensityMinutes?.moderate)===null?missing():fmt(daily.intensityMinutes.moderate+2*(daily.intensityMinutes.vigorous||0),0),'Garmin moderate + 2×vigorous'),
     metric('Deep sleep',n(deep)===null?'—':Math.round(deep/60)+' min','Watch-estimated'),
     metric('REM sleep',n(rem)===null?'—':Math.round(rem/60)+' min','Watch-estimated'),
     metric('Respiration',n(respiration)===null?'—':fmt(respiration,1)+'/min','Sleep average'),
-    metric('Sleep Pulse Ox',n(spo2)===null?'—':fmt(spo2,0)+'%','Wearable estimate'),
+    metric('Sleep Pulse Ox',n(spo2)===null?missing():fmt(spo2,0)+'%','Requires watch Pulse Ox recording; setting may be disabled'),
     metric('Datasets',String(Object.keys(day).length),'API reports stored')
   ].join('');
   const kinds=['hrv','hrvSummaries','sleep','sleepSummaries','bodyBattery','stress','heartRate','steps','dailySummaries','vo2Max','spo2'];
@@ -283,6 +314,14 @@ function showWellnessTrend(){
     {label:'Resting HR (bpm)',data:values.map(v=>({x:v.day,y:n(v.rest)})).filter(v=>v.y!==null),
       borderColor:'#49d3a6',yAxisID:'rest'}
   ].filter(d=>d.data.length);
+  if(days.length<14){
+    $('wellness-trend-chart').hidden=true;
+    const note=$('wellness-trend-chart').parentElement.querySelector('.baseline-note')||document.createElement('div');
+    note.className='empty baseline-note';note.textContent='Garmin wellness baseline building: '+days.length+' of 14 days before trend display.';
+    $('wellness-trend-chart').parentElement.appendChild(note);return;
+  }
+  $('wellness-trend-chart').hidden=false;
+  $('wellness-trend-chart').parentElement.querySelector('.baseline-note')?.remove();
   if(!datasets.length){
     $('wellness-trend-chart').parentElement.innerHTML='<div class="empty">Trend starts once Garmin returns usable HRV or resting-HR values.</div>';
     return;
