@@ -99,7 +99,12 @@ async function showRun(run){
     metric('HR zones',details.zoneSummary?.length?'Configured':'Not configured',
       'Requires personal Garmin HR-zone boundaries'),
     metric('Post-run HR recovery','—','FIT activity ends before recovery'),
-    metric('Training load','—','Garmin-native load not yet available')
+    metric('Training load',n(details.garminNative?.activityTrainingLoad)===null?'—':fmt(details.garminNative.activityTrainingLoad,0),
+      'Garmin activity load, if returned by Connect'),
+    metric('Aerobic training effect',n(details.garminNative?.aerobicTrainingEffect)===null?'—':fmt(details.garminNative.aerobicTrainingEffect,1),
+      'Garmin-native score, if available'),
+    metric('Anaerobic training effect',n(details.garminNative?.anaerobicTrainingEffect)===null?'—':fmt(details.garminNative.anaerobicTrainingEffect,1),
+      'Garmin-native score, if available')
   ].join('');
   const bands=details.runningDynamicsByPace||[];
   if(bands.length){
