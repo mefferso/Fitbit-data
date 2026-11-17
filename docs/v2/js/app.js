@@ -165,9 +165,11 @@ function renderOverview(){
       : heroMetric('Whole-run drift',signed(run.aerobicDecoupling&&run.aerobicDecoupling.percent,1,'%'),{text:'Historical / effort-dependent',className:''})
   ].join('');
 
-  el('overview-api').textContent=run.source==='garmin'?'GARMIN':'HISTORICAL';
+  el('overview-api').textContent=run.source==='garmin'
+    ? (run.garminNative?.aerobicTrainingEffect!=null?Number(run.garminNative.aerobicTrainingEffect).toFixed(1)+' · '+(run.garminNative.trainingEffectLabel||'AEROBIC TE'):'Garmin load '+(run.garminNative?.activityTrainingLoad!=null?Math.round(run.garminNative.activityTrainingLoad):'unavailable'))
+    : (number(run.adjustedPerformanceIndex)!==null?Number(run.adjustedPerformanceIndex).toFixed(1):'Legacy score unavailable');
   el('overview-api-context').textContent=run.source==='garmin'
-    ? 'FIT activity · Garmin is authoritative for new workouts'
+    ? 'Garmin-native Training Effect / activity load · not comparable with retired legacy API'
     : 'Pre-Garmin historical running archive';
   renderWeek();
   el('overview-insights').innerHTML=makeInsights(summary,false).map(insightCard).join('');
@@ -201,7 +203,7 @@ function renderOverviewRecent(){
       '<div><div class="recent-primary">'+cleanNumber(r.distanceMiles,2)+' mi</div><div class="recent-secondary">distance</div></div>'+
       '<div><div class="recent-primary">'+fmtPace(r.averagePaceSecondsPerMile)+'</div><div class="recent-secondary">pace</div></div>'+
       '<div class="hide-mobile"><div class="recent-primary">'+cleanNumber(r.averageHeartRate,0)+' bpm</div><div class="recent-secondary">avg HR</div></div>'+
-      '<div class="hide-tablet"><div class="recent-primary">'+(number(r.adjustedPerformanceIndex)===null?'—':Number(r.adjustedPerformanceIndex).toFixed(1))+'</div><div class="recent-secondary">adj. perf.</div></div>'+
+      '<div class="hide-tablet"><div class="recent-primary">'+(r.source==='garmin'?'Garmin era':number(r.adjustedPerformanceIndex)===null?'Legacy score unavailable':Number(r.adjustedPerformanceIndex).toFixed(1))+'</div><div class="recent-secondary">'+(r.source==='garmin'?'native metrics in Garmin Lab':'legacy adj. perf.')+'</div></div>'+
       '<div>›</div></div>';
   }).join('');
   all('#overview-recent-runs [data-run]').forEach(function(row){
@@ -845,9 +847,9 @@ function renderHistory(){
       '<td>'+fmtPace(r.averagePaceSecondsPerMile)+'</td>'+
       '<td>'+cleanNumber(r.averageHeartRate,0)+' bpm</td>'+
       '<td>'+(number(r.heatIndexF)===null?'—':cleanNumber(r.heatIndexF,0)+'°F')+'</td>'+
-      '<td class="api-cell">'+(number(r.adjustedPerformanceIndex)===null?'—':Number(r.adjustedPerformanceIndex).toFixed(1))+'</td>'+
-      '<td>'+(number(r.cardioDriftPercent)===null?'—':cleanNumber(r.cardioDriftPercent,1)+'%')+'</td>'+
-      '<td>'+(number(r.hrr1)===null?'—':cleanNumber(r.hrr1,0)+' bpm')+'</td>'+
+      '<td class="api-cell">'+(r.source==='garmin'?'Legacy metric ended':number(r.adjustedPerformanceIndex)===null?'No sample recorded':Number(r.adjustedPerformanceIndex).toFixed(1))+'</td>'+
+      '<td>'+(number(r.cardioDriftPercent)===null?(r.source==='garmin'?'Different Garmin method; no sample':'No sample recorded'):cleanNumber(r.cardioDriftPercent,1)+'%')+'</td>'+
+      '<td>'+(number(r.hrr1)===null?(r.source==='garmin'?'Garmin recovery sample missing':'No sample recorded'):cleanNumber(r.hrr1,0)+' bpm')+'</td>'+
       '<td class="hr-spark-cell" data-hr-run="'+escapeHtml(r.runId)+'"><span class="recent-secondary">'+(r.detailFile?'…':'—')+'</span></td></tr>';
   }).join('');
   observeHistoryHeartRates();
