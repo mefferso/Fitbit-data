@@ -101,6 +101,22 @@ def run(args):
                         parsed = stage.parse_fit(
                             client.download_activity(activity_id), activity_id
                         )
+                        # Explicit allowlist: Garmin-owned activity metadata only.
+                        # Never publish unrestricted account/activity responses.
+                        native_fields = (
+                            "aerobicTrainingEffect", "anaerobicTrainingEffect",
+                            "activityTrainingLoad", "trainingEffectLabel",
+                            "recoveryTime", "performanceCondition",
+                        )
+                        native = {}
+                        for field in native_fields:
+                            value = activity.get(field)
+                            if isinstance(value, (float, int)) and not isinstance(value, bool):
+                                if 0 <= value < 100000:
+                                    native[field] = value
+                            elif field == "trainingEffectLabel" and isinstance(value, str):
+                                native[field] = value[:60]
+                        parsed["garminNative"] = native
                         if parsed["date"] >= args.since:
                             imported.append(parsed)
                     except Exception:
