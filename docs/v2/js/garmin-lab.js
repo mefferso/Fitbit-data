@@ -96,8 +96,8 @@ async function showRun(run){
     metric('Running power',n(m.avgPowerWatts)===null?'—':fmt(m.avgPowerWatts,0)+' W','FIT recording'),
     metric('Aerobic drift',n(details.aerobicDecoupling?.percent)===null?'—':fmt(details.aerobicDecoupling.percent,1)+'%',
       details.aerobicDecoupling?.interpretation||'Not enough matched pace/HR data'),
-    metric('HR zones',details.zoneSummary?.length?'Configured':'Not configured',
-      'Requires personal Garmin HR-zone boundaries'),
+    metric('HR zones',details.zoneSummary?.length?'5 running zones':'Not configured',
+      details.zoneSummary?.length?'Running profile · % max HR':'Requires personal Garmin HR-zone boundaries'),
     metric('HR recovery · 1 min',n(details.heartRateRecovery?.minute1Drop)===null?'—':fmt(details.heartRateRecovery.minute1Drop,0)+' bpm',
       'Approximate Garmin daily HR sample; not standardized'),
     metric('HR recovery · 2 min',n(details.heartRateRecovery?.minute2Drop)===null?'—':fmt(details.heartRateRecovery.minute2Drop,0)+' bpm',
@@ -113,6 +113,17 @@ async function showRun(run){
     metric('Anaerobic training effect',n(details.garminNative?.anaerobicTrainingEffect)===null?'—':fmt(details.garminNative.anaerobicTrainingEffect,1),
       'Garmin-native score, if available')
   ].join('');
+  document.querySelector('#running-hr-zone-table')?.remove();
+  if(details.zoneSummary?.length){
+    const rows=[...(details.belowZone1?[details.belowZone1]:[]),...details.zoneSummary];
+    const zoneRows=rows.map(z=>'<tr><td>'+esc(z.label)+'</td><td>'+
+      (z.minimumBpm??'&lt;')+(z.maximumBpm===null?'+ bpm':z.minimumBpm===undefined?' '+z.maximumBpm+' bpm':'–'+z.maximumBpm+' bpm')+
+      '</td><td>'+duration(z.seconds)+'</td><td>'+
+      (100*z.seconds/Math.max(1,details.heartRateSeries?.length||0)).toFixed(1)+'%</td></tr>').join('');
+    $('run-metrics').insertAdjacentHTML('afterend',
+      '<div id="running-hr-zone-table"><div class="empty" style="margin-top:12px">Running heart-rate zones · % max HR, 186 bpm (Nov 17 configuration; rounded BPM boundaries)</div>'+
+      '<table><thead><tr><th>Zone</th><th>HR range</th><th>Time</th><th>% samples</th></tr></thead><tbody>'+zoneRows+'</tbody></table></div>');
+  }
   const bands=details.runningDynamicsByPace||[];
   if(bands.length){
     const table='<div class="empty" style="margin-top:12px">Dynamics by observed pace band (at least 15 samples; these are associations, not efficiency tests)</div>'+

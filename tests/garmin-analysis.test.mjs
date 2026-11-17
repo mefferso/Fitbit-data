@@ -20,9 +20,10 @@ test('Garmin FIT analysis produces time-aligned drift and per-pace dynamics with
   assert.equal(a.runningDynamicsByPace.length,1);
   assert.equal(a.runningDynamicsByPace[0].verticalRatioPct,9.5);
   assert.equal(a.heartRateRecovery,null);
-  const configured=garminAnalysis(run,{zoneBoundaries:[110,130,150,170]});
+  const configured=garminAnalysis(run,{zoneBoundaries:[93,112,130,149,167]});
   assert.equal(configured.zoneSummary.length,5);
   assert.equal(configured.zoneSummary.reduce((x,y)=>x+y.seconds,0),2400);
+  assert.equal(configured.belowZone1.seconds,0);
 });
 test('short activities do not invent reliable drift; pace bands need 15 real observations',()=>{
   const run={startTime:at(0),endTime:at(40),
@@ -32,4 +33,13 @@ test('short activities do not invent reliable drift; pace bands need 15 real obs
   assert.equal(a.aerobicDecoupling,null);
   assert.deepEqual(a.runningDynamicsByPace,[]);
   assert.equal(a.heartRateRecovery,null);
+});
+
+test('running zones exclude heart rates below the 50% max-HR minimum',()=>{
+  const hr=[75,92,93,111,112,129,130,148,149,166,167,186];
+  const r={heartRateSeries:hr.map((value,i)=>({time:at(i),value}))};
+  const a=garminAnalysis(r,{zoneBoundaries:[93,112,130,149,167]});
+  assert.equal(a.belowZone1.seconds,2);
+  assert.deepEqual(a.zoneSummary.map(z=>z.seconds),[2,2,2,2,2]);
+  assert.equal(a.zoneSummary.reduce((s,z)=>s+z.seconds,0)+a.belowZone1.seconds,hr.length);
 });
