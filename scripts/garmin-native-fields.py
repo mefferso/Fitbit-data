@@ -32,6 +32,8 @@ def extract_native(listing,detail):
             if field=="performanceCondition":
                 if -30 <= value <= 30:
                     native[field]=value
+            elif field=="recoveryTime" and 0 <= value < 1000000000:
+                native[field]=value
             elif 0 <= value < 100000:
                 native[field]=value
     # Unit intentionally not assumed: not all response variants express recoveryTime identically.
