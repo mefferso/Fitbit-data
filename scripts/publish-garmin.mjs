@@ -116,7 +116,7 @@ const trends=await read('docs/data/trends.json',{runningTrend:{}});
 const previousWellness=await read('docs/data/garmin-wellness.json',{days:{}});
 const combinedWellnessDays={...(previousWellness.days||{})};
 for(const [date,measurements] of Object.entries(incomingWellness)){
-  if(!/^\\d{4}-\\d\\d-\\d\\d$/.test(date))throw Error('Invalid wellness date');
+  if(!/^\d{4}-\d\d-\d\d$/.test(date))throw Error('Invalid wellness date');
   const day={...(combinedWellnessDays[date]||{})};
   for(const [name,value] of Object.entries(measurements)){
     if(name!=='_unavailable'&&value!==null&&value!==undefined)day[name]=value;
