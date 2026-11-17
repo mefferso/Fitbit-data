@@ -3,10 +3,10 @@ import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 
 const aerobicSource=await readFile(new URL('../docs/v2/js/aerobic-analysis.js',import.meta.url),'utf8');
-const moduleUrl='data:text/javascript,'+encodeURIComponent(aerobicSource);
+const moduleUrl='data:text/javascript;base64,'+Buffer.from(aerobicSource).toString('base64');
 const bridgeSource=(await readFile(new URL('../docs/v2/js/bridge-lab.js',import.meta.url),'utf8'))
   .replace("from './aerobic-analysis.js'", "from '"+moduleUrl+"'");
-const {bridgeMetrics}=await import('data:text/javascript,'+encodeURIComponent(bridgeSource));
+const {bridgeMetrics}=await import('data:text/javascript;base64,'+Buffer.from(bridgeSource).toString('base64'));
 
 function sample(date,source){
   const start=Date.parse(date+'T14:00:00Z'),paceSeries=[],heartRateSeries=[];
