@@ -14,6 +14,6 @@ test('Garmin daily samples provide only time-supported approximate recovery',()=
   assert.equal(r.measurements.length,2);
 });
 test('missing and distant timestamps do not generate invented HRR',()=>{
-  assert.equal(garminPostRunRecovery(run,{heartRate:{heartRateValues:[[time(40),158]]}}),null);
+  assert.equal(garminPostRunRecovery(run,{heartRate:{heartRateValues:[[time(15),158]]}}),null);
   assert.equal(garminPostRunRecovery(run,{}),null);
 });
