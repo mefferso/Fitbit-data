@@ -153,7 +153,16 @@ function showWellness(dayKey){
   const weekly=dayMeasurement(day,'hrv',['weeklyAvg','weeklyAverage']);
   const rest=dayMeasurement(day,'heartRate',['restingHeartRate','restingHeartRateValue']);
   const sleep=dayMeasurement(day,'sleep',['sleepTimeSeconds','totalSleepSeconds','sleepDurationSeconds']);
-  const bb=dayMeasurement(day,'bodyBattery',['bodyBatteryMostRecentValue','bodyBatteryLast']);
+  const bbValues=(day.bodyBattery||[]).flatMap(entry=>
+    (entry.bodyBatteryValuesArray||[]).filter(row=>
+      Array.isArray(row)&&n(row[0])!==null&&n(row[1])!==null));
+  bbValues.sort((a,b)=>a[0]-b[0]);
+  const bb=bbValues.length?bbValues[bbValues.length-1][1]:null;
+  const bbFirst=bbValues.length?bbValues[0][1]:null;
+  const deep=dayMeasurement(day,'sleep',['deepSleepSeconds']);
+  const rem=dayMeasurement(day,'sleep',['remSleepSeconds']);
+  const respiration=dayMeasurement(day,'sleep',['averageRespirationValue']);
+  const spo2=dayMeasurement(day,'spo2',['avgSleepSpO2','averageSpO2']);
   const stress=dayMeasurement(day,'stress',['overallStressLevel','averageStressLevel']);
   const steps=dayMeasurement(day,'steps',['totalSteps','steps']);
   const vo2=dayMeasurement(day,'vo2Max',['maxMetRun','vo2MaxValue','vo2Max']);
@@ -162,10 +171,14 @@ function showWellness(dayKey){
     metric('Overnight HRV',n(hr)===null?'—':fmt(hr,1)+' ms','7-day '+fmt(weekly,1)+' ms'),
     metric('Resting HR',n(rest)===null?'—':fmt(rest,0)+' bpm','Garmin daily HR'),
     metric('Sleep',hours,'Recorded duration'),
-    metric('Body Battery',n(bb)===null?'—':fmt(bb,0),'Garmin report value'),
+    metric('Body Battery',n(bb)===null?'—':fmt(bb,0),'Last sample · first '+fmt(bbFirst,0)),
     metric('Stress',n(stress)===null?'—':fmt(stress,0),'Garmin proprietary scale'),
     metric('Steps',n(steps)===null?'—':Math.round(steps).toLocaleString(),'Garmin daily steps'),
     metric('Running VO₂ max',n(vo2)===null?'—':fmt(vo2,1),'Wearable estimate'),
+    metric('Deep sleep',n(deep)===null?'—':Math.round(deep/60)+' min','Watch-estimated'),
+    metric('REM sleep',n(rem)===null?'—':Math.round(rem/60)+' min','Watch-estimated'),
+    metric('Respiration',n(respiration)===null?'—':fmt(respiration,1)+'/min','Sleep average'),
+    metric('Sleep Pulse Ox',n(spo2)===null?'—':fmt(spo2,0)+'%','Wearable estimate'),
     metric('Datasets',String(Object.keys(day).length),'API reports stored')
   ].join('');
   const kinds=['hrv','hrvSummaries','sleep','sleepSummaries','bodyBattery','stress','heartRate','steps','dailySummaries','vo2Max','spo2'];
