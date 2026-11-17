@@ -4,6 +4,7 @@
  * with Google/Fitbit values.
  */
 import {detectChartStart} from './garmin-chart-start.js';
+import {averageTimeline} from './garmin-time-averages.js';
 const $=id=>document.getElementById(id);
 const charts=new Map();
 const state={index:[],wellness:{days:{}},run:null,day:null};
@@ -68,6 +69,21 @@ function chart(name,canvasId,origin,definitions){
     }
   };
   charts.set(name,new Chart($(canvasId),{type:'line',data:{datasets},options}));
+}
+function renderPrimaryTimeline(details,origin){
+  const selected=Number($('hr-pace-resolution')?.value||60);
+  const interval=[1,15,30,60,300].includes(selected)?selected:60;
+  const hr=averageTimeline(
+    (details.heartRateSeries||[]).filter(p=>p.time>=origin),
+    'value',origin,interval);
+  const pacePoints=averageTimeline(
+    (details.paceSeries||[]).filter(p=>p.time>=origin),
+    'paceSecondsPerMile',origin,interval,{pace:true});
+  chart('primary','run-primary-chart',origin,[
+    {label:'Heart rate (bpm)',source:hr,key:'value',color:'#52baf7'},
+    {label:'Pace (min/mi)',source:pacePoints,key:'paceSecondsPerMile',
+      axis:'right',reverse:true,tick:val=>pace(val).replace('/mi',''),color:'#ae9fff'}
+  ]);
 }
 function rowsHtml(laps){
   if(!laps||!laps.length)return '<div class="empty">This FIT recording has no exported lap breakdown.</div>';
@@ -150,11 +166,7 @@ async function showRun(run){
   const hr=(details.heartRateSeries||[]).filter(p=>p.time>=origin);
   const pp=(details.paceSeries||[]).filter(p=>p.time>=origin);
   const dyn=(details.dynamicsSeries||[]).filter(p=>p.time>=origin);
-  chart('primary','run-primary-chart',origin,[
-    {label:'Heart rate (bpm)',source:hr,key:'value',color:'#52baf7'},
-    {label:'Pace (seconds/mi)',source:pp,key:'paceSecondsPerMile',axis:'right',reverse:true,
-      tick:val=>pace(val).replace('/mi',''),color:'#ae9fff',every:Math.max(1,Math.floor(pp.length/750))}
-  ]);
+  renderPrimaryTimeline(details,origin);
   chart('mechanics','run-mechanics-chart',origin,[
     {label:'Cadence (spm)',source:dyn,key:'cadenceSpm',color:'#52baf7',every:Math.max(1,Math.floor(dyn.length/700))},
     {label:'Ground contact (ms)',source:dyn,key:'groundContactMs',axis:'right',color:'#3ed6ae',
@@ -294,6 +306,11 @@ async function init(){
     state.wellness=wellness||{days:{}};
     const dates=Object.keys(state.wellness.days||{}).sort().reverse();
     $('sync-status').textContent='Sync '+(index.generatedAt?dateTime(index.generatedAt):'not available');
+    $('hr-pace-resolution')?.addEventListener('change',()=>{
+      if(!state.run)return;
+      const origin=detectChartStart(state.run).startTime;
+      renderPrimaryTimeline(state.run,origin);
+    });
     if(state.index.length){
       $('run-select').innerHTML=state.index.map((r,i)=>'<option value="'+i+'">'+esc(r.date)+
         ' · '+fmt(r.distanceMiles,2)+' mi</option>').join('');
