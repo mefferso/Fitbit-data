@@ -160,13 +160,15 @@ function renderOverview(){
     heroMetric('Distance',cleanNumber(run.distanceMiles,2)+' mi',deltaText(run.distanceMiles,prev.distanceMiles,'distance')),
     heroMetric('Pace',fmtPace(run.averagePaceSecondsPerMile),deltaText(run.averagePaceSecondsPerMile,prev.averagePaceSecondsPerMile,'pace')),
     heroMetric('Avg HR',cleanNumber(run.averageHeartRate,0)+' bpm',deltaText(run.averageHeartRate,prev.averageHeartRate,'hr')),
-    heroMetric('Whole-run drift',signed(run.aerobicDecoupling&&run.aerobicDecoupling.percent,1,'%'),{text:'Pacing-dependent · not a fitness grade',className:''})
+    run.source==='garmin'
+      ? heroMetric('Cadence',run.garminMetrics?.avgCadenceSpm!=null?cleanNumber(run.garminMetrics.avgCadenceSpm,1)+' spm':'—',{text:'Garmin FIT running mechanics',className:''})
+      : heroMetric('Whole-run drift',signed(run.aerobicDecoupling&&run.aerobicDecoupling.percent,1,'%'),{text:'Historical / effort-dependent',className:''})
   ].join('');
 
-  const api=number(summary.adjustedPerformanceIndex);
-  el('overview-api').textContent=api===null?'—':api.toFixed(1);
-  const apiDelta=deltaText(api,prev.adjustedPerformanceIndex,'api');
-  el('overview-api-context').textContent=api===null?'Needs a qualifying run with weather, pace and HR.':'Session score · 100 = original baseline · '+apiDelta.text;
+  el('overview-api').textContent=run.source==='garmin'?'GARMIN':'HISTORICAL';
+  el('overview-api-context').textContent=run.source==='garmin'
+    ? 'FIT activity · Garmin is authoritative for new workouts'
+    : 'Pre-Garmin historical running archive';
   renderWeek();
   el('overview-insights').innerHTML=makeInsights(summary,false).map(insightCard).join('');
   renderOverviewRecent();
@@ -183,15 +185,14 @@ function renderWeek(){
   const week=store.runs.filter(function(r){return r.date>=startDate&&r.date<=endDate;});
   const miles=week.reduce(function(sum,r){return sum+(number(r.distanceMiles)||0);},0);
   const seconds=week.reduce(function(sum,r){return sum+(number(r.activeSeconds)||0);},0);
-  const api=mean(week.map(function(r){return r.adjustedPerformanceIndex;}));
-  const load=week.reduce(function(sum,r){return sum+(number(r.trainingLoad)||0);},0);
+  const avgMinutes=week.length?Math.round(seconds/60/week.length):0;
   el('week-grid').innerHTML=[
     ['Runs',week.length],
     ['Distance',miles.toFixed(1)+' mi'],
     ['Time',Math.round(seconds/60)+' min'],
-    ['Training load',load.toFixed(0)]
+    ['Avg run',avgMinutes+' min']
   ].map(function(item){return '<div class="week-stat"><div class="week-value">'+item[1]+'</div><div class="week-label">'+item[0]+'</div></div>';}).join('');
-  el('week-footer').textContent=api===null?'No qualifying adjusted-performance scores this week.':'Average adjusted performance '+api.toFixed(1)+'. '+(api>=110?'A strong week relative to your baseline.':api>=100?'Above baseline overall.':'Below your current baseline overall.');
+  el('week-footer').textContent='Weekly training time '+Math.round(seconds/60)+' minutes · descriptive, not a proprietary load score.';
 }
 function renderOverviewRecent(){
   el('overview-recent-runs').innerHTML=store.runs.slice(0,6).map(function(r){
@@ -233,7 +234,10 @@ function renderEfficiencyPanel(id,canvasId,runs,chartName){
 function renderOverviewCharts(){
   const weather=(store.trends.runningTrend&&store.trends.runningTrend.weatherAdjusted&&store.trends.runningTrend.weatherAdjusted.runs)||[];
   renderEfficiencyPanel('overview-eff','overview-performance-chart',weather.slice(-14),'overviewPerformance');
-  charts.trainingLoad(el('overview-load-chart'),(store.trends.trainingLoad&&store.trends.trainingLoad.points)||[],'overviewLoad');
+  const minuteDays=new Map();
+  store.runs.slice(0,65).forEach(function(r){minuteDays.set(r.date,(minuteDays.get(r.date)||0)+(number(r.activeSeconds)||0)/60);});
+  const minutePoints=[...minuteDays.entries()].sort((a,b)=>a[0].localeCompare(b[0])).map(x=>({date:x[0],load:Math.round(x[1])}));
+  charts.trainingLoad(el('overview-load-chart'),minutePoints,'overviewLoad');
 }
 
 function makeInsights(run,detailed){
@@ -335,9 +339,9 @@ function renderAnalysisMetrics(run,summary,prev){
     ['Distance',cleanNumber(run.distanceMiles,2)+' mi',deltaText(run.distanceMiles,prev.distanceMiles,'distance')],
     ['Pace',fmtPace(run.averagePaceSecondsPerMile),deltaText(run.averagePaceSecondsPerMile,prev.averagePaceSecondsPerMile,'pace')],
     ['Average HR',cleanNumber(run.averageHeartRate,0)+' bpm',deltaText(run.averageHeartRate,prev.averageHeartRate,'hr')],
-    ['Adj. performance',api===null?'—':api.toFixed(1),deltaText(api,prev.adjustedPerformanceIndex,'api')],
-    ['Whole-run drift',signed(run.aerobicDecoupling&&run.aerobicDecoupling.percent,1,'%'),{text:'Pacing-dependent',className:''}],
-    ['Training load',cleanNumber(run.trainingLoad,0),{text:cleanNumber(run.vigorousPlusPeakMinutes,0)+' hard-effort min',className:''}]
+    ['Cadence',run.source==='garmin'?cleanNumber(run.garminMetrics?.avgCadenceSpm,1)+' spm':'—',{text:run.source==='garmin'?'Garmin FIT':'Historical / not available',className:''}],
+    ['Ground contact',run.source==='garmin'?cleanNumber(run.garminMetrics?.avgGroundContactMs,0)+' ms':'—',{text:'Garmin running dynamics',className:''}],
+    ['Vertical oscillation',run.source==='garmin'?cleanNumber(run.garminMetrics?.avgVerticalOscillationCm,2)+' cm':'—',{text:'Garmin running dynamics',className:''}]
   ];
   el('analysis-metrics').innerHTML=metrics.map(function(m){
     return '<div class="metric-card"><div class="metric-label">'+m[0]+'</div><div class="metric-value">'+m[1]+'</div><div class="metric-delta '+m[2].className+'">'+m[2].text+'</div></div>';
@@ -371,8 +375,9 @@ function renderRecovery(run){
 function renderRunCharts(run){
   charts.runStack(el('run-hr-chart'),el('run-pace-chart'),run,state.paceMode);
   charts.bindSynchronizedPointer(el('run-stack'));
-  el('hr-summary').textContent='Avg '+cleanNumber(run.averageHeartRate,0)+' · peak '+cleanNumber(run.peakHeartRate,0)+' bpm';
-  el('pace-summary').textContent='Avg '+fmtPace(run.averagePaceSecondsPerMile)+' · '+(run.paceSeriesSource==='tcx'?'TCX':'distance rollup');
+  el('hr-summary').textContent='Avg '+cleanNumber(run.averageHeartRate,0)+' · peak '+cleanNumber(run.peakHeartRate,0)+' bpm · '+(run.heartRateSeriesSource==='garmin-fit'?'Garmin FIT':'Historical HR source');
+  const paceSource=String(run.paceSeriesSource||'');
+  el('pace-summary').textContent='Avg '+fmtPace(run.averagePaceSecondsPerMile)+' · '+(paceSource.startsWith('garmin')?'Garmin FIT':paceSource.includes('tcx')?'Google Health TCX (secondary)':'Distance rollup');
 }
 function previousDetailedRun(runId){
   const runs=store.detailedRuns;
