@@ -75,3 +75,43 @@ test('invalid Garmin activity is rejected before publishing indexes',async()=>{
   assert.notEqual(bad.status,0);
   await assert.rejects(readFile(join(dir,'docs/data/run-index.json'),'utf8'));
 });
+
+
+import {detectChartStart} from '../docs/v2/js/garmin-chart-start.js';
+
+test('Garmin Nov 16-like stationary startup is excluded only from charts',()=>{
+  const base=Date.parse('2026-11-16T21:22:41Z');
+  const at=s=>new Date(base+s*1000).toISOString();
+  const dynamicsSeries=[
+    ...Array.from({length:8},(_,s)=>({time:at(s),cadenceSpm:0,powerWatts:0})),
+    ...Array.from({length:5},(_,j)=>({time:at(8+j),cadenceSpm:j===4?167:102,powerWatts:j===4?106:1})),
+    ...Array.from({length:5},(_,j)=>({time:at(13+j),cadenceSpm:165,powerWatts:185+j*20,groundContactMs:290}))
+  ];
+  const details={startTime:at(0),activeSeconds:2418,distanceMiles:3.7678,dynamicsSeries};
+  assert.deepEqual(detectChartStart(details),{startTime:at(13),trimmedSeconds:13});
+  assert.equal(details.activeSeconds,2418);
+  assert.equal(details.distanceMiles,3.7678);
+});
+
+test('No arbitrary removal during slow warmup or when dynamics are unavailable',()=>{
+  const base='2026-11-16T21:22:41Z';
+  const at=s=>new Date(Date.parse(base)+s*1000).toISOString();
+  const slow={startTime:base,dynamicsSeries:Array.from({length:40},(_,s)=>({
+    time:at(s),cadenceSpm:105,powerWatts:100,groundContactMs:310
+  }))};
+  assert.deepEqual(detectChartStart(slow),{startTime:base,trimmedSeconds:0});
+  assert.deepEqual(detectChartStart({startTime:base}),{startTime:base,trimmedSeconds:0});
+});
+
+test('Three consecutive credible running samples are required',()=>{
+  const base='2026-11-16T21:22:41Z';
+  const at=s=>new Date(Date.parse(base)+s*1000).toISOString();
+  const dynamicsSeries=[
+    {time:at(0),cadenceSpm:165,powerWatts:230},
+    {time:at(1),cadenceSpm:0,powerWatts:0},
+    {time:at(2),cadenceSpm:160,powerWatts:200},
+    {time:at(3),cadenceSpm:160,powerWatts:200},
+    {time:at(4),cadenceSpm:161,powerWatts:200}
+  ];
+  assert.deepEqual(detectChartStart({startTime:base,dynamicsSeries}),{startTime:at(2),trimmedSeconds:2});
+});

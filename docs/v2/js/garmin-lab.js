@@ -3,6 +3,7 @@
  * Garmin JSON feed. Missing Garmin metrics are never extrapolated or replaced
  * with Google/Fitbit values.
  */
+import {detectChartStart} from './garmin-chart-start.js';
 const $=id=>document.getElementById(id);
 const charts=new Map();
 const state={index:[],wellness:{days:{}},run:null,day:null};
@@ -60,7 +61,7 @@ function chart(name,canvasId,origin,definitions){
         callbacks:{title:items=>items.length?items[0].parsed.x.toFixed(1)+' min':''}}},
     scales:{
       x:{type:'linear',ticks:{color:'#859db8'},grid:{color:'#233650'},
-        title:{display:true,text:'Minutes into run',color:'#849bb3'}},
+        title:{display:true,text:'Minutes since movement began',color:'#849bb3'}},
       left:{type:'linear',position:'left',ticks:{color:'#aebed1'},grid:{color:'#243549'}},
       ...(dual?{right:{type:'linear',position:'right',grid:{drawOnChartArea:false},
         reverse:Boolean(rightDefinition?.reverse),ticks:{color:'#aebed1',callback:rightDefinition?.tick||undefined}}}:{})
@@ -97,11 +98,20 @@ async function showRun(run){
   const summaryLine=dateTime(details.startTime)+' · Garmin activity '+details.sourceActivityId+
     ' · '+(details.heartRateSeries?.length||0)+' HR samples · '+(details.paceSeries?.length||0)+
     ' Garmin pace points · '+(details.dynamicsSeries?.length||0)+' dynamics records';
-  $('run-context').innerHTML=esc(summaryLine)+(details.route?.points?.length
-    ? ' · <a href="./?view=analysis&run='+encodeURIComponent(details.runId)+'">Open Garmin route map →</a>'
-    : '');
-  const origin=details.startTime;
-  const hr=details.heartRateSeries||[],pp=details.paceSeries||[],dyn=details.dynamicsSeries||[];
+  const chartStart=detectChartStart(details);
+  $('run-context').innerHTML=esc(summaryLine)
+    +(chartStart.trimmedSeconds>0
+      ? ' · chart-only startup trim: '+chartStart.trimmedSeconds+' sec'
+      : '')
+    +(details.route?.points?.length
+      ? ' · <a href="./?view=analysis&run='+encodeURIComponent(details.runId)+'">Open Garmin route map →</a>'
+      : '');
+  // All three charts use the same moving-start origin. Data, lap splits,
+  // distance, timer, and summary values are left exactly as recorded.
+  const origin=chartStart.startTime;
+  const hr=(details.heartRateSeries||[]).filter(p=>p.time>=origin);
+  const pp=(details.paceSeries||[]).filter(p=>p.time>=origin);
+  const dyn=(details.dynamicsSeries||[]).filter(p=>p.time>=origin);
   chart('primary','run-primary-chart',origin,[
     {label:'Heart rate (bpm)',source:hr,key:'value',color:'#52baf7'},
     {label:'Pace (seconds/mi)',source:pp,key:'paceSecondsPerMile',axis:'right',reverse:true,
