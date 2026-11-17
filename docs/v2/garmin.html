@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b1220">
+  <meta name="description" content="Garmin Forerunner 970 running, mechanics and daily wellness data">
+  <title>Garmin Lab · Performance Lab</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="garmin.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+  <script defer type="module" src="js/garmin-lab.js"></script>
+</head>
+<body>
+<div class="lab-shell">
+  <header class="top-bar">
+    <a class="back" href="./">← Performance Lab</a>
+    <div class="top-title">
+      <div class="eyebrow">FORERUNNER 970 · GARMIN CONNECT PERSONAL API</div>
+      <h1>Garmin Lab <span>V3</span></h1>
+      <p>Running mechanics, FIT time series, training history, and daily wellness.</p>
+    </div>
+    <div class="sync-pill" id="sync-status">Loading…</div>
+  </header>
+
+  <div class="notice">Garmin is the only running-data source from November 16, 2026 onward. Earlier Fitbit/Google workouts remain in the historical archive. Garmin daily wellness measurements are intentionally published at the owner's request.</div>
+
+  <section class="section" aria-label="Recent run">
+    <div class="section-heading"><div><div class="eyebrow">01 · ACTIVITY</div><h2>Garmin Run Lab</h2></div><label class="picker-label">Run <select id="run-select" aria-label="Choose Garmin run"></select></label></div>
+    <div class="metric-grid" id="run-metrics"><div class="empty">Reading FIT activities…</div></div>
+    <div class="context-line" id="run-context"></div>
+    <div class="chart-grid">
+      <article class="panel full"><div class="eyebrow">TIMELINE</div><h3>Heart rate and pace</h3><div class="chart-frame"><canvas id="run-primary-chart" aria-label="Heart rate and pace by elapsed time"></canvas></div></article>
+      <article class="panel"><div class="eyebrow">BIOMECHANICS</div><h3>Cadence and ground contact</h3><div class="chart-frame"><canvas id="run-mechanics-chart" aria-label="Cadence and ground contact time by elapsed time"></canvas></div></article>
+      <article class="panel"><div class="eyebrow">EFFICIENCY INPUTS</div><h3>Vertical oscillation and power</h3><div class="chart-frame"><canvas id="run-power-chart" aria-label="Vertical oscillation and running power by elapsed time"></canvas></div></article>
+    </div>
+    <div class="chart-grid">
+      <article class="panel full"><div class="eyebrow">AUTO AND MANUAL LAPS</div><h3>FIT lap breakdown</h3><div class="table-wrap" id="lap-table">Select a run to inspect lap measurements.</div></article>
+    </div>
+    <p class="note" id="source-note">Plots use Garmin FIT measurements. Metrics only appear when the watch recorded them. Pauses, sensor artifacts and sampling gaps can affect traces.</p>
+  </section>
+
+  <section class="section" aria-label="Daily wellness">
+    <div class="section-heading"><div><div class="eyebrow">02 · RECOVERY & EVERYDAY PHYSIOLOGY</div><h2>Garmin Wellness Lab</h2></div><label class="picker-label">Date <select id="day-select" aria-label="Choose wellness date"></select></label></div>
+    <div class="metric-grid" id="daily-metrics"><div class="empty">Loading daily Garmin endpoints…</div></div>
+    <article class="panel"><div class="eyebrow">RECOVERY TRENDS</div><h3>HRV and resting heart rate over time</h3><div class="chart-frame"><canvas id="wellness-trend-chart" aria-label="Garmin daily HRV and resting heart rate trend"></canvas></div><p class="note">Only confirmed daily values are plotted. A missing reading is not zero.</p></article>
+    <article class="panel"><div class="eyebrow">DAILY DATA COVERAGE</div><h3>Available endpoint reports</h3><div class="dataset-list" id="wellness-datasets"></div><p class="note">Garmin device estimates and wellness values are descriptive, not diagnoses or independent training instructions. Some reports can be missing while the new watch establishes baselines.</p></article>
+  </section>
+
+  <section class="section" aria-label="Garmin data explorer">
+    <div class="section-heading"><div><div class="eyebrow">03 · FULL AVAILABLE API FIELDS</div><h2>Wellness Data Explorer</h2></div><label class="picker-label">Dataset <select id="dataset-select" aria-label="Choose Garmin dataset"></select></label></div>
+    <article class="panel">
+      <p class="note">Inspect all data fields returned by each Garmin wellness endpoint. Fields are published without proprietary-score reinterpretation. Account identifiers, credentials, and position coordinates are excluded by the importer.</p>
+      <div class="flattened" id="dataset-fields"></div>
+      <details class="json-details"><summary>Show complete returned dataset JSON</summary><pre id="dataset-json"></pre></details>
+    </article>
+  </section>
+  <footer>Performance Lab · Garmin-first running since November 16, 2026 · America/Chicago</footer>
+</div>
+</body>
+</html>

@@ -1,4 +1,4 @@
-name: Publish real workout dashboard
+name: Publish Garmin-first Performance Lab
 
 on:
   push:
@@ -10,7 +10,7 @@ on:
       - ".github/workflows/pages.yml"
   workflow_dispatch:
   schedule:
-    - cron: "*/15 * * * *"
+    - cron: "17 */2 * * *"
 
 permissions:
   contents: write
@@ -27,86 +27,79 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Build sanitized real-data export
-        env:
-          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
-          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
-          GOOGLE_REFRESH_TOKEN: ${{ secrets.GOOGLE_REFRESH_TOKEN }}
-          TEMPEST_API_TOKEN: ${{ secrets.TEMPEST_API_TOKEN }}
-          TEMPEST_STATION_ID: ${{ secrets.TEMPEST_STATION_ID }}
-        run: |
-          node scripts/build-public-data.mjs
-
-      - name: Set up Python for Garmin FIT parsing
+      - name: Set up Garmin FIT importer
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-
-      - name: Install Garmin's official API client and FIT parser
+      - name: Install Garmin's official Personal API client and FIT parser
         run: python -m pip install garmin-connect-personal-api-python fitparse
 
-      - name: Retrieve November 16 Garmin FIT metrics (private temp file)
+      - name: Syntax validation
+        run: |
+          python -m py_compile scripts/stage-garmin-runs.py scripts/sync-garmin.py
+          node --check scripts/publish-garmin.mjs
+
+      - name: Sync Garmin running and owner-approved public wellness
         env:
           GARMIN_PERSONAL_API_KEY: ${{ secrets.GARMIN_PERSONAL_API_KEY }}
-        run: python scripts/export-garmin-nov16.py
+        run: python scripts/sync-garmin.py --since 2026-11-16 --wellness-days 3
 
-      - name: Apply Garmin data to the existing November 16 run
-        run: node scripts/apply-garmin-nov16.mjs
+      - name: Publish Garmin data independently of Google Health
+        env:
+          TEMPEST_API_TOKEN: ${{ secrets.TEMPEST_API_TOKEN }}
+          TEMPEST_STATION_ID: ${{ secrets.TEMPEST_STATION_ID }}
+        run: node scripts/publish-garmin.mjs
 
-      - name: Validate export
+      - name: Validate source integrity, schema and safe API handling
         run: |
           python - <<'PY'
           import json
           from pathlib import Path
-          p = Path("docs/data.json")
-          data = json.loads(p.read_text())
-          if data.get("error"):
-              raise SystemExit(f"Export returned error: {data['error']}")
-          if "recentRuns" not in data or "detailedRuns" not in data:
-              raise SystemExit("Export is missing expected workout fields")
-          latest = json.loads(Path("docs/data/latest.json").read_text())
-          index = json.loads(Path("docs/data/run-index.json").read_text())
-          trends = json.loads(Path("docs/data/trends.json").read_text())
-          if not isinstance(index.get("runs"), list):
-              raise SystemExit("Permanent run index is missing runs")
-          if data.get("detailedRuns") and not latest.get("run"):
-              raise SystemExit("Latest-run feed is missing detailed run data")
-          if "runningTrend" not in trends:
-              raise SystemExit("Trend feed is missing runningTrend")
-          # Garmin's November 16 overlay must be consistent across all feeds,
-          # and the existing historical run count must not increase.
-          target = [r for r in index["runs"] if r.get("date") == "2026-11-16"]
-          if len(target) != 1 or target[0].get("source") != "garmin":
-              raise SystemExit("Garmin November 16 override missing/duplicated")
-          d = json.loads((Path("docs") / target[0]["detailFile"]).read_text())
-          if d.get("source") != "garmin" or d.get("distanceMiles") != target[0].get("distanceMiles"):
-              raise SystemExit("Garmin detail/index mismatch")
-          if d.get("heartRateSeriesSource") != "garmin-fit":
-              raise SystemExit("Garmin heart rate source mismatch")
-          if len(d.get("heartRateSeries", [])) < 10:
-              raise SystemExit("Garmin FIT HR series is unexpectedly short")
-          forbidden = {"position_lat", "position_long", "latitude", "longitude", "gpsCoordinates"}
-          if any(k in json.dumps(d) for k in forbidden):
-              raise SystemExit("Potential absolute GPS coordinate leak in Garmin public detail")
-          print(f"Validated {len(data.get('recentRuns', []))} recent runs, {len(data.get('detailedRuns', []))} dashboard details, and {len(index.get('runs', []))} indexed runs")
+          index=json.loads(Path("docs/data/run-index.json").read_text())
+          latest=json.loads(Path("docs/data/latest.json").read_text())
+          wellness=json.loads(Path("docs/data/garmin-wellness.json").read_text())
+          runs=index.get("runs",[])
+          if len({r["runId"] for r in runs}) != len(runs):
+              raise SystemExit("Duplicate canonical run IDs")
+          current=[r for r in runs if r.get("date","") >= "2026-11-16"]
+          if not all(r.get("source") == "garmin" for r in current):
+              raise SystemExit("Non-Garmin running data after cutover")
+          ids=[r.get("sourceActivityId") for r in current]
+          if len(set(ids)) != len(ids):
+              raise SystemExit("Duplicate Garmin activity IDs")
+          if current and latest.get("run",{}).get("source") != "garmin":
+              raise SystemExit("Latest run not Garmin-authoritative")
+          if not isinstance(wellness.get("days"),dict):
+              raise SystemExit("Garmin wellness feed malformed")
+          forbidden=('position_lat','position_long','latitude','longitude',
+                     'access_token','refresh_token','bearer ','api_key')
+          for r in current:
+              file=Path('docs')/r['detailFile']
+              detail=json.loads(file.read_text())
+              if detail.get('sourceActivityId')!=r['sourceActivityId']:
+                  raise SystemExit("Garmin run/detail mismatch")
+              if any(token in file.read_text().lower() for token in forbidden):
+                  raise SystemExit("Sensitive FIT position/secret-like key leaked")
+          if any(token in json.dumps(wellness).lower() for token in forbidden):
+              raise SystemExit("Sensitive wellness location/credential-like key leaked")
+          print(f"Validated {len(runs)} runs, {len(current)} Garmin-era runs, "+
+                f"{len(wellness['days'])} wellness dates")
           PY
 
-      - name: Commit sanitized run data
+      - name: Commit Garmin data only when it actually changes
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add docs/data.json docs/data
           if git diff --cached --quiet; then
-            echo "No workout-data changes to commit."
+            echo "Garmin feed is unchanged."
           else
-            git commit -m "Update sanitized workout data [skip ci]"
-            # A concurrent source update may advance main while the export builds.
-            # Rebase the generated-data commit onto the latest main before pushing.
-            # Bounded retries handle another push between fetch and push.
+            git commit -m "Update Garmin runs and wellness [skip ci]"
             pushed=false
             for attempt in 1 2 3 4 5; do
               git fetch origin main
@@ -115,23 +108,20 @@ jobs:
                 pushed=true
                 break
               fi
-              echo "Push raced with another main update (attempt $attempt); retrying."
               sleep 2
             done
             if [ "$pushed" != true ]; then
-              echo "Unable to publish sanitized data after five safe retries." >&2
+              echo "Unable to publish sanitized Garmin export after safe retries." >&2
               exit 1
             fi
           fi
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
-
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: docs
-
       - name: Deploy
         id: deployment
         uses: actions/deploy-pages@v4
