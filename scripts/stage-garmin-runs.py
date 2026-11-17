@@ -79,6 +79,7 @@ def parse_fit(zip_bytes, source_id):
     records = sorted(records, key=lambda r: utc_iso(r.get("timestamp")) or "")
     heart_rate, pace_series, dynamics = [], [], []
     cadence_values, ground_values, oscillation_values, power_values = [], [], [], []
+    balance_values, stride_values = [], []
     previous = None
     for record in records:
         t = utc_iso(record.get("timestamp"))
@@ -93,6 +94,8 @@ def parse_fit(zip_bytes, source_id):
         osc_cm = round(osc_mm / 10, 2) if osc_mm is not None else None
         ratio = valid(record.get("vertical_ratio"), 1, 30)
         power = valid(record.get("power"), 0, 2000)
+        balance = valid(record.get("stance_time_balance"), 0, 100)
+        stride = valid(record.get("step_length"), 0.2, 3.5)
         speed = valid(record.get("enhanced_speed"), 0, 20)
         if speed is None:
             speed = valid(record.get("speed"), 0, 20)
@@ -109,14 +112,19 @@ def parse_fit(zip_bytes, source_id):
             ground_values.append(ground)
         if osc_cm is not None:
             oscillation_values.append(osc_cm)
-        if power is not None:
+        if power is not None and power > 0 and cadence_spm is not None and 60 <= cadence_spm <= 260:
             power_values.append(power)
+        if balance is not None and cadence_spm is not None and cadence_spm >= 60:
+            balance_values.append(balance)
+        if stride is not None and cadence_spm is not None and cadence_spm >= 60:
+            stride_values.append(stride)
 
         dyn = {"time": t}
         for key, value in (
             ("cadenceSpm", cadence_spm), ("groundContactMs", ground),
             ("verticalOscillationCm", osc_cm), ("verticalRatioPct", ratio),
-            ("powerWatts", power),
+            ("powerWatts", power), ("groundContactBalancePct", balance),
+            ("strideLengthM", stride),
             ("elevationFt", round(altitude_m * 3.28084, 1) if altitude_m is not None else None),
         ):
             if value is not None:
@@ -156,6 +164,14 @@ def parse_fit(zip_bytes, source_id):
             "peakHeartRate": valid(lap.get("max_heart_rate"), 30, 240),
             "averagePowerWatts": valid(lap.get("avg_power"), 0, 2000),
             "averageCadenceRaw": valid(lap.get("avg_cadence"), 0, 180),
+            "averageCadenceSpm": round(2 * valid(lap.get("avg_cadence"), 0, 180), 1) if valid(lap.get("avg_cadence"), 0, 180) is not None else None,
+            "avgGroundContactMs": valid(lap.get("avg_stance_time"), 100, 800),
+            "avgVerticalOscillationCm": round(valid(lap.get("avg_vertical_oscillation"), 10, 300) / 10, 2) if valid(lap.get("avg_vertical_oscillation"), 10, 300) is not None else None,
+            "avgVerticalRatioPct": valid(lap.get("avg_vertical_ratio"), 1, 30),
+            "avgStrideLengthM": valid(lap.get("avg_step_length"), 0.2, 3.5),
+            "avgGroundContactBalancePct": valid(lap.get("avg_stance_time_balance"), 0, 100),
+            "ascentM": valid(lap.get("total_ascent"), 0, 10000),
+            "descentM": valid(lap.get("total_descent"), 0, 10000),
         })
 
     if records:
@@ -224,8 +240,18 @@ def parse_fit(zip_bytes, source_id):
         "heartRateSeriesSource": "garmin-fit",
         "dynamicsSeries": dynamics,
         "lapSummaries": lap_summaries,
+        "garminSessionTotals": {
+            "ascentM": valid(session.get("total_ascent"), 0, 10000),
+            "descentM": valid(session.get("total_descent"), 0, 10000),
+            "calories": valid(session.get("total_calories"), 0, 100000),
+            "avgTemperatureC": valid(session.get("avg_temperature"), -70, 70),
+            "maxTemperatureC": valid(session.get("max_temperature"), -70, 70),
+            "totalStrides": valid(session.get("total_strides"), 0, 1000000),
+        },
         "garminMetrics": {
             "avgCadenceSpm": safe_mean(cadence_values),
+            "avgGroundContactBalancePct": safe_mean(balance_values),
+            "avgStrideLengthM": safe_mean(stride_values),
             "avgGroundContactMs": safe_mean(ground_values),
             "avgVerticalOscillationCm": safe_mean(oscillation_values),
             "avgPowerWatts": safe_mean(power_values),
