@@ -34,6 +34,7 @@
         <button class="nav-item" data-view="trends"><span class="nav-icon">⌁</span><span>Trends</span></button>
         <button class="nav-item" data-view="compare"><span class="nav-icon">⇄</span><span>Compare</span></button>
         <button class="nav-item" data-view="history"><span class="nav-icon">≡</span><span>History</span></button>
+        <a class="nav-item" href="garmin.html" style="text-decoration:none;display:flex;align-items:center;gap:8px"><span class="nav-icon">◉</span><span>Garmin Lab · V3</span></a>
         <a class="nav-item" href="historical.html" style="text-decoration:none;display:flex;align-items:center;gap:8px"><span class="nav-icon">◷</span><span>Then vs. Now</span></a>
         <a class="nav-item" href="aerobic.html" style="text-decoration:none;display:flex;align-items:center;gap:8px"><span class="nav-icon">♥</span><span>Aerobic Fitness Lab</span></a>
       </nav>
@@ -43,7 +44,7 @@
           <span class="theme-icon">◐</span>
           <span id="theme-label">Dark mode</span>
         </button>
-        <div class="privacy-note">Public view · precise GPS coordinates excluded</div>
+        <div class="privacy-note">Public running and Garmin wellness · owner-approved</div>
         <a class="legacy-link" href="../">Open legacy dashboard ↗</a>
       </div>
     </aside>
@@ -82,10 +83,10 @@
             <div class="hero-metrics" id="overview-hero-metrics"></div>
             <div class="performance-callout" id="performance-callout">
               <div>
-                <div class="metric-label">Adjusted performance</div>
+                <div class="metric-label">Running-data source</div>
                 <div class="performance-score" id="overview-api">—</div>
               </div>
-              <div class="performance-context" id="overview-api-context">Weather-adjusted running efficiency</div>
+              <div class="performance-context" id="overview-api-context">Garmin-first since November 16</div>
             </div>
           </article>
 
@@ -117,7 +118,7 @@
             <div class="panel-heading">
               <div>
                 <div class="panel-kicker">Form</div>
-                <h2>Adjusted performance trend</h2>
+                <h2>Historical performance index · legacy</h2>
               </div>
               <span class="mini-legend"><i class="dot primary"></i> API</span>
             </div>
@@ -127,9 +128,9 @@
             <div class="panel-heading">
               <div>
                 <div class="panel-kicker">Workload</div>
-                <h2>Training load</h2>
+                <h2>Running minutes by day</h2>
               </div>
-              <span class="mini-legend"><i class="dot amber"></i> daily</span>
+              <span class="mini-legend"><i class="dot amber"></i> min</span>
             </div>
             <div class="chart-wrap medium"><canvas id="overview-load-chart"></canvas></div>
           </article>
