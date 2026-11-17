@@ -16,3 +16,13 @@
 footer{margin-top:50px;border-top:1px solid var(--line);padding-top:18px;color:#67809b;font-size:11px}
 @media(max-width:900px){.metric-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.top-bar{flex-wrap:wrap}.top-title{order:1;flex-basis:100%}.sync-pill{margin-left:auto}.top-title h1{font-size:36px}}
 @media(max-width:650px){.chart-grid{grid-template-columns:1fr}.panel.full{grid-column:auto}.section-heading{align-items:stretch;flex-direction:column}.metric{min-height:92px}.metric .value{font-size:23px}.flattened{grid-template-columns:1fr}.lab-shell{padding-left:14px;padding-right:14px}.top-title{order:0}.sync-pill{margin-left:0}.back{order:1}}
+
+/* Full-width running charts; retain the existing responsive Garmin Lab grid. */
+.run-chart-panel{grid-column:1/-1}
+.run-chart-panel .chart-frame{height:clamp(340px,33vw,490px)}
+.run-chart-panel:first-child .chart-frame{height:clamp(380px,37vw,540px)}
+.chart-heading-row{display:flex;justify-content:space-between;align-items:center;gap:18px;flex-wrap:wrap;margin-bottom:12px}
+.chart-heading-row h3{margin:5px 0 0}
+.chart-heading-row select{min-width:145px}
+.chart-caption{font-size:12px;color:var(--muted);margin:8px 0 0}
+@media(max-width:650px){.run-chart-panel .chart-frame,.run-chart-panel:first-child .chart-frame{height:330px}.chart-heading-row{align-items:flex-start}.chart-heading-row .picker-label{margin-left:0}}
