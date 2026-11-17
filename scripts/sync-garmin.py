@@ -25,7 +25,7 @@ CUTOVER = "2026-11-16"
 EXCLUDED_KEYS = (
     "token", "authorization", "password", "secret", "apikey", "cookie",
     "email", "serial", "latitude", "longitude", "positionlat", "positionlong",
-    "username", "userid", "deviceid", "profileid", "location", "address",
+    "username", "userid", "userprofilepk", "deviceid", "profileid", "location", "address",
 )
 
 
@@ -37,7 +37,9 @@ def clean(value, depth=0):
         return {
             str(k): clean(v, depth + 1)
             for k, v in value.items()
-            if not any(part in str(k).lower().replace("_", "") for part in EXCLUDED_KEYS)
+            if str(k).lower() != "id" and not any(
+                part in str(k).lower().replace("_", "") for part in EXCLUDED_KEYS
+            )
         }
     if isinstance(value, list):
         return [clean(v, depth + 1) for v in value[:50000]]
