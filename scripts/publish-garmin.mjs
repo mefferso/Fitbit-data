@@ -144,13 +144,29 @@ for(const r of incoming){
   }
   const derived=garminAnalysis(r,{zoneBoundaries:process.env.GARMIN_HR_ZONE_BOUNDARIES_BPM?.split(',').map(Number)});
   const recovery=garminPostRunRecovery(r,combinedWellnessDays[r.date]);
+  const nativeHrr2=r.garminNative?.recoveryHeartRate2MinDrop;
+  if(Number.isFinite(nativeHrr2)){
+    if(recovery){
+      recovery.minute2Drop=nativeHrr2;
+      recovery.minute2Source='garmin-native-two-minute-recovery';
+    }else{
+      // Native two-minute recovery may exist without day-level HR samples.
+      // Never present unavailable 1/3 minute values as measurements.
+    }
+  }
+  const finalRecovery=recovery||(Number.isFinite(nativeHrr2)?{
+    source:'garmin-native-two-minute-recovery',minute1Drop:null,
+    minute2Drop:nativeHrr2,minute2Source:'garmin-native-two-minute-recovery',
+    minute3Drop:null,measurements:[],
+    caution:'Garmin-recorded two-minute recovery; distinct from daily HR-derived approximations.'
+  }:null);
   const detail={
     ...r,runId,detailFile,
     // Old Google traces and all old source-dependent calculations are removed.
     route:r.route||null,routeSource:r.route?'garmin-fit-relative':null,
     zoneSummary:derived.zoneSummary,zoneSummarySource:derived.zoneSummary?'configured-Garmin-HR-thresholds':null,
     heartRateBands:derived.heartRateBands,
-    heartRateRecovery:recovery,heartRateRecoverySource:recovery?.source||derived.heartRateRecoverySource,
+    heartRateRecovery:finalRecovery,heartRateRecoverySource:finalRecovery?.source||derived.heartRateRecoverySource,
     aerobicDecoupling:derived.aerobicDecoupling,trainingLoad:null,weatherAdjustedEfficiency:null,
     adjustedPerformanceIndex:null,analysisSummary:{method:derived.analysisMethod},
     runningDynamicsByPace:derived.runningDynamicsByPace,
@@ -167,7 +183,7 @@ for(const r of incoming){
     distanceMiles:r.distanceMiles,averagePaceSecondsPerMile:r.averagePaceSecondsPerMile,
     averageHeartRate:r.averageHeartRate,peakHeartRate:r.peakHeartRate,
     source:'garmin',sourceActivityId:r.sourceActivityId,detailFile,
-    hrr1:recovery?.minute1Drop??null,hrr2:recovery?.minute2Drop??null,hrr3:recovery?.minute3Drop??null,cardioDriftPercent:derived.aerobicDecoupling?.percent??null,trainingLoad:null,
+    hrr1:finalRecovery?.minute1Drop??null,hrr2:finalRecovery?.minute2Drop??null,hrr3:finalRecovery?.minute3Drop??null,cardioDriftPercent:derived.aerobicDecoupling?.percent??null,trainingLoad:null,
     adjustedPerformanceIndex:null,heatIndexF:weather?.average?.heatIndexF??null,
     dewpointF:weather?.average?.dewpointF??null
   });
