@@ -115,3 +115,19 @@ test('Three consecutive credible running samples are required',()=>{
   ];
   assert.deepEqual(detectChartStart({startTime:base,dynamicsSeries}),{startTime:at(2),trimmedSeconds:2});
 });
+
+test('native Garmin two-minute recovery is retained without daily HR samples', async()=>{
+  const dir=await mkdtemp(join(tmpdir(),'garmin-native-hrr-'));
+  const run=fixture(333,'2026-11-16T21:22:41Z','2026-11-16');
+  run.garminNative={recoveryHeartRate2MinDrop:31};
+  await write(dir,'.garmin-staging/activities.json',[run]);
+  await write(dir,'.garmin-staging/wellness.json',{'2026-11-16':{}});
+  const runCmd=spawnSync(process.execPath,[publisher],{cwd:dir,encoding:'utf8'});
+  assert.equal(runCmd.status,0,runCmd.stderr);
+  const detail=await read(dir,'docs/data/runs/garmin/333.json');
+  assert.equal(detail.heartRateRecovery.minute2Drop,31);
+  assert.equal(detail.heartRateRecovery.minute1Drop,null);
+  assert.equal(detail.heartRateRecovery.minute3Drop,null);
+  const index=await read(dir,'docs/data/run-index.json');
+  assert.equal(index.runs[0].hrr2,31);
+});
