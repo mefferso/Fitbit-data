@@ -94,9 +94,12 @@ async function showRun(run){
     metric('Vertical oscillation',fmt(vo,2)+' cm','FIT running dynamics'),
     metric('Running power',n(m.avgPowerWatts)===null?'—':fmt(m.avgPowerWatts,0)+' W','FIT recording')
   ].join('');
-  $('run-context').textContent=dateTime(details.startTime)+' · Garmin activity '+details.sourceActivityId+
+  const summaryLine=dateTime(details.startTime)+' · Garmin activity '+details.sourceActivityId+
     ' · '+(details.heartRateSeries?.length||0)+' HR samples · '+(details.paceSeries?.length||0)+
     ' Garmin pace points · '+(details.dynamicsSeries?.length||0)+' dynamics records';
+  $('run-context').innerHTML=esc(summaryLine)+(details.route?.points?.length
+    ? ' · <a href="./?view=analysis&run='+encodeURIComponent(details.runId)+'">Open Garmin route map →</a>'
+    : '');
   const origin=details.startTime;
   const hr=details.heartRateSeries||[],pp=details.paceSeries||[],dyn=details.dynamicsSeries||[];
   chart('primary','run-primary-chart',origin,[
