@@ -133,7 +133,8 @@ for(const r of incoming){
   const detail={
     ...r,runId,detailFile,
     // Old Google traces and all old source-dependent calculations are removed.
-    route:null,routeSource:null,zoneSummary:[],zoneSummarySource:null,
+    route:r.route||null,routeSource:r.route?'garmin-fit-relative':null,
+    zoneSummary:[],zoneSummarySource:null,
     heartRateRecovery:null,heartRateRecoverySource:null,
     aerobicDecoupling:null,trainingLoad:null,weatherAdjustedEfficiency:null,
     adjustedPerformanceIndex:null,analysisSummary:null,
