@@ -93,8 +93,23 @@ async function showRun(run){
     metric('Cadence',fmt(cadence,1)+' spm','FIT running cadence'),
     metric('Ground contact',fmt(gct,0)+' ms','FIT running dynamics'),
     metric('Vertical oscillation',fmt(vo,2)+' cm','FIT running dynamics'),
-    metric('Running power',n(m.avgPowerWatts)===null?'—':fmt(m.avgPowerWatts,0)+' W','FIT recording')
+    metric('Running power',n(m.avgPowerWatts)===null?'—':fmt(m.avgPowerWatts,0)+' W','FIT recording'),
+    metric('Aerobic drift',n(details.aerobicDecoupling?.percent)===null?'—':fmt(details.aerobicDecoupling.percent,1)+'%',
+      details.aerobicDecoupling?.interpretation||'Not enough matched pace/HR data'),
+    metric('HR zones',details.zoneSummary?.length?'Configured':'Not configured',
+      'Requires personal Garmin HR-zone boundaries'),
+    metric('Post-run HR recovery','—','FIT activity ends before recovery'),
+    metric('Training load','—','Garmin-native load not yet available')
   ].join('');
+  const bands=details.runningDynamicsByPace||[];
+  if(bands.length){
+    const table='<div class="empty" style="margin-top:12px">Dynamics by observed pace band (at least 15 samples; these are associations, not efficiency tests)</div>'+
+      '<table><thead><tr><th>Pace band</th><th>Seconds</th><th>Power</th><th>Vertical ratio</th><th>Ground contact</th></tr></thead><tbody>'+
+      bands.map(b=>'<tr><td>'+esc(b.paceBand)+'</td><td>'+b.seconds+'</td><td>'+fmt(b.powerWatts,0)+' W</td><td>'+fmt(b.verticalRatioPct,2)+'%</td><td>'+fmt(b.groundContactMs,0)+' ms</td></tr>').join('')+'</tbody></table>';
+    $('run-metrics').insertAdjacentHTML('afterend', '<div id="pace-band-table">'+table+'</div>');
+    const oldTable=document.querySelectorAll('#pace-band-table');
+    oldTable.forEach((el,i)=>{if(i<oldTable.length-1)el.remove();});
+  }else document.querySelector('#pace-band-table')?.remove();
   const summaryLine=dateTime(details.startTime)+' · Garmin activity '+details.sourceActivityId+
     ' · '+(details.heartRateSeries?.length||0)+' HR samples · '+(details.paceSeries?.length||0)+
     ' Garmin pace points · '+(details.dynamicsSeries?.length||0)+' dynamics records';
