@@ -10,6 +10,7 @@ import argparse
 from datetime import datetime, timezone, timedelta
 from zoneinfo import ZoneInfo
 from io import BytesIO
+from math import cos, radians
 import json
 import os
 from pathlib import Path
@@ -167,6 +168,42 @@ def parse_fit(zip_bytes, source_id):
     local_date = datetime.fromisoformat(start.replace("Z", "+00:00")).astimezone(
         ZoneInfo("America/Chicago")).date().isoformat()
 
+    # Use FIT GPS in memory to build a relative route for the existing V2
+    # Leaflet map. No absolute coordinates are written to the public JSON.
+    geo = []
+    for record in records:
+        lat = valid(record.get("position_lat"), -(2**31), 2**31)
+        lon = valid(record.get("position_long"), -(2**31), 2**31)
+        if lat is None or lon is None:
+            continue
+        # Garmin FIT GPS coordinates use semicircles, while some decoders may
+        # already expose degrees. Detect the units before projecting.
+        lat_deg = lat * 180 / (2**31) if abs(lat) > 90 else lat
+        lon_deg = lon * 180 / (2**31) if abs(lon) > 180 else lon
+        if not (-90 <= lat_deg <= 90 and -180 <= lon_deg <= 180):
+            continue
+        geo.append((lat_deg, lon_deg))
+    route = None
+    if len(geo) >= 2:
+        step = max(1, (len(geo) + 318) // 319)
+        sampled = geo[::step]
+        if sampled[-1] != geo[-1]:
+            sampled.append(geo[-1])
+        lat0, lon0 = sampled[0]
+        scale_lon = 111320 * cos(radians(lat0))
+        projected = [((lon - lon0) * scale_lon, (lat - lat0) * 110540)
+                     for lat, lon in sampled]
+        center_x = sum(p[0] for p in projected) / len(projected)
+        center_y = sum(p[1] for p in projected) / len(projected)
+        route = {
+            "kind": "relative",
+            "units": "meters",
+            "privacy": "Relative Garmin FIT shape; absolute coordinates excluded",
+            "points": [{"x": round(x - center_x, 1),
+                        "y": round(y - center_y, 1),
+                        "zoneKey": "below"} for x, y in projected]
+        }
+
     return {
         "source": "garmin",
         "sourceActivityId": source_id,
@@ -180,6 +217,8 @@ def parse_fit(zip_bytes, source_id):
         "averageHeartRate": valid(session.get("avg_heart_rate"), 30, 240) or safe_mean([x["value"] for x in heart_rate]),
         "peakHeartRate": valid(session.get("max_heart_rate"), 30, 240),
         "heartRateSeries": heart_rate,
+        "hasGps": route is not None,
+        "route": route,
         "paceSeries": pace_series,
         "paceSeriesSource": "garmin-fit-distance",
         "heartRateSeriesSource": "garmin-fit",
