@@ -53,6 +53,9 @@ jobs:
         env:
           TEMPEST_API_TOKEN: ${{ secrets.TEMPEST_API_TOKEN }}
           TEMPEST_STATION_ID: ${{ secrets.TEMPEST_STATION_ID }}
+          # Running zones as displayed Nov 17, 2026: %Max HR (186), 50/60/70/80/90%.
+          # Rounded BPM boundaries from displayed percentages; revise if Garmin shows exact BPM.
+          GARMIN_RUNNING_HR_ZONE_STARTS_BPM: "93,112,130,149,167"
         run: node scripts/publish-garmin.mjs
 
       - name: Validate source integrity, schema and safe API handling
