@@ -116,6 +116,23 @@ def run(args):
                                     native[field] = value
                             elif field == "trainingEffectLabel" and isinstance(value, str):
                                 native[field] = value[:60]
+                        # Garmin's own two-minute recovery value can be stored in
+                        # activity summary metadata even when the daily HR series is sparse.
+                        # This is the native two-minute HR drop, NOT a sampled HR value.
+                        try:
+                            activity_detail = client.get_activity(activity_id)
+                            summary = activity_detail.get("summaryDTO", {}) if isinstance(activity_detail, dict) else {}
+                            if not isinstance(summary, dict):
+                                summary = {}
+                            raw_recovery = summary.get("recoveryHeartRate")
+                            if raw_recovery is None and isinstance(activity_detail, dict):
+                                raw_recovery = activity_detail.get("recoveryHeartRate")
+                            if isinstance(raw_recovery, (float, int)) and not isinstance(raw_recovery, bool):
+                                if 0 <= raw_recovery <= 150:
+                                    native["recoveryHeartRate2MinDrop"] = round(raw_recovery, 1)
+                        except Exception:
+                            # Unavailable native recovery does not fail the FIT import.
+                            pass
                         parsed["garminNative"] = native
                         if parsed["date"] >= args.since:
                             imported.append(parsed)
