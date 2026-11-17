@@ -142,7 +142,7 @@ for(const r of incoming){
     try{weather=await tempestWeather(r);}
     catch(e){console.log('Tempest unavailable for one run: '+e.name);}
   }
-  const derived=garminAnalysis(r,{zoneBoundaries:process.env.GARMIN_HR_ZONE_BOUNDARIES_BPM?.split(',').map(Number)});
+  const derived=garminAnalysis(r,{zoneBoundaries:process.env.GARMIN_RUNNING_HR_ZONE_STARTS_BPM?.split(',').map(Number)});
   const recovery=garminPostRunRecovery(r,combinedWellnessDays[r.date]);
   const nativeHrr2=r.garminNative?.recoveryHeartRate2MinDrop;
   if(Number.isFinite(nativeHrr2)){
@@ -166,6 +166,7 @@ for(const r of incoming){
     route:r.route||null,routeSource:r.route?'garmin-fit-relative':null,
     zoneSummary:derived.zoneSummary,zoneSummarySource:derived.zoneSummary?'configured-Garmin-HR-thresholds':null,
     heartRateBands:derived.heartRateBands,
+    belowZone1:derived.belowZone1,
     heartRateRecovery:finalRecovery,heartRateRecoverySource:finalRecovery?.source||derived.heartRateRecoverySource,
     aerobicDecoupling:derived.aerobicDecoupling,trainingLoad:null,weatherAdjustedEfficiency:null,
     adjustedPerformanceIndex:null,analysisSummary:{method:derived.analysisMethod},
