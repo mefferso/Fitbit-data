@@ -104,6 +104,13 @@ def parse_fit(zip_bytes, source_id):
         speed = valid(record.get("enhanced_speed"), 0, 20)
         if speed is None:
             speed = valid(record.get("speed"), 0, 20)
+        # Independent speed/cadence stride sanity check, never a replacement for FIT.
+        # cadenceSpm counts both feet; speed (m/s) / (steps/s) = metres/step.
+        stride_check = (round(speed * 60 / cadence_spm, 3)
+                        if speed is not None and cadence_spm is not None and cadence_spm >= 60
+                        else None)
+        if stride_check is not None and not 0.2 <= stride_check <= 3.5:
+            stride_check = None
         distance_m = valid(record.get("distance"), 0, 1000000)
         altitude_m = valid(record.get("enhanced_altitude"), -500, 10000)
         if altitude_m is None:
@@ -129,7 +136,7 @@ def parse_fit(zip_bytes, source_id):
             ("cadenceSpm", cadence_spm), ("groundContactMs", ground),
             ("verticalOscillationCm", osc_cm), ("verticalRatioPct", ratio),
             ("powerWatts", power), ("groundContactBalancePct", balance),
-            ("strideLengthM", stride),
+            ("strideLengthM", stride), ("strideLengthCheckM", stride_check),
             ("elevationFt", round(altitude_m * 3.28084, 1) if altitude_m is not None else None),
         ):
             if value is not None:
