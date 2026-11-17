@@ -117,6 +117,7 @@ const garmin=new Map((index.runs||[]).filter(r=>
   r.date>=CUTOVER&&r.source==='garmin'&&Number.isSafeInteger(Number(r.sourceActivityId))
 ).map(r=>[String(r.sourceActivityId),r]));
 let fresh=0;
+let changedRuns=0;
 for(const r of incoming){
   if(!validRun(r))throw Error('Invalid Garmin run schema');
   const key=String(r.sourceActivityId);
@@ -139,7 +140,10 @@ for(const r of incoming){
     runWalkIntervals:[],splitSummaries:r.lapSummaries||[],
     weather, dataSourceNotice:'Garmin FIT running data; Tempest home-station weather where available.'
   };
-  await write('docs/'+detailFile,detail);
+  if(JSON.stringify(previousDetail)!==JSON.stringify(detail)){
+    await write('docs/'+detailFile,detail);
+    changedRuns++;
+  }
   garmin.set(key,{
     runId,date:r.date,startTime:r.startTime,endTime:r.endTime,
     activeSeconds:r.activeSeconds,elapsedSeconds:r.elapsedSeconds,
@@ -158,7 +162,8 @@ for(const r of merged){
   if(!r.runId||ids.has(r.runId))throw Error('Duplicate run ID after Garmin merge');
   ids.add(r.runId);
 }
-const generatedAt=new Date().toISOString();
+const runningChanged=changedRuns>0||JSON.stringify(merged)!==JSON.stringify(index.runs||[]);
+const generatedAt=runningChanged?new Date().toISOString():index.generatedAt;
 const archive={generatedAt,timeZone:TZ,runCount:merged.length,archiveStartDate:'2000-01-01'};
 const details=new Map((data.detailedRuns||[]).filter(r=>r.date<CUTOVER).map(r=>[r.runId,r]));
 for(const r of merged.filter(r=>r.source==='garmin'&&r.detailFile)){
@@ -195,7 +200,8 @@ for(const [date,measurements] of Object.entries(incomingWellness)){
   }
   wellnessDays[date]=updated;
 }
-const wellness={generatedAt,timeZone:TZ,
+const wellnessChanged=JSON.stringify(wellnessDays)!==JSON.stringify(previousWellness.days||{});
+const wellness={generatedAt:wellnessChanged?new Date().toISOString():(previousWellness.generatedAt||generatedAt),timeZone:TZ,
   source:'Garmin Connect Personal API',
   publication:'public, explicitly owner-approved wellness measurements',
   days:wellnessDays};
@@ -205,11 +211,16 @@ const newData={...data,generatedAt,publicDataNotice:
   trainingLoad:{days:120,points:[],summary:{retired:true}}};
 const updatedTrends={...trends,...archive,runningTrend:updatedTrend,
   trainingLoad:{days:120,points:[],summary:{retired:true}}};
-await write('docs/data/run-index.json',{...index,...archive,runs:merged});
-await write('docs/data/latest.json',{...archive,run:currentLatest});
-await write('docs/data/trends.json',updatedTrends);
-await write('docs/data.json',newData);
-await write('docs/data/garmin-wellness.json',wellness);
+if(runningChanged){
+  await write('docs/data/run-index.json',{...index,...archive,runs:merged});
+  await write('docs/data/latest.json',{...archive,run:currentLatest});
+  await write('docs/data/trends.json',updatedTrends);
+  await write('docs/data.json',newData);
+}
+if(wellnessChanged||!previousWellness.generatedAt){
+  await write('docs/data/garmin-wellness.json',wellness);
+}
 console.log('Garmin-first published '+merged.length+' runs ('+garmin.size+
   ' Garmin, '+legacy.length+' pre-Garmin), '+fresh+' FIT updates, and '+
-  Object.keys(wellnessDays).length+' wellness days. No Google matching.');
+  Object.keys(wellnessDays).length+' wellness days. Changed runs='+changedRuns+
+  ', running feed changed='+runningChanged+', wellness feed changed='+wellnessChanged+'. No Google matching.');
