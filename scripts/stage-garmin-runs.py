@@ -73,6 +73,11 @@ def parse_fit(zip_bytes, source_id):
         v = number(value)
         return v if v is not None and (low is None or v >= low) and (high is None or v <= high) else None
 
+    def fit_step_length_m(raw):
+        """FIT step_length/avg_step_length arrive in millimetres, not metres."""
+        millimetres = valid(raw, 200, 3500)
+        return round(millimetres / 1000, 3) if millimetres is not None else None
+
     def safe_mean(values):
         return round(sum(values) / len(values), 1) if values else None
 
@@ -95,7 +100,7 @@ def parse_fit(zip_bytes, source_id):
         ratio = valid(record.get("vertical_ratio"), 1, 30)
         power = valid(record.get("power"), 0, 2000)
         balance = valid(record.get("stance_time_balance"), 0, 100)
-        stride = valid(record.get("step_length"), 0.2, 3.5)
+        stride = fit_step_length_m(record.get("step_length"))
         speed = valid(record.get("enhanced_speed"), 0, 20)
         if speed is None:
             speed = valid(record.get("speed"), 0, 20)
@@ -156,6 +161,10 @@ def parse_fit(zip_bytes, source_id):
         lap_start = utc_iso(lap.get("start_time"))
         sec = valid(lap.get("total_timer_time"), 0, 200000)
         meters = valid(lap.get("total_distance"), 0, 500000)
+        lap_strides = [p["strideLengthM"] for p in dynamics
+                       if "strideLengthM" in p and lap_start is not None
+                       and p["time"] >= lap_start and sec is not None
+                       and p["time"] < utc_iso(datetime.fromisoformat(lap_start.replace("Z", "+00:00")) + timedelta(seconds=sec))]
         lap_summaries.append({
             "startTime": lap_start,
             "durationSeconds": round(sec, 1) if sec is not None else None,
@@ -168,7 +177,7 @@ def parse_fit(zip_bytes, source_id):
             "avgGroundContactMs": valid(lap.get("avg_stance_time"), 100, 800),
             "avgVerticalOscillationCm": round(valid(lap.get("avg_vertical_oscillation"), 10, 300) / 10, 2) if valid(lap.get("avg_vertical_oscillation"), 10, 300) is not None else None,
             "avgVerticalRatioPct": valid(lap.get("avg_vertical_ratio"), 1, 30),
-            "avgStrideLengthM": valid(lap.get("avg_step_length"), 0.2, 3.5),
+            "avgStrideLengthM": fit_step_length_m(lap.get("avg_step_length")) or safe_mean(lap_strides),
             "avgGroundContactBalancePct": valid(lap.get("avg_stance_time_balance"), 0, 100),
             "ascentM": valid(lap.get("total_ascent"), 0, 10000),
             "descentM": valid(lap.get("total_descent"), 0, 10000),
