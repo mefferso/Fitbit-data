@@ -184,7 +184,7 @@ def parse_fit(zip_bytes, source_id):
             "avgGroundContactMs": valid(lap.get("avg_stance_time"), 100, 800),
             "avgVerticalOscillationCm": round(valid(lap.get("avg_vertical_oscillation"), 10, 300) / 10, 2) if valid(lap.get("avg_vertical_oscillation"), 10, 300) is not None else None,
             "avgVerticalRatioPct": valid(lap.get("avg_vertical_ratio"), 1, 30),
-            "avgStrideLengthM": fit_step_length_m(lap.get("avg_step_length")) or safe_mean(lap_strides),
+            "avgStrideLengthM": fit_step_length_m(lap.get("avg_step_length")) or (round(sum(lap_strides) / len(lap_strides), 3) if lap_strides else None),
             "avgGroundContactBalancePct": valid(lap.get("avg_stance_time_balance"), 0, 100),
             "ascentM": valid(lap.get("total_ascent"), 0, 10000),
             "descentM": valid(lap.get("total_descent"), 0, 10000),
@@ -267,7 +267,7 @@ def parse_fit(zip_bytes, source_id):
         "garminMetrics": {
             "avgCadenceSpm": safe_mean(cadence_values),
             "avgGroundContactBalancePct": safe_mean(balance_values),
-            "avgStrideLengthM": safe_mean(stride_values),
+            "avgStrideLengthM": round(sum(stride_values) / len(stride_values), 3) if stride_values else None,
             "avgGroundContactMs": safe_mean(ground_values),
             "avgVerticalOscillationCm": safe_mean(oscillation_values),
             "avgPowerWatts": safe_mean(power_values),
