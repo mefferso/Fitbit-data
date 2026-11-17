@@ -1,0 +1,23 @@
+name: Test Garmin Personal API connection
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install Garmin's official Personal API client
+        run: python -m pip install garmin-connect-personal-api-python
+      - name: Verify Garmin access (no activity data published)
+        env:
+          GARMIN_PERSONAL_API_KEY: ${{ secrets.GARMIN_PERSONAL_API_KEY }}
+        run: python scripts/probe-garmin.py
