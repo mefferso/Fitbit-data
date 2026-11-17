@@ -32,8 +32,8 @@
     <div class="chart-grid">
       <article class="panel full run-chart-panel"><div class="eyebrow">TIMELINE</div>
         <div class="chart-heading-row"><h3>Heart rate and pace</h3>
-          <label class="picker-label" for="hr-pace-resolution">Averaging
-            <select id="hr-pace-resolution" aria-label="Heart rate and pace averaging interval">
+          <label class="picker-label" for="hr-pace-resolution">Pace smoothing
+            <select id="hr-pace-resolution" aria-label="Pace averaging interval; heart rate remains raw one-second data">
               <option value="1">Raw · 1 sec</option>
               <option value="15">15 sec avg</option>
               <option value="30">30 sec avg</option>
@@ -43,7 +43,7 @@
           </label>
         </div>
         <div class="chart-frame"><canvas id="run-primary-chart" aria-label="Heart rate and pace by elapsed time"></canvas></div>
-        <p class="chart-caption">1-minute averages by default. Pace is averaged from speed; gaps are not interpolated.</p>
+        <p class="chart-caption">Heart rate always uses raw 1-second Garmin samples. Only pace is smoothed (1-minute average by default); gaps are not interpolated.</p>
       </article>
       <article class="panel full run-chart-panel"><div class="eyebrow">BIOMECHANICS</div><h3>Cadence and ground contact</h3><div class="chart-frame"><canvas id="run-mechanics-chart" aria-label="Cadence and ground contact time by elapsed time"></canvas></div></article>
       <article class="panel full run-chart-panel"><div class="eyebrow">EFFICIENCY INPUTS</div><h3>Vertical oscillation and power</h3><div class="chart-frame"><canvas id="run-power-chart" aria-label="Vertical oscillation and running power by elapsed time"></canvas></div></article>
