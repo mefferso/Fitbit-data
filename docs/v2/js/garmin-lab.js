@@ -158,6 +158,21 @@ async function showRun(run){
     const oldTable=document.querySelectorAll('#pace-band-table');
     oldTable.forEach((el,i)=>{if(i<oldTable.length-1)el.remove();});
   }else document.querySelector('#pace-band-table')?.remove();
+  const coverage=[
+    ['Heart rate',details.heartRateSeries?.length||0],
+    ['Pace',details.paceSeries?.length||0],
+    ['Running dynamics',details.dynamicsSeries?.length||0],
+    ['Cadence',details.dynamicsSeries?.filter(x=>n(x.cadenceSpm)!==null&&x.cadenceSpm>0).length||0],
+    ['Power',details.dynamicsSeries?.filter(x=>n(x.powerWatts)!==null&&x.powerWatts>0).length||0],
+    ['Ground contact',details.dynamicsSeries?.filter(x=>n(x.groundContactMs)!==null).length||0],
+    ['Stride length',details.dynamicsSeries?.filter(x=>n(x.strideLengthM)!==null).length||0],
+    ['Ground-contact balance',details.dynamicsSeries?.filter(x=>n(x.groundContactBalancePct)!==null).length||0],
+    ['Elevation',details.dynamicsSeries?.filter(x=>n(x.elevationFt)!==null).length||0]
+  ];
+  let coverageNode=document.getElementById('garmin-coverage');
+  if(!coverageNode){coverageNode=document.createElement('div');coverageNode.id='garmin-coverage';$('run-metrics').insertAdjacentElement('afterend',coverageNode);}
+  coverageNode.innerHTML='<div class="empty">FIT data coverage · '+esc(details.date)+' · sample counts (not all fields share the same sampling rate)</div>'+
+    '<div class="metrics">'+coverage.map(([name,count])=>metric(name,count?count.toLocaleString():missing(),count?'Recorded valid samples':'Field absent on this activity')).join('')+'</div>';
   const summaryLine=dateTime(details.startTime)+' · Garmin activity '+details.sourceActivityId+
     ' · '+(details.heartRateSeries?.length||0)+' HR samples · '+(details.paceSeries?.length||0)+
     ' Garmin pace points · '+(details.dynamicsSeries?.length||0)+' dynamics records';
@@ -276,6 +291,10 @@ function showWellness(dayKey){
     metric('Sleep Pulse Ox',n(spo2)===null?missing():fmt(spo2,0)+'%','Requires watch Pulse Ox recording; setting may be disabled'),
     metric('Datasets',String(Object.keys(day).length),'API reports stored')
   ].join('');
+  let dailyCoverage=document.getElementById('garmin-daily-coverage');
+  if(!dailyCoverage){dailyCoverage=document.createElement('div');dailyCoverage.id='garmin-daily-coverage';$('daily-metrics').insertAdjacentElement('afterend',dailyCoverage);}
+  const dailyAvailable=['hrv','sleep','bodyBattery','stress','heartRate','steps','dailySummaries','vo2Max','spo2'].filter(k=>day[k]!=null);
+  dailyCoverage.textContent='Daily endpoint coverage: '+dailyAvailable.length+'/9 reported · '+dailyAvailable.join(', ')+'. An available endpoint can still return null measurements.';
   const kinds=['hrv','hrvSummaries','sleep','sleepSummaries','bodyBattery','stress','heartRate','steps','dailySummaries','vo2Max','spo2'];
   $('wellness-datasets').innerHTML=kinds.map(k=>'<span class="dataset-pill '+(day[k]?'':'missing')+
     '">'+esc(k)+(day[k]?' · available':' · missing')+'</span>').join('');
