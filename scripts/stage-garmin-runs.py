@@ -7,7 +7,8 @@ Garmin's numeric activity ID, which is source provenance for deduplication.
 Do not commit private output or raw FIT files into this public repository.
 """
 import argparse
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
+from zoneinfo import ZoneInfo
 from io import BytesIO
 import json
 import os
@@ -65,52 +66,138 @@ def parse_fit(zip_bytes, source_id):
     if not start or not end or not distance_m or not active_s:
         raise ValueError("FIT session lacks essential start/end/distance/timer fields")
 
-    # Permit only explicit performance measurements: never copy arbitrary FIT
-    # fields such as position_lat/long, device IDs, user profile or place names.
-    heart_rate = []
-    cadence = []
-    ground_contact = []
-    vertical_oscillation = []
+    # Explicit FIT measurement allowlist. Never serialize coordinates, device IDs,
+    # developer values, location metadata, or arbitrary FIT message fields.
+    def valid(value, low=None, high=None):
+        v = number(value)
+        return v if v is not None and (low is None or v >= low) and (high is None or v <= high) else None
+
+    def safe_mean(values):
+        return round(sum(values) / len(values), 1) if values else None
+
+    records = sorted(records, key=lambda r: utc_iso(r.get("timestamp")) or "")
+    heart_rate, pace_series, dynamics = [], [], []
+    cadence_values, ground_values, oscillation_values, power_values = [], [], [], []
+    previous = None
     for record in records:
         t = utc_iso(record.get("timestamp"))
-        hr = number(record.get("heart_rate"))
-        if t and hr is not None and 30 <= hr <= 240:
-            heart_rate.append({"time": t, "value": round(hr)})
-        ca = number(record.get("cadence"))
-        if ca is not None:
-            cadence.append(ca)
-        gc = number(record.get("stance_time"))
-        if gc is not None:
-            ground_contact.append(gc)
-        vo = number(record.get("vertical_oscillation"))
-        if vo is not None:
-            vertical_oscillation.append(vo)
+        if not t:
+            continue
+        hr = valid(record.get("heart_rate"), 30, 240)
+        raw_cadence = valid(record.get("cadence"), 0, 180)
+        fraction = valid(record.get("fractional_cadence"), 0, 1)
+        cadence_spm = round(2 * (raw_cadence + (fraction or 0)), 1) if raw_cadence is not None else None
+        ground = valid(record.get("stance_time"), 100, 800)
+        osc_mm = valid(record.get("vertical_oscillation"), 10, 300)
+        osc_cm = round(osc_mm / 10, 2) if osc_mm is not None else None
+        ratio = valid(record.get("vertical_ratio"), 1, 30)
+        power = valid(record.get("power"), 0, 2000)
+        speed = valid(record.get("enhanced_speed"), 0, 20)
+        if speed is None:
+            speed = valid(record.get("speed"), 0, 20)
+        distance_m = valid(record.get("distance"), 0, 1000000)
+        altitude_m = valid(record.get("enhanced_altitude"), -500, 10000)
+        if altitude_m is None:
+            altitude_m = valid(record.get("altitude"), -500, 10000)
 
-    def mean(values):
-        return round(sum(values) / len(values), 1) if values else None
+        if hr is not None:
+            heart_rate.append({"time": t, "value": round(hr), "zoneKey": None})
+        if cadence_spm is not None and 60 <= cadence_spm <= 260:
+            cadence_values.append(cadence_spm)
+        if ground is not None:
+            ground_values.append(ground)
+        if osc_cm is not None:
+            oscillation_values.append(osc_cm)
+        if power is not None:
+            power_values.append(power)
+
+        dyn = {"time": t}
+        for key, value in (
+            ("cadenceSpm", cadence_spm), ("groundContactMs", ground),
+            ("verticalOscillationCm", osc_cm), ("verticalRatioPct", ratio),
+            ("powerWatts", power),
+            ("elevationFt", round(altitude_m * 3.28084, 1) if altitude_m is not None else None),
+        ):
+            if value is not None:
+                dyn[key] = value
+        if len(dyn) > 1:
+            dynamics.append(dyn)
+
+        if previous:
+            seconds = (datetime.fromisoformat(t.replace("Z", "+00:00")) -
+                       datetime.fromisoformat(previous["time"].replace("Z", "+00:00"))).total_seconds()
+            if 0 < seconds <= 10:
+                delta_m = distance_m - previous["distance"] if distance_m is not None and previous["distance"] is not None else None
+                # Prefer FIT cumulative distance; if unavailable, integrate FIT speed.
+                if delta_m is None and speed is not None:
+                    delta_m = speed * seconds
+                if delta_m is not None and 0.2 <= delta_m <= 15 * seconds:
+                    miles = delta_m / 1609.344
+                    pace = seconds / miles
+                    if 120 <= pace <= 3600:
+                        pace_series.append({
+                            "time": t, "seconds": round(seconds, 3),
+                            "distanceMiles": round(miles, 7),
+                            "paceSecondsPerMile": round(pace)
+                        })
+        previous = {"time": t, "distance": distance_m}
+
+    lap_summaries = []
+    for lap in laps:
+        lap_start = utc_iso(lap.get("start_time"))
+        sec = valid(lap.get("total_timer_time"), 0, 200000)
+        meters = valid(lap.get("total_distance"), 0, 500000)
+        lap_summaries.append({
+            "startTime": lap_start,
+            "durationSeconds": round(sec, 1) if sec is not None else None,
+            "distanceMiles": round(meters / 1609.344, 4) if meters is not None else None,
+            "averageHeartRate": valid(lap.get("avg_heart_rate"), 30, 240),
+            "peakHeartRate": valid(lap.get("max_heart_rate"), 30, 240),
+            "averagePowerWatts": valid(lap.get("avg_power"), 0, 2000),
+            "averageCadenceRaw": valid(lap.get("avg_cadence"), 0, 180),
+        })
+
+    if records:
+        last_record = utc_iso(records[-1].get("timestamp"))
+        if last_record and (end is None or end <= start):
+            end = last_record
+    if end is None or end <= start:
+        end = utc_iso(datetime.fromisoformat(start.replace("Z", "+00:00")) +
+                      timedelta(seconds=active_s))
+    local_date = datetime.fromisoformat(start.replace("Z", "+00:00")).astimezone(
+        ZoneInfo("America/Chicago")).date().isoformat()
 
     return {
         "source": "garmin",
         "sourceActivityId": source_id,
-        "date": None,  # Local calendar date is assigned by the publisher (America/Chicago).
+        "date": local_date,
         "startTime": start,
         "endTime": end,
         "activeSeconds": round(active_s),
+        "elapsedSeconds": round(valid(session.get("total_elapsed_time"), 0) or active_s),
         "distanceMiles": round(distance_m / 1609.344, 4),
         "averagePaceSecondsPerMile": round(active_s / (distance_m / 1609.344)),
-        "averageHeartRate": number(session.get("avg_heart_rate")) or mean([x["value"] for x in heart_rate]),
-        "peakHeartRate": number(session.get("max_heart_rate")),
+        "averageHeartRate": valid(session.get("avg_heart_rate"), 30, 240) or safe_mean([x["value"] for x in heart_rate]),
+        "peakHeartRate": valid(session.get("max_heart_rate"), 30, 240),
         "heartRateSeries": heart_rate,
+        "paceSeries": pace_series,
+        "paceSeriesSource": "garmin-fit-distance",
+        "heartRateSeriesSource": "garmin-fit",
+        "dynamicsSeries": dynamics,
+        "lapSummaries": lap_summaries,
         "garminMetrics": {
-            "avgCadenceRaw": mean(cadence),
-            "avgGroundContactTime": mean(ground_contact),
-            "avgVerticalOscillation": mean(vertical_oscillation),
+            "avgCadenceSpm": safe_mean(cadence_values),
+            "avgGroundContactMs": safe_mean(ground_values),
+            "avgVerticalOscillationCm": safe_mean(oscillation_values),
+            "avgPowerWatts": safe_mean(power_values),
             "lapCount": len(laps),
-            "recordCount": len(records)
+            "recordCount": len(records),
+            "hrSamples": len(heart_rate),
+            "paceSamples": len(pace_series),
+            "dynamicsSamples": len(dynamics)
         },
-        "privacy": {"gpsCoordinatesExported": False, "rawFitExported": False}
+        "privacy": {"rawFitExported": False, "gpsCoordinatesExported": False}
     }
-
 
 def existing_matches(index_path, start):
     if not index_path.exists():
