@@ -101,7 +101,9 @@ async function showRun(run){
     metric('HR recovery · 1 min',n(details.heartRateRecovery?.minute1Drop)===null?'—':fmt(details.heartRateRecovery.minute1Drop,0)+' bpm',
       'Approximate Garmin daily HR sample; not standardized'),
     metric('HR recovery · 2 min',n(details.heartRateRecovery?.minute2Drop)===null?'—':fmt(details.heartRateRecovery.minute2Drop,0)+' bpm',
-      'Unavailable if no reading near 2 minutes'),
+      details.heartRateRecovery?.minute2Source==='garmin-native-two-minute-recovery'
+        ? 'Garmin native two-minute recovery drop'
+        : 'Unavailable without Garmin-native recovery or a suitable sample'),
     metric('HR recovery · 3 min',n(details.heartRateRecovery?.minute3Drop)===null?'—':fmt(details.heartRateRecovery.minute3Drop,0)+' bpm',
       'Approximate Garmin daily HR sample; not standardized'),
     metric('Training load',n(details.garminNative?.activityTrainingLoad)===null?'—':fmt(details.garminNative.activityTrainingLoad,0),
