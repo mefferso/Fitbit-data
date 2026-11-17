@@ -131,3 +131,26 @@ test('native Garmin two-minute recovery is retained without daily HR samples', a
   const index=await read(dir,'docs/data/run-index.json');
   assert.equal(index.runs[0].hrr2,31);
 });
+
+test('three-day wellness sync never erases older Garmin wellness history',async()=>{
+  const dir=await mkdtemp(join(tmpdir(),'garmin-wellness-merge-'));
+  const originalDays=Object.fromEntries(Array.from({length:30},(_,i)=>{
+    const date=new Date(Date.UTC(2026,10,1+i)).toISOString().slice(0,10);
+    return [date,{steps:[{totalSteps:1000+i}]}];
+  }));
+  await write(dir,'docs/data/garmin-wellness.json',{
+    generatedAt:'2026-11-30T00:00:00Z',timeZone:'America/Chicago',days:originalDays
+  });
+  await write(dir,'.garmin-staging/activities.json',[]);
+  await write(dir,'.garmin-staging/wellness.json',{
+    '2026-11-28':{steps:[{totalSteps:8000}]},
+    '2026-11-29':{steps:[{totalSteps:9000}]},
+    '2026-11-30':{steps:[{totalSteps:10000}]}
+  });
+  const result=spawnSync(process.execPath,[publisher],{cwd:dir,encoding:'utf8'});
+  assert.equal(result.status,0,result.stderr);
+  const output=await read(dir,'docs/data/garmin-wellness.json');
+  assert.equal(Object.keys(output.days).length,30);
+  assert.equal(output.days['2026-11-01'].steps[0].totalSteps,1000);
+  assert.equal(output.days['2026-11-30'].steps[0].totalSteps,10000);
+});
