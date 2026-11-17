@@ -56,7 +56,14 @@ def main():
         "source": "garmin",
         "sourceActivityId": result["sourceActivityId"],
         "sourceStartTime": result["startTime"],
-        "sourceEndTime": result["endTime"],
+        # Some Garmin FIT sessions expose a timestamp equal to start_time.
+        # Treat that as unknown rather than publishing a fictitious end time.
+        "sourceEndTime": (
+            result["endTime"]
+            if datetime.fromisoformat(result["endTime"].replace("Z", "+00:00"))
+               > datetime.fromisoformat(result["startTime"].replace("Z", "+00:00"))
+            else None
+        ),
         "targetStartTime": target["startTime"],
         "activeSeconds": result["activeSeconds"],
         "distanceMiles": result["distanceMiles"],
