@@ -73,9 +73,10 @@ function chart(name,canvasId,origin,definitions){
 function renderPrimaryTimeline(details,origin){
   const selected=Number($('hr-pace-resolution')?.value||60);
   const interval=[1,15,30,60,300].includes(selected)?selected:60;
-  const hr=averageTimeline(
-    (details.heartRateSeries||[]).filter(p=>p.time>=origin),
-    'value',origin,interval);
+  // Keep the original Garmin FIT 1-second HR samples unchanged.
+  // The dropdown controls pace smoothing ONLY.
+  const hr=(details.heartRateSeries||[]).filter(p=>
+    p.time>=origin&&Number.isFinite(p.value));
   const pacePoints=averageTimeline(
     (details.paceSeries||[]).filter(p=>p.time>=origin),
     'paceSecondsPerMile',origin,interval,{pace:true});
