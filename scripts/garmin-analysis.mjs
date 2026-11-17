@@ -24,15 +24,23 @@ export function garminAnalysis(run,{zoneBoundaries=null}={}){
     label:lo===0?'<120 bpm':hi===250?'180+ bpm':lo+'–'+hi+' bpm',
     lowerBpm:lo,upperBpm:hi,count:validHr.filter(x=>x.value>=lo&&x.value<=hi).length
   }));
-  const bounds=Array.isArray(zoneBoundaries)&&zoneBoundaries.length===4
-    &&zoneBoundaries.every(x=>Number.isFinite(x))&&zoneBoundaries.every((x,i)=>i===0||x>zoneBoundaries[i-1])
+  // Five starts are required so values BELOW the Z1 minimum are not
+  // incorrectly reported as Zone 1. The last zone has no upper limit.
+  const starts=Array.isArray(zoneBoundaries)&&zoneBoundaries.length===5
+    &&zoneBoundaries.every(x=>Number.isInteger(x)&&x>=35&&x<=230)
+    &&zoneBoundaries.every((x,i)=>i===0||x>zoneBoundaries[i-1])
     ?zoneBoundaries:null;
-  const zones=bounds?[0,...bounds,250].slice(0,5).map((lo,i,a)=>({
+  const zones=starts?starts.map((lo,i)=>({
     key:'zone'+(i+1),label:'Zone '+(i+1),minimumBpm:lo,
-    maximumBpm:i===4?null:a[i+1]-1,
-    seconds:validHr.filter(x=>x.value>=lo&&(i===4||x.value<a[i+1])).length,
-    source:'configured-thresholds'
+    maximumBpm:i===4?null:starts[i+1]-1,
+    seconds:validHr.filter(x=>x.value>=lo&&(i===4||x.value<starts[i+1])).length,
+    source:'configured-running-percent-maxhr'
   })):null;
+  const belowZone1=starts?{
+    key:'below',label:'Below Zone 1',maximumBpm:starts[0]-1,
+    seconds:validHr.filter(x=>x.value<starts[0]).length,
+    source:'configured-running-percent-maxhr'
+  }:null;
   // A pace-controlled run is essential: broad halves suppress the warm-up and
   // require enough valid samples. Faster finishes can bias this diagnostic.
   const start=Date.parse(run.startTime),end=Date.parse(run.endTime);
@@ -68,7 +76,7 @@ export function garminAnalysis(run,{zoneBoundaries=null}={}){
       groundContactMs:round(average(rows.map(x=>x.groundContactMs).filter(x=>n(x)>0)),1),
       cadenceSpm:round(average(rows.map(x=>x.cadenceSpm).filter(x=>n(x)>0)),1)};
   }).filter(x=>x.seconds>=15);
-  return {heartRateBands:bands,zoneSummary:zones,aerobicDecoupling:drift,
+  return {heartRateBands:bands,zoneSummary:zones,belowZone1,aerobicDecoupling:drift,
     runningDynamicsByPace:byPace,
     heartRateRecovery:null,heartRateRecoverySource:'post-activity-samples-unavailable',
     analysisMethod:'Garmin FIT derived; zones need configured personal thresholds; non-Garmin scores not inferred.'};
