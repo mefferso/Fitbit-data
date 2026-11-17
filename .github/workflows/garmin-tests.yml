@@ -11,6 +11,7 @@ on:
       - 'tests/garmin-first.test.mjs'
       - 'tests/garmin-analysis.test.mjs'
       - 'tests/garmin-recovery.test.mjs'
+      - 'tests/garmin-time-averages.test.mjs'
       - '.github/workflows/garmin-tests.yml'
   push:
     branches: [main]
@@ -35,10 +36,11 @@ jobs:
         run: python -m py_compile scripts/stage-garmin-runs.py scripts/sync-garmin.py
       - name: Validate JavaScript syntax
         run: |
+          node --check docs/v2/js/garmin-time-averages.js
           node --check scripts/publish-garmin.mjs
           node --check scripts/garmin-analysis.mjs
           node --check scripts/garmin-recovery.mjs
           node --check docs/v2/js/app.js
           node --check docs/v2/js/garmin-lab.js
       - name: Run Garmin and existing analytics tests
-        run: node --test tests/garmin-first.test.mjs tests/garmin-analysis.test.mjs tests/garmin-recovery.test.mjs tests/aerobic-analysis.test.mjs tests/run-comparison.test.mjs
+        run: node --test tests/garmin-time-averages.test.mjs tests/garmin-first.test.mjs tests/garmin-analysis.test.mjs tests/garmin-recovery.test.mjs tests/aerobic-analysis.test.mjs tests/run-comparison.test.mjs
