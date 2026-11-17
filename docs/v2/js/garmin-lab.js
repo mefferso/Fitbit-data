@@ -92,7 +92,7 @@ function rowsHtml(laps){
   const head='<table><thead><tr><th>#</th><th>Distance</th><th>Time</th><th>Pace</th><th>Avg HR</th><th>Peak HR</th><th>Power</th><th>Cadence</th><th>GCT</th><th>Balance</th><th>Stride</th><th>Ascent</th></tr></thead><tbody>';
   return head+laps.map((l,i)=>{
     const p=n(l.durationSeconds)!==null&&n(l.distanceMiles)>0?l.durationSeconds/l.distanceMiles:null;
-    return '<tr><td>'+(i+1)+'</td><td>'+fmt(l.distanceMiles,2)+' mi</td><td>'+duration(l.durationSeconds)+'</td><td>'+pace(p)+'</td><td>'+fmt(l.averageHeartRate,0)+'</td><td>'+fmt(l.peakHeartRate,0)+'</td><td>'+fmt(l.averagePowerWatts,0)+'</td><td>'+fmt(l.averageCadenceSpm,0)+' spm</td><td>'+fmt(l.avgGroundContactMs,0)+' ms</td><td>'+fmt(l.avgGroundContactBalancePct,1)+'%</td><td>'+fmt(l.avgStrideLengthM,2)+' m</td><td>'+fmt(l.ascentM,0)+' m</td></tr>';
+    return '<tr><td>'+(i+1)+'</td><td>'+fmt(l.distanceMiles,2)+' mi</td><td>'+duration(l.durationSeconds)+'</td><td>'+pace(p)+'</td><td>'+fmt(l.averageHeartRate,0)+'</td><td>'+fmt(l.peakHeartRate,0)+'</td><td>'+fmt(l.averagePowerWatts,0)+'</td><td>'+fmt(l.averageCadenceSpm,0)+' spm</td><td>'+fmt(l.avgGroundContactMs,0)+' ms</td><td>'+(n(l.avgGroundContactBalancePct)===null?missing('NOT_RECORDED_BY_DEVICE'):fmt(l.avgGroundContactBalancePct,1)+'%')+'</td><td>'+(n(l.avgStrideLengthM)===null?missing():fmt(l.avgStrideLengthM,2)+' m')+'</td><td>'+fmt(l.ascentM,0)+' m</td></tr>';
   }).join('')+'</tbody></table>';
 }
 async function showRun(run){
@@ -130,13 +130,16 @@ async function showRun(run){
       'Garmin-native score, if available'),
     metric('Anaerobic training effect',n(details.garminNative?.anaerobicTrainingEffect)===null?missing():fmt(details.garminNative.anaerobicTrainingEffect,1),'Garmin Connect native'),
     metric('Training effect focus',details.garminNative?.trainingEffectLabel||missing(),'Garmin native category'),
-    metric('Recovery time',n(details.garminNative?.recoveryTimeHours)===null?missing():fmt(details.garminNative.recoveryTimeHours,0)+' hr','Garmin native; if exported'),
-    metric('Performance condition',n(details.garminNative?.performanceCondition)===null?missing():fmt(details.garminNative.performanceCondition,0),'Garmin native; if exported'),
-    metric('Ground contact balance',n(m.avgGroundContactBalancePct)===null?missing():fmt(m.avgGroundContactBalancePct,1)+'%','FIT; inspect left/right interpretation'),
+    metric('Recovery time',n(details.garminNative?.recoveryTime)===null?missing():fmt(details.garminNative.recoveryTime,0)+(details.garminNative?.recoveryTimeUnit?' '+details.garminNative.recoveryTimeUnit:' (native units unverified)'),'Garmin Connect activity-detail/listing; no inferred hours'),
+    metric('Performance condition',n(details.garminNative?.performanceCondition)===null?missing():fmt(details.garminNative.performanceCondition,0),'Garmin Connect activity detail / listing; may legitimately be absent'),
+    metric('Ground contact balance',n(m.avgGroundContactBalancePct)===null?missing('NOT_RECORDED_BY_DEVICE'):fmt(m.avgGroundContactBalancePct,1)+'%','Requires a compatible running-dynamics accessory; wrist-only 970 does not report balance'),
     metric('Stride length',n(m.avgStrideLengthM)===null?missing():fmt(m.avgStrideLengthM,2)+' m','FIT; on new syncs'),
     metric('Ascent',n(details.garminSessionTotals?.ascentM)===null?missing():fmt(details.garminSessionTotals.ascentM*3.28084,0)+' ft','FIT session'),
     metric('Descent',n(details.garminSessionTotals?.descentM)===null?missing():fmt(details.garminSessionTotals.descentM*3.28084,0)+' ft','FIT session'),
-    metric('Calories',n(details.garminSessionTotals?.calories)===null?missing():fmt(details.garminSessionTotals.calories,0),'FIT session')
+    metric('Calories',n(details.garminSessionTotals?.calories)===null?missing():fmt(details.garminSessionTotals.calories,0),'FIT session'),
+    metric('Total strides',n(details.garminSessionTotals?.totalStrides)===null?missing():Math.round(details.garminSessionTotals.totalStrides).toLocaleString(),'FIT session total'),
+    metric('Average recorded temperature',n(details.garminSessionTotals?.avgTemperatureC)===null?missing():fmt(details.garminSessionTotals.avgTemperatureC*9/5+32,1)+'°F','FIT temperature, not Tempest'),
+    metric('Maximum recorded temperature',n(details.garminSessionTotals?.maxTemperatureC)===null?missing():fmt(details.garminSessionTotals.maxTemperatureC*9/5+32,1)+'°F','FIT temperature, not Tempest')
   ].join('');
   document.querySelector('#running-hr-zone-table')?.remove();
   if(details.zoneSummary?.length){
