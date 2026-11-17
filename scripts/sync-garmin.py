@@ -20,6 +20,7 @@ from zoneinfo import ZoneInfo
 from garmin_personal_api import GarminPersonalApiClient, PersonalApiAuthenticator
 
 stage = SourceFileLoader("garmin_stage", "scripts/stage-garmin-runs.py").load_module()
+native_metrics = SourceFileLoader("garmin_native_fields", "scripts/garmin-native-fields.py").load_module()
 CHICAGO = ZoneInfo("America/Chicago")
 CUTOVER = "2026-11-16"
 EXCLUDED_KEYS = (
@@ -101,38 +102,13 @@ def run(args):
                         parsed = stage.parse_fit(
                             client.download_activity(activity_id), activity_id
                         )
-                        # Explicit allowlist: Garmin-owned activity metadata only.
+                        # Detail carries fields that may be absent in list responses.
                         # Never publish unrestricted account/activity responses.
-                        native_fields = (
-                            "aerobicTrainingEffect", "anaerobicTrainingEffect",
-                            "activityTrainingLoad", "trainingEffectLabel",
-                            "recoveryTime", "performanceCondition",
-                        )
-                        native = {}
-                        for field in native_fields:
-                            value = activity.get(field)
-                            if isinstance(value, (float, int)) and not isinstance(value, bool):
-                                if 0 <= value < 100000:
-                                    native[field] = value
-                            elif field == "trainingEffectLabel" and isinstance(value, str):
-                                native[field] = value[:60]
-                        # Garmin's own two-minute recovery value can be stored in
-                        # activity summary metadata even when the daily HR series is sparse.
-                        # This is the native two-minute HR drop, NOT a sampled HR value.
                         try:
                             activity_detail = client.get_activity(activity_id)
-                            summary = activity_detail.get("summaryDTO", {}) if isinstance(activity_detail, dict) else {}
-                            if not isinstance(summary, dict):
-                                summary = {}
-                            raw_recovery = summary.get("recoveryHeartRate")
-                            if raw_recovery is None and isinstance(activity_detail, dict):
-                                raw_recovery = activity_detail.get("recoveryHeartRate")
-                            if isinstance(raw_recovery, (float, int)) and not isinstance(raw_recovery, bool):
-                                if 0 <= raw_recovery <= 150:
-                                    native["recoveryHeartRate2MinDrop"] = round(raw_recovery, 1)
                         except Exception:
-                            # Unavailable native recovery does not fail the FIT import.
-                            pass
+                            activity_detail = {}
+                        native = native_metrics.extract_native(activity, activity_detail)
                         parsed["garminNative"] = native
                         if parsed["date"] >= args.since:
                             imported.append(parsed)

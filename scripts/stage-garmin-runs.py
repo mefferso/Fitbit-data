@@ -73,6 +73,11 @@ def parse_fit(zip_bytes, source_id):
         v = number(value)
         return v if v is not None and (low is None or v >= low) and (high is None or v <= high) else None
 
+    def fit_step_length_m(raw):
+        """FIT step_length/avg_step_length arrive in millimetres, not metres."""
+        millimetres = valid(raw, 200, 3500)
+        return round(millimetres / 1000, 3) if millimetres is not None else None
+
     def safe_mean(values):
         return round(sum(values) / len(values), 1) if values else None
 
@@ -95,10 +100,17 @@ def parse_fit(zip_bytes, source_id):
         ratio = valid(record.get("vertical_ratio"), 1, 30)
         power = valid(record.get("power"), 0, 2000)
         balance = valid(record.get("stance_time_balance"), 0, 100)
-        stride = valid(record.get("step_length"), 0.2, 3.5)
+        stride = fit_step_length_m(record.get("step_length"))
         speed = valid(record.get("enhanced_speed"), 0, 20)
         if speed is None:
             speed = valid(record.get("speed"), 0, 20)
+        # Independent speed/cadence stride sanity check, never a replacement for FIT.
+        # cadenceSpm counts both feet; speed (m/s) / (steps/s) = metres/step.
+        stride_check = (round(speed * 60 / cadence_spm, 3)
+                        if speed is not None and cadence_spm is not None and cadence_spm >= 60
+                        else None)
+        if stride_check is not None and not 0.2 <= stride_check <= 3.5:
+            stride_check = None
         distance_m = valid(record.get("distance"), 0, 1000000)
         altitude_m = valid(record.get("enhanced_altitude"), -500, 10000)
         if altitude_m is None:
@@ -124,7 +136,7 @@ def parse_fit(zip_bytes, source_id):
             ("cadenceSpm", cadence_spm), ("groundContactMs", ground),
             ("verticalOscillationCm", osc_cm), ("verticalRatioPct", ratio),
             ("powerWatts", power), ("groundContactBalancePct", balance),
-            ("strideLengthM", stride),
+            ("strideLengthM", stride), ("strideLengthCheckM", stride_check),
             ("elevationFt", round(altitude_m * 3.28084, 1) if altitude_m is not None else None),
         ):
             if value is not None:
@@ -156,6 +168,10 @@ def parse_fit(zip_bytes, source_id):
         lap_start = utc_iso(lap.get("start_time"))
         sec = valid(lap.get("total_timer_time"), 0, 200000)
         meters = valid(lap.get("total_distance"), 0, 500000)
+        lap_strides = [p["strideLengthM"] for p in dynamics
+                       if "strideLengthM" in p and lap_start is not None
+                       and p["time"] >= lap_start and sec is not None
+                       and p["time"] < utc_iso(datetime.fromisoformat(lap_start.replace("Z", "+00:00")) + timedelta(seconds=sec))]
         lap_summaries.append({
             "startTime": lap_start,
             "durationSeconds": round(sec, 1) if sec is not None else None,
@@ -168,7 +184,7 @@ def parse_fit(zip_bytes, source_id):
             "avgGroundContactMs": valid(lap.get("avg_stance_time"), 100, 800),
             "avgVerticalOscillationCm": round(valid(lap.get("avg_vertical_oscillation"), 10, 300) / 10, 2) if valid(lap.get("avg_vertical_oscillation"), 10, 300) is not None else None,
             "avgVerticalRatioPct": valid(lap.get("avg_vertical_ratio"), 1, 30),
-            "avgStrideLengthM": valid(lap.get("avg_step_length"), 0.2, 3.5),
+            "avgStrideLengthM": fit_step_length_m(lap.get("avg_step_length")) or (round(sum(lap_strides) / len(lap_strides), 3) if lap_strides else None),
             "avgGroundContactBalancePct": valid(lap.get("avg_stance_time_balance"), 0, 100),
             "ascentM": valid(lap.get("total_ascent"), 0, 10000),
             "descentM": valid(lap.get("total_descent"), 0, 10000),
@@ -251,7 +267,7 @@ def parse_fit(zip_bytes, source_id):
         "garminMetrics": {
             "avgCadenceSpm": safe_mean(cadence_values),
             "avgGroundContactBalancePct": safe_mean(balance_values),
-            "avgStrideLengthM": safe_mean(stride_values),
+            "avgStrideLengthM": round(sum(stride_values) / len(stride_values), 3) if stride_values else None,
             "avgGroundContactMs": safe_mean(ground_values),
             "avgVerticalOscillationCm": safe_mean(oscillation_values),
             "avgPowerWatts": safe_mean(power_values),
