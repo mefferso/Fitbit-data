@@ -6,6 +6,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import {garminAnalysis} from './garmin-analysis.mjs';
+import {garminPostRunRecovery} from './garmin-recovery.mjs';
 
 const CUTOVER='2026-11-16';
 const TZ='America/Chicago';
@@ -113,6 +114,16 @@ const index=await read('docs/data/run-index.json',{runs:[]});
 const data=await read('docs/data.json',{recentRuns:[],detailedRuns:[],runningTrend:{}});
 const trends=await read('docs/data/trends.json',{runningTrend:{}});
 const previousWellness=await read('docs/data/garmin-wellness.json',{days:{}});
+const combinedWellnessDays={...(previousWellness.days||{})};
+for(const [date,measurements] of Object.entries(incomingWellness)){
+  if(!/^\d{4}-\d\d-\d\d$/.test(date))throw Error('Invalid wellness date');
+  const day={...(combinedWellnessDays[date]||{})};
+  for(const [name,value] of Object.entries(measurements)){
+    if(name!=='_unavailable'&&value!==null&&value!==undefined)day[name]=value;
+  }
+  combinedWellnessDays[date]=day;
+}
+
 const legacy=(index.runs||[]).filter(r=>r.date<CUTOVER&&r.source!=='garmin');
 const garmin=new Map((index.runs||[]).filter(r=>
   r.date>=CUTOVER&&r.source==='garmin'&&Number.isSafeInteger(Number(r.sourceActivityId))
@@ -132,13 +143,14 @@ for(const r of incoming){
     catch(e){console.log('Tempest unavailable for one run: '+e.name);}
   }
   const derived=garminAnalysis(r,{zoneBoundaries:process.env.GARMIN_HR_ZONE_BOUNDARIES_BPM?.split(',').map(Number)});
+  const recovery=garminPostRunRecovery(r,combinedWellnessDays[r.date]);
   const detail={
     ...r,runId,detailFile,
     // Old Google traces and all old source-dependent calculations are removed.
     route:r.route||null,routeSource:r.route?'garmin-fit-relative':null,
     zoneSummary:derived.zoneSummary,zoneSummarySource:derived.zoneSummary?'configured-Garmin-HR-thresholds':null,
     heartRateBands:derived.heartRateBands,
-    heartRateRecovery:derived.heartRateRecovery,heartRateRecoverySource:derived.heartRateRecoverySource,
+    heartRateRecovery:recovery,heartRateRecoverySource:recovery?.source||derived.heartRateRecoverySource,
     aerobicDecoupling:derived.aerobicDecoupling,trainingLoad:null,weatherAdjustedEfficiency:null,
     adjustedPerformanceIndex:null,analysisSummary:{method:derived.analysisMethod},
     runningDynamicsByPace:derived.runningDynamicsByPace,
@@ -155,7 +167,7 @@ for(const r of incoming){
     distanceMiles:r.distanceMiles,averagePaceSecondsPerMile:r.averagePaceSecondsPerMile,
     averageHeartRate:r.averageHeartRate,peakHeartRate:r.peakHeartRate,
     source:'garmin',sourceActivityId:r.sourceActivityId,detailFile,
-    hrr1:null,hrr2:null,hrr3:null,cardioDriftPercent:derived.aerobicDecoupling?.percent??null,trainingLoad:null,
+    hrr1:recovery?.minute1Drop??null,hrr2:recovery?.minute2Drop??null,hrr3:recovery?.minute3Drop??null,cardioDriftPercent:derived.aerobicDecoupling?.percent??null,trainingLoad:null,
     adjustedPerformanceIndex:null,heatIndexF:weather?.average?.heatIndexF??null,
     dewpointF:weather?.average?.dewpointF??null
   });
@@ -194,17 +206,7 @@ const updatedTrend={...oldTrend,runs:runningTrend,
   weatherAdjusted:{...oldTrend.weatherAdjusted,
     runs:(oldTrend.weatherAdjusted?.runs||[]).filter(r=>r.date<CUTOVER)}
 };
-const wellnessDays={...(previousWellness.days||{})};
-for(const [date,measurements] of Object.entries(incomingWellness)){
-  if(!/^\d{4}-\d\d-\d\d$/.test(date))throw Error('Invalid wellness date');
-  const old=wellnessDays[date]||{};
-  const updated={...old};
-  for(const [key,value] of Object.entries(measurements)){
-    if(key==='_unavailable')continue;
-    if(value!==null&&value!==undefined)updated[key]=value;
-  }
-  wellnessDays[date]=updated;
-}
+const wellnessDays=combinedWellnessDays;
 const wellnessChanged=JSON.stringify(wellnessDays)!==JSON.stringify(previousWellness.days||{});
 const wellness={generatedAt:wellnessChanged?new Date().toISOString():(previousWellness.generatedAt||generatedAt),timeZone:TZ,
   source:'Garmin Connect Personal API',
