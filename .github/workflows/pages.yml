@@ -41,6 +41,22 @@ jobs:
         run: |
           node scripts/build-public-data.mjs
 
+      - name: Set up Python for Garmin FIT parsing
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Garmin's official API client and FIT parser
+        run: python -m pip install garmin-connect-personal-api-python fitparse
+
+      - name: Retrieve November 16 Garmin FIT metrics (private temp file)
+        env:
+          GARMIN_PERSONAL_API_KEY: ${{ secrets.GARMIN_PERSONAL_API_KEY }}
+        run: python scripts/export-garmin-nov16.py
+
+      - name: Apply Garmin data to the existing November 16 run
+        run: node scripts/apply-garmin-nov16.mjs
+
       - name: Validate export
         run: |
           python - <<'PY'
@@ -61,6 +77,21 @@ jobs:
               raise SystemExit("Latest-run feed is missing detailed run data")
           if "runningTrend" not in trends:
               raise SystemExit("Trend feed is missing runningTrend")
+          # Garmin's November 16 overlay must be consistent across all feeds,
+          # and the existing historical run count must not increase.
+          target = [r for r in index["runs"] if r.get("date") == "2026-11-16"]
+          if len(target) != 1 or target[0].get("source") != "garmin":
+              raise SystemExit("Garmin November 16 override missing/duplicated")
+          d = json.loads((Path("docs") / target[0]["detailFile"]).read_text())
+          if d.get("source") != "garmin" or d.get("distanceMiles") != target[0].get("distanceMiles"):
+              raise SystemExit("Garmin detail/index mismatch")
+          if d.get("heartRateSeriesSource") != "garmin-fit":
+              raise SystemExit("Garmin heart rate source mismatch")
+          if len(d.get("heartRateSeries", [])) < 10:
+              raise SystemExit("Garmin FIT HR series is unexpectedly short")
+          forbidden = {"position_lat", "position_long", "latitude", "longitude", "gpsCoordinates"}
+          if any(k in json.dumps(d) for k in forbidden):
+              raise SystemExit("Potential absolute GPS coordinate leak in Garmin public detail")
           print(f"Validated {len(data.get('recentRuns', []))} recent runs, {len(data.get('detailedRuns', []))} dashboard details, and {len(index.get('runs', []))} indexed runs")
           PY
 
