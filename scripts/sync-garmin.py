@@ -18,6 +18,7 @@ import sys
 from zoneinfo import ZoneInfo
 
 from garmin_hrv_fit import print_capabilities
+from garmin_snapshots import read_snapshots
 from garmin_personal_api import GarminPersonalApiClient, PersonalApiAuthenticator
 
 stage = SourceFileLoader("garmin_stage", "scripts/stage-garmin-runs.py").load_module()
@@ -151,31 +152,18 @@ def run(args):
 
             hrv_status = print_capabilities(client, args.since)
             try:
-                snapshot_probe = client.get_wellness_activity_summaries(today - timedelta(days=13), today)
-                allowed = {"data", "summaries", "wellnessActivitySummaries", "wellnessActivities",
-                           "activityUuid", "calendarDate", "startTimeGMT", "startTimeLocal",
-                           "startTimeInSeconds", "offsetStartTimeInSeconds", "activityType",
-                           "durationInSeconds", "duration", "summaryType", "avgValue",
-                           "rmssd", "sdrr", "avgRmssd", "avgSdrr", "activitySummary"}
-                keys = set()
-                def examine(value):
-                    if isinstance(value, dict):
-                        keys.update(value.keys() & allowed)
-                        for child in value.values():
-                            examine(child)
-                    elif isinstance(value, list):
-                        for child in value:
-                            examine(child)
-                examine(snapshot_probe)
-                print(f"Health Snapshot range probe: {type(snapshot_probe).__name__}; "
-                      f"nonempty={bool(snapshot_probe)}; recognized schema={','.join(sorted(keys))}")
+                snapshots = read_snapshots(client, today)
+                snapshot_status = "available" if snapshots else "awaiting-recording"
             except Exception as error:
-                status = getattr(error, "status_code", None)
-                print("Health Snapshot range probe failed: " + (str(status) if type(status) is int else "unverified"))
+                snapshots = []
+                status_code = getattr(error, "status_code", None)
+                snapshot_status = "unavailable" if status_code in (403, 404) else "unverified"
+            print(f"Garmin Health Snapshot sync: {snapshot_status}.")
 
-    (args.output_dir / "daytime-hrv-status.json").write_text(
-        json.dumps({"fit": hrv_status}) + "\n"
-    )
+    hrv = {"fit": hrv_status, "snapshot": snapshot_status}
+    if os.environ.get("GARMIN_PUBLISH_HEALTH_SNAPSHOTS") == "true":
+        hrv["snapshots"] = snapshots
+    (args.output_dir / "daytime-hrv-status.json").write_text(json.dumps(hrv) + "\n")
 
     (args.output_dir / "activities.json").write_text(
         json.dumps(imported, separators=(",", ":")) + "\n"

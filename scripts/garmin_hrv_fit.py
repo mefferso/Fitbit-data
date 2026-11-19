@@ -61,9 +61,6 @@ def probe_activities(client, since):
 
 def print_capabilities(client, since):
     print("Daytime HRV capability: daily HRV feeds are overnight (CONFIRMED).")
-    snapshot = any("snapshot" in name.lower() and callable(getattr(client, name))
-                   for name in dir(client))
-    print("Health Snapshot client method: " + ("UNVERIFIED" if snapshot else "UNAVAILABLE"))
     try:
         result = probe_activities(client, since)
         state = ("CONFIRMED" if result["withPlausibleRR"] else

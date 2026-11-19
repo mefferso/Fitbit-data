@@ -35,6 +35,21 @@ export function readFitSummary(file) {
   });
 }
 
+export function readSnapshotSummary(readings) {
+  if (!Array.isArray(readings) || readings.length > 1000) throw new Error('Invalid Snapshot summary');
+  return readings.map(row => {
+    if (!row || !validLocalTime(row.time) || typeof row.instant !== 'string' ||
+        !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}\+00:00$/.test(row.instant) ||
+        !Number.isFinite(Date.parse(row.instant)) || !finiteNonnegative(row.rmssd) ||
+        row.rmssd > 2000 || !(row.sdrr === null || (finiteNonnegative(row.sdrr) && row.sdrr <= 2000))) {
+      throw new Error('Invalid Snapshot measurement');
+    }
+    const {time, instant, rmssd, sdrr} = row;
+    return {id: 'snapshot:' + instant, source: SNAPSHOT, method: 'garmin-sync',
+      time, instant, rmssd, sdrr};
+  });
+}
+
 export function measurementHistory(rows, day = '') {
   return rows.filter(row => !day || row.time.startsWith(day + 'T'))
     .sort((a, b) => Date.parse(b.instant) - Date.parse(a.instant) || b.id.localeCompare(a.id));
@@ -42,11 +57,13 @@ export function measurementHistory(rows, day = '') {
 
 function describeTime(row) {
   const date = row.time.replace('T', ' ');
-  return row.source === FIT ? date + ' CT (session start)' : date + ' (local time)';
+  if (row.source === FIT) return date + ' CT (session start)';
+  return row.method === 'garmin-sync' ? date + ' CT' : date + ' (local time)';
 }
 
 function describeQuality(row) {
-  if (row.source === SNAPSHOT) return 'Manual entry · Garmin-reported';
+  if (row.source === SNAPSHOT) return row.method === 'garmin-sync'
+    ? 'Garmin sync · Garmin-reported' : 'Manual entry · Garmin-reported';
   return `Screened FIT · ${row.intervals} intervals over ${row.duration} s · sensor unverified`;
 }
 
@@ -86,6 +103,7 @@ export function mountDaytimeHrv(root) {
   const form = field('form');
   const feedback = message => { field('feedback').textContent = message; };
   let rows = [];
+  let synced = [];
   let editing = null;
   let chart = null;
   try {
@@ -151,7 +169,7 @@ export function mountDaytimeHrv(root) {
       row.source === FIT ? `${row.invalidIntervals} invalid of ${row.recordedIntervals} recorded intervals` : '',
       row.sdrr != null ? 'SDRR ' + formatMs(row.sdrr) : '', row.context].filter(Boolean).join(' · ');
     item.append(title, detail);
-    if (row.source === SNAPSHOT) {
+    if (row.source === SNAPSHOT && row.method !== 'garmin-sync') {
       const actions = document.createElement('div');
       actions.className = 'hrv-actions';
       actions.append(button('Edit', () => edit(row)), button('Delete', () => remove(row)));
@@ -161,14 +179,16 @@ export function mountDaytimeHrv(root) {
   }
 
   function render() {
-    const latest = measurementHistory(rows)[0];
+    const combined = new Map([...synced, ...rows].map(row => [row.id, row]));
+    const all = [...combined.values()];
+    const latest = measurementHistory(all)[0];
     field('latest').textContent = latest ? formatMs(latest.rmssd) : '—';
     field('latest-detail').textContent = latest
       ? [latest.source, describeTime(latest), describeQuality(latest)].join(' · ')
       : 'No daytime readings saved';
     const day = field('filter').value;
-    const history = measurementHistory(rows, day);
-    field('empty').hidden = rows.length > 0;
+    const history = measurementHistory(all, day);
+    field('empty').hidden = all.length > 0;
     field('history-note').textContent = day && !history.length ? 'No readings on this date.' : '';
     field('history').replaceChildren(...history.map(renderRow));
     chart?.destroy();
@@ -209,20 +229,22 @@ export function mountDaytimeHrv(root) {
     if (!file) return;
     try {
       if (file.size > 1_000_000) throw new Error('Summary too large');
-      const imported = readFitSummary(JSON.parse(await file.text()));
+      const document = JSON.parse(await file.text());
+      const imported = document?.version === 1 && document.kind === 'health-snapshots'
+        ? readSnapshotSummary(document.readings) : readFitSummary(document);
       if (!imported.length) {
-        feedback('This file contains no screened FIT measurements.');
+        feedback('This file contains no measurements.');
         return;
       }
       const merged = new Map(rows.map(row => [row.id, row]));
       for (const row of imported) merged.set(row.id, row);
       if (persist([...merged.values()])) {
         field('filter').value = '';
-        feedback('FIT measurements saved in this browser.');
+        feedback('Measurements saved in this browser.');
         render();
       }
     } catch {
-      feedback('Could not read a valid FIT summary JSON file.');
+      feedback('Could not read a valid Garmin summary JSON file.');
     } finally {
       input.value = '';
     }
@@ -236,6 +258,21 @@ export function mountDaytimeHrv(root) {
       if (!response.ok) throw new Error('Status unavailable');
       return response.json();
     })
-    .then(data => { field('status').textContent = Object.hasOwn(STATUS, data.fit) ? STATUS[data.fit] : STATUS.unverified; })
-    .catch(() => { field('status').textContent = STATUS.unverified; });
+    .then(data => {
+      field('status').textContent = Object.hasOwn(STATUS, data.fit) ? STATUS[data.fit] : STATUS.unverified;
+      synced = readSnapshotSummary(data.snapshots ?? []);
+      const messages = {
+        available: Array.isArray(data.snapshots) ? 'Garmin sync is active.' : 'Garmin readings are available for private import.',
+        'awaiting-recording': 'Awaiting a Health Snapshot with RMSSD.',
+        unavailable: 'Garmin sync is unavailable. You can enter a reading below.',
+        unverified: 'Garmin sync could not be verified. You can enter a reading below.',
+      };
+      field('snapshot-status').textContent = Object.hasOwn(messages, data.snapshot)
+        ? messages[data.snapshot] : messages.unverified;
+      render();
+    })
+    .catch(() => {
+      field('status').textContent = STATUS.unverified;
+      field('snapshot-status').textContent = 'Garmin sync could not be verified. You can enter a reading below.';
+    });
 }

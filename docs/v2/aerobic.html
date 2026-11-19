@@ -53,7 +53,7 @@
         </article>
         <article class="panel hrv-panel">
           <h3>Garmin Health Snapshot</h3>
-          <p class="hrv-muted">Enter the values from a completed Snapshot. Entries are saved in this browser.</p>
+          <p class="hrv-muted" data-hrv="snapshot-status" role="status">Checking Garmin sync…</p>
           <form class="hrv-form" data-hrv="form">
             <label class="hrv-wide">Measurement date and local time<input name="time" type="datetime-local" required></label>
             <label>RMSSD (ms)<input name="rmssd" type="number" min="0" step="any" required></label>
@@ -65,8 +65,8 @@
             </div>
           </form>
           <details>
-            <summary>Import screened FIT measurements</summary>
-            <p class="hrv-muted">Import the summary JSON produced by the repository’s private FIT processing command. It is stored in this browser.</p>
+            <summary>Import private measurements</summary>
+            <p class="hrv-muted">Import a Garmin summary JSON. Imported measurements and manual entries are stored in this browser.</p>
             <label>Summary JSON<input data-hrv="import" type="file" accept=".json,application/json"></label>
           </details>
           <p data-hrv="feedback" role="status"></p>

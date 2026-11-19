@@ -54,6 +54,7 @@ jobs:
       - name: Sync Garmin running and owner-approved public wellness
         env:
           GARMIN_PERSONAL_API_KEY: ${{ secrets.GARMIN_PERSONAL_API_KEY }}
+          GARMIN_PUBLISH_HEALTH_SNAPSHOTS: ${{ vars.GARMIN_PUBLISH_HEALTH_SNAPSHOTS }}
         run: python scripts/sync-garmin.py --since 2026-11-16 --wellness-days 3
 
       - name: Publish Garmin data independently of Google Health

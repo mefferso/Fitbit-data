@@ -246,9 +246,24 @@ if(wellnessChanged||!previousWellness.generatedAt){
 }
 const hrvStatusFile = 'docs/data/daytime-hrv-status.json';
 const hrvStatus = await read('.garmin-staging/daytime-hrv-status.json');
-if (['rr-detected', 'awaiting-recording', 'unverified'].includes(hrvStatus?.fit) &&
-    hrvStatus.fit !== (await read(hrvStatusFile))?.fit) {
-  await write(hrvStatusFile, {fit: hrvStatus.fit});
+if (['rr-detected', 'awaiting-recording', 'unverified'].includes(hrvStatus?.fit)) {
+  const previous = await read(hrvStatusFile);
+  const next = {fit: hrvStatus.fit};
+  if (['available', 'awaiting-recording', 'unverified', 'unavailable'].includes(hrvStatus.snapshot)) {
+    next.snapshot = hrvStatus.snapshot;
+  }
+  if (Array.isArray(hrvStatus.snapshots)) {
+    const validTime = value => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value);
+    const validMs = value => Number.isFinite(value) && value >= 0 && value <= 2000;
+    const measurements = ['unverified', 'unavailable'].includes(next.snapshot)
+      ? previous?.snapshots ?? [] : hrvStatus.snapshots;
+    next.snapshots = measurements.filter(row => row && validTime(row.time) &&
+      typeof row.instant === 'string' && row.instant.endsWith('+00:00') &&
+      validTime(row.instant.slice(0, -6)) &&
+      validMs(row.rmssd) && (row.sdrr === null || validMs(row.sdrr)))
+      .map(({instant, time, rmssd, sdrr}) => ({instant, time, rmssd, sdrr}));
+  }
+  if (JSON.stringify(next) !== JSON.stringify(previous)) await write(hrvStatusFile, next);
 }
 console.log('Garmin-first published '+merged.length+' runs ('+garmin.size+
   ' Garmin, '+legacy.length+' pre-Garmin), '+fresh+' FIT updates, and '+

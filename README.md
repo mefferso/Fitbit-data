@@ -87,10 +87,10 @@ For future Runkeeper imports, preserve `source`, `source_row`, `date`, `distance
 ### Daytime HRV experiment
 
 Aerobic Fitness Lab checks up to 20 recent activity FIT files through the
-existing Garmin Personal API connection. Pages publishes only a collection
+existing Garmin Personal API connection. The FIT check publishes only a collection
 status. The November 19, 2026 authenticated check downloaded one activity FIT.
 It contained no message 78 RR data. The tested daily HRV endpoints provide
-overnight HRV. The installed Personal API client has no Health Snapshot method.
+overnight HRV. The Personal API retrieves Health Snapshots through its wellness activity summaries endpoint.
 Wrist and external sensor availability remain unverified.
 
 Health Snapshot RMSSD and optional SDRR can be entered in the browser. To
@@ -105,8 +105,7 @@ python scripts/collect-daytime-hrv.py /path/to/recording.fit
 ```
 
 The API mode uses the existing `GARMIN_PERSONAL_API_KEY` environment variable.
-Import `.garmin-staging/daytime-hrv-private.json` with **Import screened FIT
-measurements** in Aerobic Fitness Lab. Both imported summaries and manual
+Import `.garmin-staging/daytime-hrv-private.json` with **Import private measurements** in Aerobic Fitness Lab. Both imported summaries and manual
 Snapshots are saved in browser storage.
 
 The FIT method requires about five minutes of plausible consecutive RR
@@ -117,3 +116,18 @@ with RR messages but insufficient timing evidence. The session start is shown
 as the recording time in Central Time. The selected window has no exact
 timestamp, and the RR stream has no verified sensor attribution. Screening is
 heuristic and cannot identify every artifact or establish beat morphology.
+
+Health Snapshot sync uses Garmin's official
+[Personal API wellness activity summaries](https://developer.garmin.com/gc-developer-program/personal/swagger-docs).
+It checks 90 days for Health Monitoring sessions with a Garmin-reported RMSSD.
+SDRR is optional. The export contains only minute-resolution times and these
+two metrics. It uses Central Time for display and UTC for ordering.
+
+- **Private import.** Run `python scripts/collect-daytime-hrv.py --snapshots`
+  with the existing API key in your environment. Import
+  `.garmin-staging/health-snapshots-private.json` via **Import private
+  measurements**. Repeated imports update measurements for the same minute.
+- **Automatic public Pages display.** Set the GitHub Actions repository variable
+  `GARMIN_PUBLISH_HEALTH_SNAPSHOTS` to `true` and run the Pages workflow. This
+  makes the allowlisted values and times public in both Pages and Git history.
+  Without that opt-in the workflow publishes availability status only.
