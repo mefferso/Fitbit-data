@@ -150,6 +150,28 @@ def run(args):
                 wellness[day] = day_results
 
             hrv_status = print_capabilities(client, args.since)
+            try:
+                snapshot_probe = client.get_wellness_activity_summaries(today - timedelta(days=13), today)
+                allowed = {"data", "summaries", "wellnessActivitySummaries", "wellnessActivities",
+                           "activityUuid", "calendarDate", "startTimeGMT", "startTimeLocal",
+                           "startTimeInSeconds", "offsetStartTimeInSeconds", "activityType",
+                           "durationInSeconds", "duration", "summaryType", "avgValue",
+                           "rmssd", "sdrr", "avgRmssd", "avgSdrr", "activitySummary"}
+                keys = set()
+                def examine(value):
+                    if isinstance(value, dict):
+                        keys.update(value.keys() & allowed)
+                        for child in value.values():
+                            examine(child)
+                    elif isinstance(value, list):
+                        for child in value:
+                            examine(child)
+                examine(snapshot_probe)
+                print(f"Health Snapshot range probe: {type(snapshot_probe).__name__}; "
+                      f"nonempty={bool(snapshot_probe)}; recognized schema={','.join(sorted(keys))}")
+            except Exception as error:
+                status = getattr(error, "status_code", None)
+                print("Health Snapshot range probe failed: " + (str(status) if type(status) is int else "unverified"))
 
     (args.output_dir / "daytime-hrv-status.json").write_text(
         json.dumps({"fit": hrv_status}) + "\n"
