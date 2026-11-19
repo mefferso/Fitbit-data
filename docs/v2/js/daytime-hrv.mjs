@@ -1,11 +1,6 @@
 const STORAGE_KEY = 'performance-lab-daytime-hrv-v1';
 const SNAPSHOT = 'Garmin Health Snapshot';
 const FIT = 'Garmin activity FIT';
-const STATUS = {
-  'awaiting-recording': 'Recent Garmin activities were checked. Awaiting a FIT file with usable RR intervals.',
-  'rr-detected': 'The automatic check found plausible RR intervals. Import a private FIT summary to view any windows that pass screening.',
-  unverified: 'Garmin FIT availability could not be verified on the latest check. You can still record a Snapshot or import a private FIT summary.',
-};
 
 const finiteNonnegative = value => Number.isFinite(value) && value >= 0;
 const validLocalTime = value => typeof value === 'string' &&
@@ -259,7 +254,6 @@ export function mountDaytimeHrv(root) {
       return response.json();
     })
     .then(data => {
-      field('status').textContent = Object.hasOwn(STATUS, data.fit) ? STATUS[data.fit] : STATUS.unverified;
       synced = readSnapshotSummary(data.snapshots ?? []);
       const messages = {
         available: Array.isArray(data.snapshots) ? 'Garmin sync is active.' : 'Garmin readings are available for private import.',
@@ -272,7 +266,6 @@ export function mountDaytimeHrv(root) {
       render();
     })
     .catch(() => {
-      field('status').textContent = STATUS.unverified;
       field('snapshot-status').textContent = 'Garmin sync could not be verified. You can enter a reading below.';
     });
 }
