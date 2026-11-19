@@ -4,10 +4,10 @@
 .hrv-grid { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); align-items: start; }
 .hrv-hero, .hrv-panel { padding: clamp(16px, 3vw, 25px); min-width: 0; }
 .hrv-hero { background: linear-gradient(120deg, var(--surface), var(--primary-soft)); }
-.hrv-hero-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 20px; }
+.hrv-hero-grid { margin-top: 20px; }
 .hrv-reading { color: var(--primary); font-size: clamp(32px, 5vw, 50px); font-weight: 850; }
-.hrv-status, .hrv-empty { background: var(--surface-2); padding: 14px; border-radius: 12px; }
-.hrv-status p, .hrv-panel p { margin: 8px 0; line-height: 1.6; }
+.hrv-empty { background: var(--surface-2); padding: 14px; border-radius: 12px; }
+.hrv-panel p { margin: 8px 0; line-height: 1.6; }
 .hrv-muted, .hrv-history small { color: var(--muted); }
 .hrv-panel summary { cursor: pointer; font-weight: 750; }
 .hrv-panel details { margin-top: 18px; }
@@ -19,4 +19,4 @@
 .hrv-history { list-style: none; padding: 0; margin: 0; max-height: 510px; overflow-y: auto; }
 .hrv-history li { display: grid; gap: 4px; overflow-wrap: anywhere; padding: 11px 0; border-top: 1px solid var(--line); }
 .hrv-history .hrv-actions { margin-top: 3px; }
-@media (max-width: 760px) { .hrv-grid, .hrv-hero-grid { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 760px) { .hrv-grid { grid-template-columns: minmax(0, 1fr); } }
