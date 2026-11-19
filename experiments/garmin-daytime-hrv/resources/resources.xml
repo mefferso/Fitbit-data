@@ -1,0 +1,4 @@
+<resources>
+    <string id="AppName">Optical PRV Test</string>
+    <bitmap id="Icon" filename="icon.png"/>
+</resources>

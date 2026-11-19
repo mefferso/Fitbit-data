@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<iq:manifest xmlns:iq="http://www.garmin.com/xml/connectiq" version="3">
+    <iq:application id="03ab96b254904edbaea98db788be86e0" type="watch-app"
+        name="@Strings.AppName" entry="ProbeApp" launcherIcon="@Drawables.Icon" minApiLevel="3.2.0">
+        <iq:products><iq:product id="fr970"/></iq:products>
+        <iq:permissions><iq:uses-permission id="Sensor"/><iq:uses-permission id="Background"/></iq:permissions>
+        <iq:languages><iq:language>eng</iq:language></iq:languages>
+    </iq:application>
+</iq:manifest>
