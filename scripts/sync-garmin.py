@@ -149,7 +149,11 @@ def run(args):
                         )
                 wellness[day] = day_results
 
-            print_capabilities(client, args.since)
+            hrv_status = print_capabilities(client, args.since)
+
+    (args.output_dir / "daytime-hrv-status.json").write_text(
+        json.dumps({"fit": hrv_status}) + "\n"
+    )
 
     (args.output_dir / "activities.json").write_text(
         json.dumps(imported, separators=(",", ":")) + "\n"

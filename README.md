@@ -83,3 +83,37 @@ The V2 sidebar includes [Then vs. Now](https://mefferso.github.io/Fitbit-data/v2
 The source workbook contains **287 activity rows (2011–2020)**, including **34 September dates encoded as strings** rather than Excel dates. The clean audit is preserved externally as `mapmyrun_cleaned.csv` for full-record integration; the website includes the **full 287-row archive**, plus a live browser-side join of the published Fitbit run index (49 runs at development time). Historical attributes currently include date, distance, duration, QC and row provenance; Fitbit-only physiological fields remain specific to the modern source. The audit flags suspicious instantaneous maximum pace separately from overall pace, which should not be discarded automatically. There are two potential duplicate pairs and one unusual average-pace record for manual review. The fast November 7, 2011 effort was **0.995 miles in 5:48**, not an independently certified full mile.
 
 For future Runkeeper imports, preserve `source`, `source_row`, `date`, `distance_mi`, `duration_seconds`, `quality`, and `flags`. Keep external archives separate from Fitbit's current physiological metrics; cross-source deduplication should initially be review-only.
+
+### Daytime HRV experiment
+
+Aerobic Fitness Lab checks up to 20 recent activity FIT files through the
+existing Garmin Personal API connection. Pages publishes only a collection
+status. The November 19, 2026 authenticated check downloaded one activity FIT.
+It contained no message 78 RR data. The tested daily HRV endpoints provide
+overnight HRV. The installed Personal API client has no Health Snapshot method.
+Wrist and external sensor availability remain unverified.
+
+Health Snapshot RMSSD and optional SDRR can be entered in the browser. To
+process activity recordings privately, install the same Python dependencies as
+the Garmin sync and run from the repository root:
+
+```sh
+python -m pip install garmin-connect-personal-api-python fitparse
+python scripts/collect-daytime-hrv.py
+# Or supply original local Garmin FIT or ZIP files:
+python scripts/collect-daytime-hrv.py /path/to/recording.fit
+```
+
+The API mode uses the existing `GARMIN_PERSONAL_API_KEY` environment variable.
+Import `.garmin-staging/daytime-hrv-private.json` with **Import screened FIT
+measurements** in Aerobic Fitness Lab. Both imported summaries and manual
+Snapshots are saved in browser storage.
+
+The FIT method requires about five minutes of plausible consecutive RR
+intervals with consistent neighboring FIT record anchors. Invalid intervals,
+implausible jumps, and time gaps break a candidate window. Pauses and
+multisport sessions are excluded. This conservative check can reject files
+with RR messages but insufficient timing evidence. The session start is shown
+as the recording time in Central Time. The selected window has no exact
+timestamp, and the RR stream has no verified sensor attribution. Screening is
+heuristic and cannot identify every artifact or establish beat morphology.

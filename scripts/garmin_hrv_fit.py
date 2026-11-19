@@ -6,7 +6,7 @@ import zipfile
 from fitparse import FitFile
 
 
-def fit_messages(payload):
+def fit_payload(payload):
     if payload.startswith(b"PK"):
         with zipfile.ZipFile(BytesIO(payload)) as archive:
             files = [item for item in archive.infolist()
@@ -16,7 +16,11 @@ def fit_messages(payload):
             payload = archive.read(files[0])
     if len(payload) > 50_000_000:
         raise ValueError("FIT exceeds size limit")
-    return FitFile(BytesIO(payload)).get_messages()
+    return payload
+
+
+def fit_messages(payload):
+    return FitFile(BytesIO(fit_payload(payload))).get_messages()
 
 
 def interval_values(message):
@@ -66,6 +70,11 @@ def print_capabilities(client, since):
                  "UNVERIFIED" if result["failed"] or not result["scanned"] else
                  "UNAVAILABLE in scanned recordings")
         print(f"FIT RR: {state}; " + ", ".join(f"{key}={value}" for key, value in result.items()))
+        status = ("rr-detected" if result["withPlausibleRR"] else
+                  "unverified" if result["failed"] else
+                  "awaiting-recording")
     except Exception:
         print("FIT RR: UNVERIFIED (activity probe failed).")
+        status = "unverified"
     print("FIT RR sensor attribution: UNVERIFIED.")
+    return status

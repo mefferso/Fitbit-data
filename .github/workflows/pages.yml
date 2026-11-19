@@ -41,8 +41,15 @@ jobs:
 
       - name: Syntax validation
         run: |
-          python -m py_compile scripts/stage-garmin-runs.py scripts/sync-garmin.py
+          python -m py_compile scripts/stage-garmin-runs.py scripts/sync-garmin.py scripts/garmin_hrv.py scripts/garmin_hrv_fit.py scripts/collect-daytime-hrv.py
           node --check scripts/publish-garmin.mjs
+          node --check docs/v2/js/daytime-hrv.mjs
+          node --input-type=module --check < docs/v2/js/experiments.js
+
+      - name: Test Garmin and Performance Lab
+        run: |
+          python -m unittest discover -s tests
+          node --test tests/*.test.mjs
 
       - name: Sync Garmin running and owner-approved public wellness
         env:

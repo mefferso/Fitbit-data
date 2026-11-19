@@ -244,6 +244,12 @@ if(runningChanged){
 if(wellnessChanged||!previousWellness.generatedAt){
   await write('docs/data/garmin-wellness.json',wellness);
 }
+const hrvStatusFile = 'docs/data/daytime-hrv-status.json';
+const hrvStatus = await read('.garmin-staging/daytime-hrv-status.json');
+if (['rr-detected', 'awaiting-recording', 'unverified'].includes(hrvStatus?.fit) &&
+    hrvStatus.fit !== (await read(hrvStatusFile))?.fit) {
+  await write(hrvStatusFile, {fit: hrvStatus.fit});
+}
 console.log('Garmin-first published '+merged.length+' runs ('+garmin.size+
   ' Garmin, '+legacy.length+' pre-Garmin), '+fresh+' FIT updates, and '+
   Object.keys(wellnessDays).length+' wellness days. Changed runs='+changedRuns+
