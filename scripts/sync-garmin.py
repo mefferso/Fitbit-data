@@ -17,6 +17,7 @@ from pathlib import Path
 import sys
 from zoneinfo import ZoneInfo
 
+from garmin_hrv_fit import print_capabilities
 from garmin_personal_api import GarminPersonalApiClient, PersonalApiAuthenticator
 
 stage = SourceFileLoader("garmin_stage", "scripts/stage-garmin-runs.py").load_module()
@@ -147,6 +148,8 @@ def run(args):
                             {"dataset": name, "errorType": type(error).__name__}
                         )
                 wellness[day] = day_results
+
+            print_capabilities(client, args.since)
 
     (args.output_dir / "activities.json").write_text(
         json.dumps(imported, separators=(",", ":")) + "\n"
