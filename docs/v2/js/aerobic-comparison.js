@@ -21,16 +21,47 @@ function closest(samples,t,tolerance=2500){
  const a=[samples[lo-1],samples[lo]].filter(Boolean).sort((x,y)=>Math.abs(x.t-t)-Math.abs(y.t-t))[0];
  return a&&Math.abs(a.t-t)<=tolerance?a.v:null
 }
+// FIT paceSeries.distanceMiles is the interval's distance, NOT cumulative distance.
+// Build cumulative position and a centered 30-second pace estimate from valid intervals.
+function trace(run){
+ const source=Array.isArray(run.paceSeries)?run.paceSeries:[];
+ const out=[];let sum=0,lastT=null,longGaps=0;
+ for(const p of source){
+  const t=safeTime(p.time),d=p.distanceMiles,seconds=p.seconds;
+  if(t===null||!finite(d)||d<0||d>.03||!finite(seconds)||seconds<=0||seconds>3)continue;
+  if(lastT!==null&&t-lastT>4000)longGaps++;
+  lastT=t;sum+=d;
+  out.push({t,dist:sum,step:d,seconds,pace:null});
+ }
+ for(let i=0;i<out.length;i++){
+  let distance=0,duration=0,first=null,last=null;
+  for(let j=Math.max(0,i-14);j<=Math.min(out.length-1,i+15);j++){
+   const p=out[j];if(first===null)first=p.t;last=p.t;
+   distance+=p.step;duration+=p.seconds;
+  }
+  if(duration>=20&&duration<=33&&last-first<=34000&&distance>0)out[i].pace=duration/distance;
+ }
+ const relativeError=finite(run.distanceMiles)&&run.distanceMiles>0?Math.abs(sum-run.distanceMiles)/run.distanceMiles:Infinity;
+ const coveredSeconds=out.reduce((a,x)=>a+x.seconds,0);
+ const coverage=finite(run.activeSeconds)&&run.activeSeconds>0?coveredSeconds/run.activeSeconds:0;
+ const valid=relativeError<=.05&&coverage>=.85&&longGaps<=3&&out.length>=60;
+ return {points:out,valid,relativeError,coverage,longGaps};
+}
 function records(run,metric){
  const def=METRICS[metric],start=safeTime(run.startTime);
  const source=def.hr?entries(run.heartRateSeries,'value'):entries(run.dynamicsSeries,def.dynamics);
- const distances=entries(run.paceSeries,'distanceMiles');
- const paceSeries=entries(run.paceSeries,'paceSecondsPerMile');
- const n=source.length;
+ const track=trace(run);
  return source.map(({t,v})=>{
-  const elapsed=(t-start)/60000,dist=closest(distances,t,2500),p=closest(paceSeries,t,2500);
-  return {t,elapsed,dist,pace:p,value:(v>=def.min&&v<=def.max)?v:null}
+  const elapsed=(t-start)/60000;
+  const nearest=closestPoint(track.points,t,1500);
+  return {t,elapsed,dist:track.valid?nearest?.dist??null:null,pace:track.valid?nearest?.pace??null:null,value:(v>=def.min&&v<=def.max)?v:null}
  }).filter(x=>finite(x.elapsed)&&x.elapsed>=0&&x.elapsed<300);
+}
+function closestPoint(samples,t,tolerance=2500){
+ let lo=0,hi=samples.length;
+ while(lo<hi){const m=(lo+hi)>>1;if(samples[m].t<t)lo=m+1;else hi=m}
+ const a=[samples[lo-1],samples[lo]].filter(Boolean).sort((x,y)=>Math.abs(x.t-t)-Math.abs(y.t-t))[0];
+ return a&&Math.abs(a.t-t)<=tolerance?a:null;
 }
 const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
 function paceGroups(run,metric){
@@ -102,7 +133,8 @@ function weather(run){
 function renderContext(a,b){
  $('run-context').textContent='Run A: '+describe(a)+' | '+weather(a)+'\nRun B: '+describe(b)+' | '+weather(b);
  const sourceMissing=[a,b].filter(x=>x&&x.source!=='garmin').length;
- $('quality').textContent=sourceMissing?'One or both runs predate Garmin. Heart rate may be available, but mechanical comparisons require Garmin FIT samples.':'Garmin FIT mechanics are compared at matched pace or common elapsed-time/distance axes; data gaps remain gaps. Tempest observations are home-station proxies.';
+ const tracks=[a,b].filter(Boolean).map(trace);const questionable=tracks.filter(t=>!t.valid);
+ $('quality').textContent=sourceMissing?'One or both runs predate Garmin. Heart rate may be available, but mechanical comparisons require Garmin FIT samples.':'Garmin FIT mechanics use 30-second pace averaging and cumulative distance from FIT intervals. '+(questionable.length?'One or more GPS traces failed distance/coverage checks: matched-pace and distance bins are suppressed for affected runs. ':'')+'Data gaps remain gaps; Tempest observations are home-station proxies.';
 }
 async function render(){
  const metric=$('metric').value,axis=$('axis').value,aid=$('run-a').value,bid=$('run-b').value;
