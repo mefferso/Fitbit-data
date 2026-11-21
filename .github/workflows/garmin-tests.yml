@@ -24,6 +24,9 @@ on:
       - 'scripts/publish-garmin.mjs'
       - 'docs/v2/**'
       - 'tests/garmin-first.test.mjs'
+      - 'tests/garmin-recovery.test.mjs'
+      - 'scripts/garmin-recovery.mjs'
+      - 'scripts/garmin-native-fields.py'
 jobs:
   test:
     runs-on: ubuntu-latest
