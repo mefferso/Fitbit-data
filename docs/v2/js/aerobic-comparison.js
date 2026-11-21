@@ -90,7 +90,7 @@ function renderChart(id,series,axis,label){
  if(!valid)return;
  state.charts[id]=new Chart($(id),{
   type:'line',
-  data:{datasets:series.map((s,i)=>({label:s.name,data:s.data.filter(p=>finite(p.y)).map(p=>({x:p.x,y:p.y})),borderColor:i?'#e99a47':'#4f81ed',backgroundColor:i?'#e99a47':'#4f81ed',spanGaps:false,borderWidth:2,pointRadius:axis==='pace'?4:0,tension:.18}))},
+  data:{datasets:series.map((s,i)=>({label:s.name,data:s.data.map(p=>({x:p.x,y:finite(p.y)?p.y:null})),borderColor:i?'#e99a47':'#4f81ed',backgroundColor:i?'#e99a47':'#4f81ed',spanGaps:false,borderWidth:2,pointRadius:axis==='pace'?4:0,tension:.18}))},
   options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'nearest',intersect:false},plugins:{legend:{labels:{color:'#9eabc0'}},tooltip:{callbacks:{title:items=>axis==='pace'?String(items[0]?.raw?.x??''):String(items[0]?.raw?.x??'')}}},scales:{x:{type:axis==='pace'?'category':'linear',title:{display:true,text:axis==='pace'?'Pace band':axis==='time'?'Elapsed minutes':'Miles',color:'#91a1b7'},ticks:{color:'#91a1b7'},grid:{color:'rgba(150,170,190,.1)'}},y:{title:{display:true,text:label,color:'#91a1b7'},ticks:{color:'#91a1b7'},grid:{color:'rgba(150,170,190,.1)'}}}}
  });
 }
