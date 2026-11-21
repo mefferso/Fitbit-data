@@ -149,6 +149,11 @@ for(const r of incoming){
     if(recovery){
       recovery.minute2Drop=nativeHrr2;
       recovery.minute2Source='garmin-native-two-minute-recovery';
+      // Native recovery supersedes an approximate daily-HR checkpoint; do
+      // not retain a daily reading incorrectly labeled as the native source.
+      recovery.measurements=(recovery.measurements||[]).filter(m=>m.minute!==2);
+      recovery.measurements.push({minute:2,source:'garmin-native-two-minute-recovery',
+        dropBpm:nativeHrr2,heartRateBpm:null,offsetSeconds:0,timestamp:null});
     }else{
       // Native two-minute recovery may exist without day-level HR samples.
       // Never present unavailable 1/3 minute values as measurements.
