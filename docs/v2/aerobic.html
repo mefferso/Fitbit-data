@@ -1,76 +1,76 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Aerobic Fitness Lab · Performance Lab</title>
-  <link rel="stylesheet" href="styles.css">
-  <link rel="stylesheet" href="css/daytime-hrv.css">
-  <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
-  <script type="module" src="js/experiments.js"></script>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0b1220">
+<meta name="description" content="Garmin run-to-run running dynamics, fatigue and cardiovascular comparisons.">
+<title>Aerobic Fitness Lab · Run Comparisons</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="styles.css">
+<script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script defer type="module" src="js/aerobic-comparison.js"></script>
+<style>
+:root{--af-card:#101a2b;--af-text:#e9f1fd;--af-muted:#95a6bd;--af-line:#2a3a51}
+body{background:#08111f;color:var(--af-text)}
+.af-content{max-width:1500px}.af-sub{color:var(--af-muted);line-height:1.55;margin:9px 0 22px;max-width:940px}
+.af-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:15px}
+.af-card{background:var(--af-card);border:1px solid var(--af-line);border-radius:16px;padding:20px;min-width:0}
+.af-card.wide{grid-column:1/-1}.af-card h2{font-size:19px;margin:0 0 13px}
+.af-card h3{font-size:15px;margin:0 0 12px}
+.af-controls{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.af-controls label{display:flex;flex-direction:column;gap:7px;color:var(--af-muted);font-size:12px;font-weight:700}
+.af-controls select{background:#192740;color:#eef4ff;border:1px solid #3b4c65;padding:11px 12px;border-radius:9px;min-width:0;width:100%}
+.af-note{color:var(--af-muted);font-size:12px;line-height:1.55;margin:10px 0 0}
+.af-chart{position:relative;height:330px;width:100%}
+.af-chart.small{height:245px}
+.af-status{color:#a8c4f5;font-size:13px;margin:13px 0;min-height:18px}
+.af-stat{border-bottom:1px solid var(--af-line);padding:12px 0;display:grid;gap:5px}
+.af-stat b{font-size:17px}.af-stat span{font-size:13px;color:#d5e1ee}.af-stat small{color:var(--af-muted)}
+.af-context{font-size:13px;white-space:pre-line;line-height:1.9;color:#b8c7dc}
+.af-pill{display:inline-block;background:#1b3558;color:#b4d5ff;padding:5px 9px;border-radius:20px;font-size:11px}
+.af-coming{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.af-coming>div{padding:14px;border:1px dashed #3b4c65;border-radius:12px}
+.af-coming strong{display:block;margin:6px 0}.af-coming p{font-size:12px;color:var(--af-muted);line-height:1.5}
+.topline a{color:#acc5f8}
+@media(max-width:1100px){.af-controls{grid-template-columns:repeat(2,minmax(0,1fr))}.af-coming{grid-template-columns:1fr}}
+@media(max-width:800px){.af-grid{grid-template-columns:1fr}.af-card.wide{grid-column:auto}.af-chart{height:270px}.af-controls{grid-template-columns:1fr}.main{padding:20px 14px 45px}.af-card{padding:15px}}
+</style>
 </head>
 <body>
 <div class="app-shell">
 <aside class="sidebar" id="sidebar"><div class="brand"><div class="brand-mark"><span></span><span></span><span></span></div><div><div class="brand-name">Performance Lab</div><div class="brand-sub">Running analytics</div></div></div>
-<nav class="nav" aria-label="Dashboard"><a class="nav-item" href="index.html#overview"><span class="nav-icon">⌂</span>Overview</a><a class="nav-item" href="index.html#analysis"><span class="nav-icon">↗</span>Run analysis</a><a class="nav-item" href="index.html#trends"><span class="nav-icon">⌁</span>Trends</a><a class="nav-item" href="index.html#compare"><span class="nav-icon">⇄</span>Compare</a><a class="nav-item" href="index.html#history"><span class="nav-icon">≡</span>History</a><a class="nav-item" href="historical.html"><span class="nav-icon">◷</span>Then vs. Now</a><a class="nav-item active" aria-current="page" href="aerobic.html"><span class="nav-icon">♥</span>Aerobic Fitness Lab</a></nav>
-<div class="sidebar-footer"><div class="privacy-note">Experimental workspace</div><button class="theme-toggle" id="theme-toggle" type="button">◐ <span>Toggle theme</span></button><a class="legacy-link" href="../">Open legacy dashboard ↗</a></div></aside>
-<header class="mobile-header"><button id="mobile-menu" class="mobile-menu" type="button" aria-expanded="false" aria-controls="sidebar" aria-label="Toggle navigation">☰</button><div class="mobile-brand">Aerobic Fitness Lab</div><button id="mobile-theme" class="mobile-theme" type="button" aria-label="Toggle theme">◐</button></header>
-<main class="main">
-  <div class="experiment-workspace">
-    <div class="topline">
-      <div><div class="eyebrow">Experimental workspace</div><h1>Aerobic Fitness Lab</h1></div>
-      <a href="index.html">← Dashboard</a>
-    </div>
-    <section class="experiment" id="daytime-hrv" aria-labelledby="hrv-heading">
-      <header class="panel hrv-hero">
-        <h2 id="hrv-heading">Daytime HRV — Garmin Forerunner 970</h2>
-        <div class="hrv-hero-grid">
-          <div>
-            <div class="metric-label">Latest RMSSD</div>
-            <div class="hrv-reading" data-hrv="latest">—</div>
-            <div data-hrv="latest-detail">No daytime readings saved</div>
-          </div>
-        </div>
-      </header>
-      <div class="hrv-grid">
-        <article class="panel hrv-panel">
-          <h3>Measurement history</h3>
-          <p class="hrv-muted">Activity FIT and Health Snapshot RMSSD are shown as separate series.</p>
-          <p class="hrv-empty" data-hrv="empty">No daytime measurements yet. Save a Health Snapshot from Garmin Connect, or enable <strong>Log HRV</strong> in the watch’s data recording settings and try a continuous activity with a compatible sensor. Check the resulting FIT for usable intervals.</p>
-          <div class="chart-wrap medium" data-hrv="chart-wrap" hidden>
-            <canvas data-hrv="chart" role="img" aria-label="Daytime RMSSD by recording source and date"></canvas>
-          </div>
-          <div class="hrv-actions">
-            <label>Measurement date <input data-hrv="filter" type="date"></label>
-            <button type="button" class="secondary-button" data-hrv="show-all">Show all</button>
-          </div>
-          <p class="hrv-muted" data-hrv="history-note" aria-live="polite"></p>
-          <ul class="hrv-history" data-hrv="history"></ul>
-        </article>
-        <article class="panel hrv-panel">
-          <h3>Garmin Health Snapshot</h3>
-          <p class="hrv-muted" data-hrv="snapshot-status" role="status">Checking Garmin sync…</p>
-          <form class="hrv-form" data-hrv="form">
-            <label class="hrv-wide">Measurement date and local time<input name="time" type="datetime-local" required></label>
-            <label>RMSSD (ms)<input name="rmssd" type="number" min="0" step="any" required></label>
-            <label>SDRR (ms, optional)<input name="sdrr" type="number" min="0" step="any"></label>
-            <label class="hrv-wide">Context (optional)<input name="context" maxlength="160" placeholder="Resting, after exercise, during a workday"></label>
-            <div class="hrv-actions hrv-wide">
-              <button type="submit" class="secondary-button" data-hrv="save">Save Snapshot</button>
-              <button type="button" class="secondary-button" data-hrv="cancel" hidden>Cancel edit</button>
-            </div>
-          </form>
-          <details>
-            <summary>Import private measurements</summary>
-            <p class="hrv-muted">Import a Garmin summary JSON. Imported measurements and manual entries are stored in this browser.</p>
-            <label>Summary JSON<input data-hrv="import" type="file" accept=".json,application/json"></label>
-          </details>
-          <p data-hrv="feedback" role="status"></p>
-        </article>
-      </div>
-    </section>
-  </div>
-</main>
+<nav class="nav" aria-label="Dashboard">
+<a class="nav-item" href="index.html#overview">⌂ Overview</a><a class="nav-item" href="index.html#analysis">↗ Run analysis</a><a class="nav-item" href="index.html#trends">⌁ Trends</a><a class="nav-item" href="index.html#compare">⇄ Compare</a><a class="nav-item" href="garmin.html">◉ Garmin Lab</a><a class="nav-item" href="historical.html">◷ Then vs. Now</a><a class="nav-item active" aria-current="page" href="aerobic.html">♥ Aerobic Fitness Lab</a>
+</nav>
+<div class="sidebar-footer"><div class="privacy-note">Garmin FIT comparisons · Home Tempest weather proxy · no absolute GPS exported</div><a class="legacy-link" href="../">Open legacy dashboard ↗</a></div>
+</aside>
+<header class="mobile-header"><a href="index.html" style="color:inherit;text-decoration:none">← Dashboard</a><div class="mobile-brand">Aerobic Fitness Lab</div></header>
+<main class="main af-content">
+<div class="topline"><div><div class="eyebrow">Forerunner 970 · Experimental analytics</div><h1>Aerobic Fitness Lab</h1></div><a href="index.html">← Dashboard</a></div>
+<p class="af-sub">Compare how you run, not just how fast. Explore Garmin mechanics at matched paces, late-run changes, and cardiovascular responses with source-aware data gaps. The same selected workouts drive all charts below.</p>
+<div class="af-status" id="status" role="status">Loading Garmin runs…</div>
+<section class="af-grid" aria-label="Run comparison lab">
+<div class="af-card wide"><h2>Run-to-run comparison <span class="af-pill">Live source data</span></h2>
+<div class="af-controls">
+<label>Run A<select id="run-a" aria-label="Select first run"></select></label>
+<label>Run B<select id="run-b" aria-label="Select second run"></select></label>
+<label>Metric<select id="metric"><option value="groundContactMs">Ground contact time</option><option value="cadenceSpm">Cadence</option><option value="verticalOscillationCm">Vertical oscillation</option><option value="powerWatts">Running power</option><option value="heartRate">Heart rate</option></select></label>
+<label>Compare by<select id="axis"><option value="pace">Matched pace bands</option><option value="time">Elapsed minutes</option><option value="distance">Distance in miles</option></select></label>
 </div>
-</body>
-</html>
+<p class="af-note">Pace bands: under 9:30, 9:30–10:30, 10:30–11:30, 11:30–12:30, and 12:30+/mi. A band requires at least 20 measured samples. Time and distance bins require at least three. Accelerations and warmups remain included; use matched runs for meaningful comparison.</p>
+<p id="data-coverage" class="af-note"></p>
+</div>
+<div class="af-card wide"><h2>Mechanics comparison</h2><div class="af-chart"><canvas id="comparison-chart" aria-label="Selected Garmin running metric comparison"></canvas></div><p class="af-note" id="comparison-chart-note"></p></div>
+<div class="af-card"><h2>Mechanical fatigue explorer</h2><div id="fatigue-results"></div><p id="fatigue-caution" class="af-note"></p></div>
+<div class="af-card"><h2>Run context and data quality</h2><div class="af-context" id="run-context"></div><p class="af-note" id="quality"></p></div>
+<div class="af-card"><h2>Cardiovascular response</h2><div class="af-chart small"><canvas id="cardiac-chart" aria-label="Heart rate trend by workout time"></canvas></div><p class="af-note" id="cardiac-chart-note"></p></div>
+<div class="af-card"><h2>Running power</h2><div class="af-chart small"><canvas id="power-chart" aria-label="Running power trend by workout time"></canvas></div><p class="af-note" id="power-chart-note"></p></div>
+<div class="af-card wide"><h2>Experiments awaiting source validation</h2><div class="af-coming">
+<div><span class="af-pill">Planned</span><strong>Sleep, HRV & recovery</strong><p>Join private or owner-approved Garmin wellness data with the next run only after confirming endpoint coverage, consent and matching dates. No missing readings will be treated as zero.</p></div>
+<div><span class="af-pill">Planned</span><strong>Stamina prediction audit</strong><p>Investigate whether per-run Garmin stamina estimates are available in synced FIT/API data before making predicted-versus-observed plots.</p></div>
+<div><span class="af-pill">Planned</span><strong>Longitudinal adaptation</strong><p>Build comparisons across multiple matched routes, weather regimes and workload types. Do not reinterpret a single change in mechanics as a measured improvement in economy.</p></div>
+</div></div>
+</section>
+<p class="af-note" style="margin-top:18px">Research-oriented, not a readiness score or an injury diagnostic. Running-power and wrist-running-dynamics estimates are device-derived. Retired weather-adjusted performance scores and Fitbit training-load proxies are intentionally excluded.</p>
+</main></div>
+</body></html>
