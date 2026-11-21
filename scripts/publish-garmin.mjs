@@ -149,6 +149,7 @@ for(const r of incoming){
     if(recovery){
       recovery.minute2Drop=nativeHrr2;
       recovery.minute2Source='garmin-native-two-minute-recovery';
+      recovery.source='garmin-mixed-recovery-with-native-two-minute';
       // Native recovery supersedes an approximate daily-HR checkpoint; do
       // not retain a daily reading incorrectly labeled as the native source.
       recovery.measurements=(recovery.measurements||[]).filter(m=>m.minute!==2);
