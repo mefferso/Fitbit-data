@@ -365,8 +365,19 @@ function renderConditions(run){
   el('weather-burden').textContent=adj?'Weather factor '+cleanNumber(adj.weatherFactor,3)+' · heat penalty '+cleanNumber(adj.heatPenaltyPct,1)+'% · solar penalty '+cleanNumber(adj.solarPenaltyPct,1)+'%.':'Weather-adjustment inputs are unavailable for this run.';
 }
 function renderZones(run){
-  el('analysis-zones').innerHTML=(run.zoneSummary||[]).map(function(z){
-    return '<div class="zone-row"><div class="zone-label">'+escapeHtml(z.label)+'</div><div class="zone-track" aria-label="'+escapeHtml(z.label)+' '+cleanNumber(z.percent,0)+' percent"><div class="zone-fill '+escapeHtml(z.key)+'" style="width:'+Math.min(100,Number(z.percent)||0)+'%"></div></div><div class="zone-value">'+cleanNumber(z.minutes,0)+'m · '+cleanNumber(z.percent,0)+'%</div></div>';
+  const zones=run.zoneSummary||[];
+  const secondsTotal=zones.reduce(function(sum,z){return sum+(number(z.seconds)||0);},0);
+  el('analysis-zones').innerHTML=zones.map(function(z){
+    // Garmin stores zone durations in seconds; historical Fitbit data has minutes/percent.
+    const seconds=number(z.seconds);
+    const minutes=number(z.minutes);
+    const percent=number(z.percent);
+    const zonePercent=percent!==null?percent:(seconds!==null&&secondsTotal>0?100*seconds/secondsTotal:null);
+    const timeLabel=seconds!==null
+      ? (seconds<60?Math.round(seconds)+'s':Math.floor(seconds/60)+'m '+String(Math.round(seconds%60)).padStart(2,'0')+'s')
+      : (minutes!==null?cleanNumber(minutes,0)+'m':'—m');
+    const percentLabel=zonePercent===null?'—':cleanNumber(zonePercent,1);
+    return '<div class="zone-row"><div class="zone-label">'+escapeHtml(z.label)+'</div><div class="zone-track" aria-label="'+escapeHtml(z.label)+' '+percentLabel+' percent"><div class="zone-fill '+escapeHtml(z.key)+'" style="width:'+Math.max(0,Math.min(100,zonePercent||0))+'%"></div></div><div class="zone-value">'+timeLabel+' · '+percentLabel+'%</div></div>';
   }).join('');
 }
 function renderRecovery(run){
