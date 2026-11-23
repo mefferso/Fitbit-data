@@ -384,6 +384,14 @@ function renderRecovery(run){
   const h=run.heartRateRecovery||{};
   const items=[['1 min',h.minute1Drop],['2 min',h.minute2Drop],['3 min',h.minute3Drop]];
   el('recovery-grid').innerHTML=items.map(function(x){return '<div class="recovery-item"><div class="recovery-value">'+(number(x[1])===null?'—':Math.round(Number(x[1])))+'</div><div class="recovery-label">'+x[0]+' bpm drop</div></div>';}).join('');
+  const missing=items.every(function(x){return number(x[1])===null;});
+  const status=el('recovery-status');
+  status.hidden=!missing;
+  status.textContent=missing
+    ? (run.heartRateRecoverySource==='post-activity-samples-unavailable'
+      ? 'No post-activity heart-rate samples were available in this Garmin export. Recovery cannot be calculated from the running trace alone.'
+      : 'Post-run heart-rate recovery was not available for this activity.')
+    : '';
 }
 function renderRunCharts(run){
   charts.runStack(el('run-hr-chart'),el('run-pace-chart'),run,state.paceMode);
